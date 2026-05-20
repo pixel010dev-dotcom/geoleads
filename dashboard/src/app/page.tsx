@@ -248,12 +248,16 @@ export default function Home() {
 
   // WhatsApp Guided Bulk Sending Effect
   useEffect(() => {
-    let intervalId: any;
-    if (isSendingBulk && bulkTimer > 0) {
-      intervalId = setInterval(() => {
+    if (!isSendingBulk) return;
+    
+    if (bulkTimer > 0) {
+      const timer = setTimeout(() => {
         setBulkTimer(prev => prev - 1);
       }, 1000);
-    } else if (isSendingBulk && bulkTimer === 0 && bulkIndex >= 0) {
+      return () => clearTimeout(timer);
+    }
+    
+    if (bulkTimer === 0 && bulkIndex >= 0) {
       const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
       const nextIndex = bulkIndex + 1;
       
@@ -266,11 +270,10 @@ export default function Home() {
       } else {
         alert('Disparo em massa concluído! Todos os contatos elegíveis da lista foram abertos.');
         setIsSendingBulk(false);
-        setBulkIndex(-1);
       }
     }
-    return () => clearInterval(intervalId);
-  }, [isSendingBulk, bulkTimer, bulkIndex, bulkAutoNext]);
+    // Dependency handles change of tick cleanly without state feedback loops
+  }, [isSendingBulk, bulkTimer, bulkIndex, bulkAutoNext, crmLeads]);
 
   const handleStartBulkSending = () => {
     const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
