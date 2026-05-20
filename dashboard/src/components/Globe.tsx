@@ -9,7 +9,7 @@ interface GlobeProps {
 export default function Globe({ size = 36, className = "" }: GlobeProps) {
   return (
     <div 
-      className={`relative rounded-full overflow-hidden select-none flex-shrink-0 ${className}`}
+      className={`relative rounded-full overflow-hidden select-none flex-shrink-0 transition-all duration-300 hover:scale-110 cursor-pointer group hover:shadow-[0_0_20px_rgba(0,217,255,0.7)] ${className}`}
       style={{ 
         width: size, 
         height: size,
@@ -42,7 +42,7 @@ export default function Globe({ size = 36, className = "" }: GlobeProps) {
 
       {/* Animating Continents Container */}
       <div 
-        className="absolute inset-0 flex items-center animate-[spinGlobe_15s_linear_infinite]"
+        className="absolute inset-0 flex items-center animate-[spinGlobe_6s_linear_infinite] group-hover:animate-[spinGlobe_3s_linear_infinite]"
         style={{
           zIndex: 1,
           width: '300%',

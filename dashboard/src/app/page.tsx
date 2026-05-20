@@ -69,11 +69,53 @@ export default function Home() {
       
       // Load CRM from LocalStorage
       const localCrm = localStorage.getItem('geoleads_crm');
+      let parsedCrm: any[] = [];
       if (localCrm) {
         try {
-          setCrmLeads(JSON.parse(localCrm));
+          parsedCrm = JSON.parse(localCrm);
         } catch(e) {}
       }
+      
+      // If empty, load B2B mock data by default to prevent a blank cold start
+      if (!Array.isArray(parsedCrm) || parsedCrm.length === 0) {
+        parsedCrm = [
+          {
+            nome: "Petshop Amigo Canino",
+            telefone: "(11) 99888-7766",
+            email: "contato@amigocanino.com.br",
+            site: "https://amigocanino.com.br",
+            stage: "Novo",
+            notes: "Cliente potencial de petshop em São Paulo. Falar com Dr. Carlos.",
+            savedAt: new Date().toISOString(),
+            nicho: "Petshop",
+            cidade: "São Paulo"
+          },
+          {
+            nome: "Restaurante Sabor & Cia",
+            telefone: "(21) 98765-4321",
+            email: "contato@saborecia.com.br",
+            site: "Sem site",
+            stage: "Em Contato",
+            notes: "Enviada mensagem inicial de apresentação.",
+            savedAt: new Date().toISOString(),
+            nicho: "Restaurante",
+            cidade: "Rio de Janeiro"
+          },
+          {
+            nome: "Clínica Odonto Riso",
+            telefone: "(31) 97766-5544",
+            email: "atendimento@odontoriso.com.br",
+            site: "https://odontoriso.com.br",
+            stage: "Proposta",
+            notes: "Aguardando retorno sobre proposta de tráfego pago.",
+            savedAt: new Date().toISOString(),
+            nicho: "Dentista",
+            cidade: "Belo Horizonte"
+          }
+        ];
+        localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm));
+      }
+      setCrmLeads(parsedCrm);
     };
     loadData();
   }, []);
@@ -1622,7 +1664,11 @@ export default function Home() {
                             onClick={() => setSupportRating(star)}
                             onMouseEnter={() => setHoveredStar(star)}
                             onMouseLeave={() => setHoveredStar(null)}
-                            className="text-3xl focus:outline-none transition-transform hover:scale-125 cursor-pointer duration-100"
+                            className={`text-3xl focus:outline-none transition-all hover:scale-125 cursor-pointer duration-150 ${
+                              StarIsHighlighted 
+                                ? 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.85)] scale-110' 
+                                : 'text-gray-600 hover:text-gray-400'
+                            }`}
                           >
                             {StarIsHighlighted ? '★' : '☆'}
                           </button>
