@@ -52,6 +52,34 @@ export default function Home() {
   const [supportSubmitted, setSupportSubmitted] = useState(false);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
 
+  // Social Proof Notification Loop State
+  const [proofIndex, setProofIndex] = useState(0);
+  const [proofVisible, setProofVisible] = useState(true);
+
+  const socialProofMsgs = [
+    { name: "Mateus C.", action: "extraiu", detail: "150 Leads", target: "em São Paulo", type: "extract" },
+    { name: "Ana S.", action: "extraiu", detail: "84 Leads", target: "no Rio de Janeiro", type: "extract" },
+    { name: "Rodrigo M.", action: "disparou", detail: "45 mensagens", target: "no WhatsApp", type: "whatsapp" },
+    { name: "Clínica Odonto", action: "extraiu", detail: "200 Leads", target: "de Dentistas", type: "extract" },
+    { name: "Juliana F.", action: "exportou", detail: "120 contatos", target: "para o CRM", type: "export" },
+    { name: "Carlos P.", action: "extraiu", detail: "95 Leads", target: "em Belo Horizonte", type: "extract" },
+    { name: "Felipe R.", action: "gerou", detail: "copys de vendas", target: "com IA", type: "ia" },
+    { name: "Renata L.", action: "extraiu", detail: "310 Leads", target: "em Curitiba", type: "extract" },
+    { name: "Lucas T.", action: "disparou", detail: "75 mensagens", target: "agora", type: "whatsapp" },
+    { name: "Beatriz G.", action: "extraiu", detail: "52 Leads", target: "em Porto Alegre", type: "extract" }
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProofVisible(false);
+      setTimeout(() => {
+        setProofIndex((prev) => (prev + 1) % socialProofMsgs.length);
+        setProofVisible(true);
+      }, 500);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [socialProofMsgs.length]);
+
   // Load User, Tokens and local CRM Data on Mount
   useEffect(() => {
     const loadData = async () => {
@@ -1702,10 +1730,27 @@ export default function Home() {
       </main>
 
       {/* Widget de Prova Social */}
-      <div className="fixed bottom-6 right-6 px-4 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center gap-3 animate-slide-up hover:-translate-y-1 transition-transform cursor-default z-50" style={{ animationDelay: '1s' }}>
-        <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+      <div 
+        className={`fixed bottom-6 right-6 px-4 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
+          proofVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
+        }`}
+      >
+        <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+          socialProofMsgs[proofIndex].type === 'whatsapp' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' :
+          socialProofMsgs[proofIndex].type === 'ia' ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]' :
+          socialProofMsgs[proofIndex].type === 'export' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' :
+          'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]'
+        }`} />
         <p className="text-xs text-gray-300 font-medium">
-          <span className="text-white font-bold">Mateus C.</span> extraiu <span className="text-blue-400 font-bold">150 Leads</span> agora
+          <span className="text-white font-bold">{socialProofMsgs[proofIndex].name}</span>{' '}
+          {socialProofMsgs[proofIndex].action}{' '}
+          <span className={`font-bold ${
+            socialProofMsgs[proofIndex].type === 'whatsapp' ? 'text-green-400' :
+            socialProofMsgs[proofIndex].type === 'ia' ? 'text-purple-400' :
+            socialProofMsgs[proofIndex].type === 'export' ? 'text-amber-400' :
+            'text-blue-400'
+          }`}>{socialProofMsgs[proofIndex].detail}</span>{' '}
+          <span className="text-gray-400">{socialProofMsgs[proofIndex].target}</span>
         </p>
       </div>
     </div>
