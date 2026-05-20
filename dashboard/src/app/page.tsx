@@ -169,7 +169,11 @@ export default function Home() {
       
       if (data.success && data.leads) {
         setLeads(data.leads);
-        if (data.stats) setExtractStats(data.stats);
+        if (data.stats) {
+          setExtractStats(data.stats);
+          if (data.stats.correctedKeyword) setKeyword(data.stats.correctedKeyword);
+          if (data.stats.correctedLocation) setLocation(data.stats.correctedLocation);
+        }
         
         // Desconta tokens (1 por lead retornado)
         const gastos = data.leads.length;
@@ -502,9 +506,16 @@ export default function Home() {
                       {isExtracting ? '⏳ Extraindo...' : leads.length > 0 ? `✅ ${leads.length} Leads Encontrados!` : 'Vitrine de Resultados'}
                     </h2>
                     {extractStats && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Mapeou {extractStats.scanned} empresas em {extractStats.time} segundos.
-                      </p>
+                      <div className="mt-1 space-y-0.5 animate-fade-in">
+                        <p className="text-xs text-gray-500">
+                          Mapeou {extractStats.scanned} empresas em {extractStats.time} segundos.
+                        </p>
+                        {extractStats.correctedKeyword && (
+                          <p className="text-xs text-blue-400 font-medium">
+                            ✨ Busca normalizada: "{extractStats.correctedKeyword} em {extractStats.correctedLocation}"
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="flex gap-2">
