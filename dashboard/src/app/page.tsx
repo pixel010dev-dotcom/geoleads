@@ -7,7 +7,7 @@ import HackerRadar from '@/components/HackerRadar';
 
 export default function Home() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'extractor' | 'crm' | 'whatsapp' | 'ia'>('extractor');
+  const [activeTab, setActiveTab] = useState<'extractor' | 'crm' | 'whatsapp' | 'ia' | 'support'>('extractor');
 
   // Extractor States
   const [keyword, setKeyword] = useState('');
@@ -27,16 +27,30 @@ export default function Home() {
   const [crmLeads, setCrmLeads] = useState<any[]>([]);
   const [crmSearch, setCrmSearch] = useState('');
   const [crmFilterStage, setCrmFilterStage] = useState('all');
+  const [selectedCrmLeads, setSelectedCrmLeads] = useState<string[]>([]);
 
   // WhatsApp Sender States
   const [waTemplate, setWaTemplate] = useState('Olá {Nome}! Vi seu perfil comercial em {Cidade} e gostaria de saber se vocês têm interesse em receber mais clientes de {Nicho}. Podemos conversar?');
   const [waSentStatus, setWaSentStatus] = useState<Record<string, boolean>>({});
+  const [isSendingBulk, setIsSendingBulk] = useState(false);
+  const [bulkDelay, setBulkDelay] = useState(20);
+  const [bulkSimulateHuman, setBulkSimulateHuman] = useState(true);
+  const [bulkIndex, setBulkIndex] = useState(-1);
+  const [bulkTimer, setBulkTimer] = useState(0);
+  const [bulkAutoNext, setBulkAutoNext] = useState(true);
 
   // AI Copywriter States
   const [aiProduct, setAiProduct] = useState('');
   const [aiValue, setAiValue] = useState('');
   const [aiTone, setAiTone] = useState('persuasive');
   const [generatedCopies, setGeneratedCopies] = useState<any[] | null>(null);
+  const [isGeneratingCopies, setIsGeneratingCopies] = useState(false);
+
+  // Support Tab States
+  const [supportRating, setSupportRating] = useState<number>(0);
+  const [supportFeedback, setSupportFeedback] = useState('');
+  const [supportSubmitted, setSupportSubmitted] = useState(false);
+  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
 
   // Load User, Tokens and local CRM Data on Mount
   useEffect(() => {
@@ -126,7 +140,98 @@ export default function Home() {
     if (confirm(`Tem certeza que deseja excluir o lead "${nome}" do CRM?`)) {
       const updated = crmLeads.filter(l => l.nome !== nome);
       saveCrmToLocal(updated);
+      setSelectedCrmLeads(prev => prev.filter(n => n !== nome));
     }
+  };
+
+  // Toggle selection for a single lead
+  const handleToggleSelectCrmLead = (nome: string) => {
+    setSelectedCrmLeads(prev => 
+      prev.includes(nome) ? prev.filter(n => n !== nome) : [...prev, nome]
+    );
+  };
+
+  // Toggle selection for all filtered leads
+  const handleToggleSelectAllCrmLeads = (filteredLeads: any[]) => {
+    const allFilteredNames = filteredLeads.map(l => l.nome);
+    const areAllSelected = allFilteredNames.every(name => selectedCrmLeads.includes(name));
+    
+    if (areAllSelected) {
+      setSelectedCrmLeads(prev => prev.filter(name => !allFilteredNames.includes(name)));
+    } else {
+      setSelectedCrmLeads(prev => {
+        const unique = new Set([...prev, ...allFilteredNames]);
+        return Array.from(unique);
+      });
+    }
+  };
+
+  // Bulk remove selected leads from CRM
+  const handleRemoveSelectedFromCRM = () => {
+    if (selectedCrmLeads.length === 0) return;
+    if (confirm(`Tem certeza que deseja excluir os ${selectedCrmLeads.length} leads selecionados do CRM?`)) {
+      const updated = crmLeads.filter(l => !selectedCrmLeads.includes(l.nome));
+      saveCrmToLocal(updated);
+      setSelectedCrmLeads([]);
+    }
+  };
+
+  // WhatsApp Guided Bulk Sending Effect
+  useEffect(() => {
+    let intervalId: any;
+    if (isSendingBulk && bulkTimer > 0) {
+      intervalId = setInterval(() => {
+        setBulkTimer(prev => prev - 1);
+      }, 1000);
+    } else if (isSendingBulk && bulkTimer === 0 && bulkIndex >= 0) {
+      const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
+      const nextIndex = bulkIndex + 1;
+      
+      if (nextIndex < dispatchableLeads.length) {
+        if (bulkAutoNext) {
+          handleTriggerBulkSendLead(nextIndex);
+        } else {
+          setIsSendingBulk(false);
+        }
+      } else {
+        alert('Disparo em massa concluído! Todos os contatos elegíveis da lista foram abertos.');
+        setIsSendingBulk(false);
+        setBulkIndex(-1);
+      }
+    }
+    return () => clearInterval(intervalId);
+  }, [isSendingBulk, bulkTimer, bulkIndex, bulkAutoNext]);
+
+  const handleStartBulkSending = () => {
+    const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
+    if (dispatchableLeads.length === 0) {
+      alert('Nenhum lead com telefone disponível para disparo no CRM.');
+      return;
+    }
+    setIsSendingBulk(true);
+    handleTriggerBulkSendLead(0);
+  };
+
+  const handleTriggerBulkSendLead = (index: number) => {
+    const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
+    if (index < 0 || index >= dispatchableLeads.length) return;
+    
+    const lead = dispatchableLeads[index];
+    setBulkIndex(index);
+    
+    let delay = Number(bulkDelay);
+    if (bulkSimulateHuman) {
+      const variance = Math.floor(Math.random() * 9) - 4; // -4 a +4 segundos de variação humana
+      delay = Math.max(10, delay + variance);
+    }
+    setBulkTimer(delay);
+    openWhatsApp(lead, waTemplate);
+  };
+
+  const handleStopBulkSending = () => {
+    setIsSendingBulk(false);
+    setBulkIndex(-1);
+    setBulkTimer(0);
   };
 
   // Update CRM Lead field (stage or notes)
@@ -253,47 +358,35 @@ export default function Home() {
     setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
   };
 
-  // AI Message Copywriting Engine (local templates)
-  const generateAICopies = (e: React.FormEvent) => {
+  // AI Message Copywriting Engine (Gemini integration with local fallback)
+  const generateAICopies = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiProduct || !aiValue) {
       alert('Preencha os campos para gerar copys.');
       return;
     }
 
-    const toneNames: Record<string, string> = {
-      persuasive: 'Persuasivo & Irrecusável',
-      direct: 'Direto & Objetivo',
-      curious: 'Curioso & Instigante'
-    };
+    setIsGeneratingCopies(true);
+    setGeneratedCopies(null);
 
-    const templates = [
-      {
-        title: '📱 WhatsApp: Abordagem Curiosa (Alto engajamento)',
-        desc: 'Ideal para quebrar o gelo e iniciar uma conversa fluida.',
-        text: `Olá {Nome}, tudo bem? Vi a página da sua empresa no Google e notei que vocês atendem em {Cidade}.\n\nTrabalho com {Produto} especificamente para {Nicho} e identifiquei 2 pontos no perfil de vocês que podem estar fazendo vocês perderem clientes para a concorrência hoje.\n\nSe eu te enviar um áudio de 45 segundos explicando como ajustar isso para {Proposta}, faria sentido para você?`
-      },
-      {
-        title: '⚡ WhatsApp: Oferta Direta com Proposta de Valor',
-        desc: 'Vá direto ao ponto focando no principal ganho do cliente.',
-        text: `Olá {Nome}! Meu nome é Rodrigo, sou especialista em aceleração de negócios locais.\n\nAchei sua empresa em {Cidade} e vi que prestam um excelente serviço. Nós ajudamos empresas do nicho de {Nicho} a {Proposta} através do nosso método de {Produto}.\n\nVocê teria 5 minutos para uma rápida ligação amanhã às 14h para vermos se conseguimos replicar esse resultado para a sua empresa?`
-      },
-      {
-        title: '✉️ Cold Email: Estruturado de Alta Conversão',
-        desc: 'Um e-mail profissional, conciso e com gatilhos mentais perfeitos.',
-        text: `Assunto: Parceria comercial / Nova demanda de clientes para {Nome}\n\nOlá Equipe da {Nome},\n\nEspero que este e-mail os encontre bem.\n\nEstava mapeando as empresas de {Nicho} em {Cidade} e o perfil de vocês se destacou pela ótima nota de avaliação.\n\nDesenvolvemos uma solução de {Produto} que tem como único objetivo ajudar vocês a {Proposta}.\n\nFaz sentido agendarmos uma conversa rápida de 10 minutos nesta semana para eu te mostrar como ajudamos negócios parecidos a crescerem?\n\nQual o melhor dia e horário para você?\n\nAbraço,\n[Seu Nome]\n[Seu Telefone]`
+    try {
+      const res = await fetch('/api/ai-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: aiProduct, value: aiValue, tone: aiTone })
+      });
+      const data = await res.json();
+      if (data.success && data.copies) {
+        setGeneratedCopies(data.copies);
+      } else {
+        alert('Erro ao gerar roteiros: ' + (data.error || 'Erro inesperado.'));
       }
-    ];
-
-    // Customize copies based on inputs
-    const customized = templates.map(t => {
-      let text = t.text
-        .replace(/{Produto}/g, aiProduct)
-        .replace(/{Proposta}/g, aiValue);
-      return { ...t, text };
-    });
-
-    setGeneratedCopies(customized);
+    } catch (err: any) {
+      console.error(err);
+      alert('Erro de conexão ao gerar roteiros. Verifique seu servidor.');
+    } finally {
+      setIsGeneratingCopies(false);
+    }
   };
 
   // Filter options config for beautiful Grid Selection
@@ -395,6 +488,12 @@ export default function Home() {
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🤖 Gerador de Copys IA
+            </button>
+            <button 
+              onClick={() => setActiveTab('support')}
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+            >
+              🙋‍♀️ Suporte & Avaliação
             </button>
           </div>
         </header>
@@ -763,7 +862,26 @@ export default function Home() {
               </div>
 
               {/* SEARCH & STAGE FILTER */}
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {filteredCrmLeads.length > 0 && (
+                  <label className="flex items-center gap-2 text-xs text-gray-400 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer hover:bg-white/10">
+                    <input 
+                      type="checkbox"
+                      checked={filteredCrmLeads.length > 0 && filteredCrmLeads.every(l => selectedCrmLeads.includes(l.nome))}
+                      onChange={() => handleToggleSelectAllCrmLeads(filteredCrmLeads)}
+                      className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
+                    />
+                    Selecionar Todos
+                  </label>
+                )}
+                {selectedCrmLeads.length > 0 && (
+                  <button
+                    onClick={handleRemoveSelectedFromCRM}
+                    className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white border border-red-500/30 text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    🗑️ Excluir ({selectedCrmLeads.length})
+                  </button>
+                )}
                 <input 
                   type="text" 
                   placeholder="Buscar no CRM..."
@@ -793,6 +911,14 @@ export default function Home() {
               <table className="hidden md:table w-full text-left text-sm">
                 <thead className="bg-white/5 border-b border-white/5 text-gray-400">
                   <tr>
+                    <th className="px-4 py-3 font-medium w-10 text-center">
+                      <input 
+                        type="checkbox"
+                        checked={filteredCrmLeads.length > 0 && filteredCrmLeads.every(l => selectedCrmLeads.includes(l.nome))}
+                        onChange={() => handleToggleSelectAllCrmLeads(filteredCrmLeads)}
+                        className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-4 w-4"
+                      />
+                    </th>
                     <th className="px-4 py-3 font-medium">Lead Info</th>
                     <th className="px-4 py-3 font-medium">Contatos</th>
                     <th className="px-4 py-3 font-medium">Funil / Status</th>
@@ -802,7 +928,15 @@ export default function Home() {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredCrmLeads.map((lead, i) => (
-                    <tr key={i} className="hover:bg-white/[0.03] transition-colors">
+                    <tr key={i} className={`hover:bg-white/[0.03] transition-colors ${selectedCrmLeads.includes(lead.nome) ? 'bg-blue-500/5' : ''}`}>
+                      <td className="px-4 py-4 text-center">
+                        <input 
+                          type="checkbox"
+                          checked={selectedCrmLeads.includes(lead.nome)}
+                          onChange={() => handleToggleSelectCrmLead(lead.nome)}
+                          className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-4 w-4"
+                        />
+                      </td>
                       <td className="px-4 py-4 font-medium text-gray-200">
                         <div className="font-bold">{lead.nome}</div>
                         <div className="text-xs text-gray-500 mt-0.5">{lead.nicho} · {lead.cidade}</div>
@@ -889,14 +1023,26 @@ export default function Home() {
                 {filteredCrmLeads.map((lead, i) => (
                   <div 
                     key={i} 
-                    className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-4"
+                    className={`p-4 rounded-xl border transition-all ${
+                      selectedCrmLeads.includes(lead.nome) 
+                        ? 'bg-blue-950/20 border-blue-500/30' 
+                        : 'bg-white/[0.02] border-white/5'
+                    } flex flex-col gap-4`}
                   >
-                    <div>
-                      <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
-                      <div className="text-xs text-gray-500 mt-1">{lead.nicho} · {lead.cidade}</div>
-                      {lead.site && lead.site !== 'Sem site' && (
-                        <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1.5 block">🌐 Site comercial</a>
-                      )}
+                    <div className="flex items-start gap-3">
+                      <input 
+                        type="checkbox"
+                        checked={selectedCrmLeads.includes(lead.nome)}
+                        onChange={() => handleToggleSelectCrmLead(lead.nome)}
+                        className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-4 w-4 mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
+                        <div className="text-xs text-gray-500 mt-1">{lead.nicho} · {lead.cidade}</div>
+                        {lead.site && lead.site !== 'Sem site' && (
+                          <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1.5 block">🌐 Site comercial</a>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2 border-t border-white/5 pt-3">
@@ -984,7 +1130,8 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-20 animate-slide-up">
             
             {/* CONFIGURAÇÃO DO DISPARO */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-6">
+              {/* MODELO DE MENSAGEM */}
               <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
                 <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -998,7 +1145,7 @@ export default function Home() {
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-2">Mensagem (Suporta Tags):</label>
                     <textarea
-                      rows={6}
+                      rows={5}
                       className="w-full bg-black/50 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-green-500 transition-all resize-none"
                       value={waTemplate}
                       onChange={(e) => setWaTemplate(e.target.value)}
@@ -1028,6 +1175,77 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* PAINEL DE DISPARO EM MASSA E ANTIBAN */}
+              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500" />
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  🚀 Disparo Guiado em Massa
+                </h3>
+                <p className="text-xs text-gray-400 mb-4">
+                  Envie mensagens sequencialmente com intervalos inteligentes para proteger sua conta do WhatsApp.
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Intervalo entre Mensagens (segundos):</label>
+                    <input 
+                      type="number" 
+                      min={10}
+                      max={120}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 font-mono"
+                      value={bulkDelay}
+                      onChange={(e) => setBulkDelay(Math.max(10, Number(e.target.value)))}
+                    />
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={bulkSimulateHuman}
+                        onChange={(e) => setBulkSimulateHuman(e.target.checked)}
+                        className="rounded border-white/20 bg-black/40 text-red-500 focus:ring-0 cursor-pointer h-4 w-4"
+                      />
+                      Simular comportamento humano (+/- 4s randômicos)
+                    </label>
+
+                    <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={bulkAutoNext}
+                        onChange={(e) => setBulkAutoNext(e.target.checked)}
+                        className="rounded border-white/20 bg-black/40 text-red-500 focus:ring-0 cursor-pointer h-4 w-4"
+                      />
+                      Avançar automaticamente para o próximo lead
+                    </label>
+                  </div>
+
+                  {/* ALERTA DE BLOQUEIO DESTAQUE */}
+                  <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/20 text-xs text-red-400 leading-relaxed space-y-1">
+                    <span className="font-bold flex items-center gap-1">⚠️ AVISO DE RISCO DE BLOQUEIO</span>
+                    O WhatsApp possui algoritmos severos de detecção de spam. Evite enviar em massa para listas frias (contatos que nunca falaram com você), use mensagens personalizadas com tags dinâmicas e mantenha o intervalo seguro acima de 20 segundos.
+                  </div>
+
+                  {isSendingBulk ? (
+                    <button 
+                      type="button"
+                      onClick={handleStopBulkSending}
+                      className="w-full py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 border border-red-500/30 cursor-pointer flex items-center justify-center gap-2 transition-colors"
+                    >
+                      ⏹ Pausar Disparo em Massa
+                    </button>
+                  ) : (
+                    <button 
+                      type="button"
+                      onClick={handleStartBulkSending}
+                      className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    >
+                      🚀 Iniciar Disparo em Massa
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* LISTA DE DISPARO */}
@@ -1042,6 +1260,31 @@ export default function Home() {
                     Total: {crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length} leads com telefone
                   </div>
                 </div>
+
+                {/* BANNER DE FILA ATIVA */}
+                {isSendingBulk && bulkIndex >= 0 && (
+                  <div className="mb-6 p-5 rounded-2xl bg-green-500/10 border border-green-500/20 text-sm text-green-400 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-pulse">
+                    <div>
+                      <span className="font-bold block">Fila de Disparo Guiada Ativa!</span>
+                      Processando lead {bulkIndex + 1} de {crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length}.
+                      Próxima aba abre em <span className="font-mono font-bold text-white bg-green-500 px-2 py-0.5 rounded text-xs ml-1">{bulkTimer}s</span>...
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleTriggerBulkSendLead(bulkIndex)}
+                        className="px-3.5 py-1.5 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30 text-xs font-semibold cursor-pointer"
+                      >
+                        ⚡ Abrir Agora
+                      </button>
+                      <button 
+                        onClick={handleStopBulkSending}
+                        className="px-3.5 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-semibold cursor-pointer"
+                      >
+                        ⏹ Parar Fila
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex-1 rounded-2xl border border-white/5 bg-black/20 overflow-hidden overflow-y-auto max-h-[500px]">
                   <table className="hidden md:table w-full text-left text-sm">
@@ -1058,7 +1301,7 @@ export default function Home() {
                         .filter(l => l.telefone && l.telefone !== 'Não informado')
                         .map((lead, i) => {
                           const isSent = waSentStatus[lead.nome] || false;
-                          // Preview message
+                          const isActive = i === bulkIndex;
                           const previewText = waTemplate
                             .replace(/{Nome}/g, lead.nome)
                             .replace(/{Telefone}/g, lead.telefone)
@@ -1067,7 +1310,11 @@ export default function Home() {
                             .replace(/{Nicho}/g, lead.nicho || 'Geral');
 
                           return (
-                            <tr key={i} className="hover:bg-white/[0.03] transition-colors">
+                            <tr key={i} className={`transition-all duration-300 ${
+                              isActive 
+                                ? 'bg-green-500/10 border-l-4 border-l-green-500' 
+                                : 'hover:bg-white/[0.03]'
+                            }`}>
                               <td className="px-4 py-4 font-bold text-gray-200">
                                 {lead.nome}
                                 <span className="block text-[10px] text-gray-500 font-normal mt-0.5">{lead.nicho} · {lead.cidade}</span>
@@ -1080,14 +1327,22 @@ export default function Home() {
                               </td>
                               <td className="px-4 py-4">
                                 <button
-                                  onClick={() => openWhatsApp(lead, waTemplate)}
+                                  onClick={() => {
+                                    if (isSendingBulk) {
+                                      handleTriggerBulkSendLead(i);
+                                    } else {
+                                      openWhatsApp(lead, waTemplate);
+                                    }
+                                  }}
                                   className={`px-3 py-2 rounded-lg font-bold text-xs cursor-pointer border transition-all ${
-                                    isSent 
-                                      ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
-                                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
+                                    isActive
+                                      ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
+                                      : isSent 
+                                        ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
+                                        : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
                                   }`}
                                 >
-                                  {isSent ? '✓ Re-enviar' : '⚡ Disparar'}
+                                  {isActive ? '👉 Fila Ativa' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
                                 </button>
                               </td>
                             </tr>
@@ -1112,6 +1367,7 @@ export default function Home() {
                       .filter(l => l.telefone && l.telefone !== 'Não informado')
                       .map((lead, i) => {
                         const isSent = waSentStatus[lead.nome] || false;
+                        const isActive = i === bulkIndex;
                         const previewText = waTemplate
                           .replace(/{Nome}/g, lead.nome)
                           .replace(/{Telefone}/g, lead.telefone)
@@ -1122,7 +1378,11 @@ export default function Home() {
                         return (
                           <div 
                             key={i} 
-                            className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-3"
+                            className={`p-4 rounded-xl border transition-all duration-300 ${
+                              isActive
+                                ? 'bg-green-950/20 border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.15)] animate-pulse'
+                                : 'bg-white/[0.02] border-white/5'
+                            } flex flex-col gap-3`}
                           >
                             <div className="flex justify-between items-start">
                               <div>
@@ -1137,14 +1397,22 @@ export default function Home() {
                             </div>
 
                             <button
-                              onClick={() => openWhatsApp(lead, waTemplate)}
+                              onClick={() => {
+                                if (isSendingBulk) {
+                                  handleTriggerBulkSendLead(i);
+                                } else {
+                                  openWhatsApp(lead, waTemplate);
+                                }
+                              }}
                               className={`w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer border transition-all flex items-center justify-center gap-1.5 ${
-                                isSent 
-                                  ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
-                                  : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
+                                isActive
+                                  ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
+                                  : isSent 
+                                    ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
+                                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
                               }`}
                             >
-                              {isSent ? '✓ Re-enviar Abordagem' : '⚡ Disparar no WhatsApp'}
+                              {isActive ? '👉 Fila de Disparo Ativa' : isSent ? '✓ Re-enviar Abordagem' : '⚡ Disparar no WhatsApp'}
                             </button>
                           </div>
                         );
@@ -1259,6 +1527,129 @@ export default function Home() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB 5: SUPPORT & RATING ==================== */}
+        {activeTab === 'support' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-20 animate-slide-up">
+            {/* CARD 1: CONTATO E SUPORTE */}
+            <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+              
+              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                🙋‍♀️ Central de Suporte & Atendimento
+              </h3>
+              <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                Precisa de ajuda com o extrator, tem dúvidas sobre faturamento ou quer sugerir alguma melhoria no sistema? Nossa equipe está pronta para responder!
+              </p>
+
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-gray-500 uppercase block font-bold tracking-wider">E-mail de Suporte</span>
+                    <span className="text-sm text-gray-200 font-medium font-mono">pixel010dev@gmail.com</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText('pixel010dev@gmail.com');
+                      alert('E-mail copiado com sucesso!');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-300 cursor-pointer transition-colors"
+                  >
+                    📋 Copiar
+                  </button>
+                </div>
+
+                <a 
+                  href="mailto:pixel010dev@gmail.com?subject=Suporte GeoLeads&body=Olá equipe GeoLeads,"
+                  className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  ✉️ Abrir Chamado por E-mail
+                </a>
+              </div>
+            </div>
+
+            {/* CARD 2: AVALIAÇÃO DE DESEMPENHO */}
+            <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-purple-500/30 transition-all duration-500">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
+              
+              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                ⭐ Avalie a sua Experiência
+              </h3>
+              <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                Sua opinião nos ajuda a evoluir a plataforma. Como tem sido sua experiência no GeoLeads?
+              </p>
+
+              {supportSubmitted ? (
+                <div className="py-8 text-center text-green-400 animate-fade-in">
+                  <div className="text-5xl mb-3">🎉</div>
+                  <h4 className="font-bold text-lg text-gray-100">Muito obrigado pela avaliação!</h4>
+                  <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto leading-relaxed">Seu feedback foi registrado e será lido pela nossa equipe de desenvolvimento.</p>
+                  <button 
+                    onClick={() => {
+                      setSupportSubmitted(false);
+                      setSupportRating(0);
+                      setSupportFeedback('');
+                    }}
+                    className="mt-6 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 cursor-pointer transition-colors"
+                  >
+                    Avaliar Novamente
+                  </button>
+                </div>
+              ) : (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (supportRating === 0) {
+                      alert('Por favor, selecione uma nota de 1 a 5 estrelas.');
+                      return;
+                    }
+                    setSupportSubmitted(true);
+                  }}
+                  className="space-y-5"
+                >
+                  <div className="flex flex-col items-center justify-center p-4 bg-black/35 rounded-xl border border-white/5">
+                    <span className="text-xs text-gray-500 mb-2 font-medium">Sua nota de 1 a 5 estrelas:</span>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map(star => {
+                        const StarIsHighlighted = (hoveredStar !== null ? star <= hoveredStar : star <= supportRating);
+                        return (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setSupportRating(star)}
+                            onMouseEnter={() => setHoveredStar(star)}
+                            onMouseLeave={() => setHoveredStar(null)}
+                            className="text-3xl focus:outline-none transition-transform hover:scale-125 cursor-pointer duration-100"
+                          >
+                            {StarIsHighlighted ? '★' : '☆'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Como podemos melhorar? (Opcional):</label>
+                    <textarea 
+                      rows={3}
+                      placeholder="Deixe sua sugestão ou elogio..."
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none text-sm"
+                      value={supportFeedback}
+                      onChange={(e) => setSupportFeedback(e.target.value)}
+                    />
+                  </div>
+
+                  <button 
+                    type="submit"
+                    className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all duration-200 cursor-pointer"
+                  >
+                    Enviar Avaliação
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         )}
