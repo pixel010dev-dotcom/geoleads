@@ -7,6 +7,35 @@ import HackerRadar from '@/components/HackerRadar';
 
 const getLeadKey = (lead: any) => `${lead.nome || ''}|${lead.telefone || ''}|${lead.cidade || ''}`;
 
+const waMessagePresets = [
+  {
+    id: 'local',
+    title: 'Abordagem local',
+    subtitle: 'Primeiro contato consultivo',
+    body: 'Olá {Nome}, tudo bem? Vi que vocês atuam em {Cidade} no segmento de {Nicho}. Tenho uma ideia simples para ajudar vocês a receberem mais clientes locais. Posso te mostrar?'
+  },
+  {
+    id: 'offer',
+    title: 'Oferta direta',
+    subtitle: 'Mensagem curta e objetiva',
+    body: 'Oi {Nome}! Trabalho ajudando empresas de {Nicho} em {Cidade} a atrair mais clientes todos os dias. Quer que eu te envie uma sugestão rápida para o seu negócio?'
+  },
+  {
+    id: 'audit',
+    title: 'Diagnóstico grátis',
+    subtitle: 'Boa para agência/serviço',
+    body: 'Olá {Nome}. Analisei rapidamente a presença online de empresas de {Nicho} em {Cidade} e encontrei alguns pontos de melhoria. Posso te mandar um diagnóstico gratuito?'
+  },
+  {
+    id: 'partner',
+    title: 'Parceria',
+    subtitle: 'Tom mais leve',
+    body: 'Oi {Nome}, tudo certo? Estou buscando negócios de {Nicho} em {Cidade} para uma possível parceria local. Faz sentido conversarmos por aqui?'
+  }
+];
+
+const waTemplateTags = ['{Nome}', '{Cidade}', '{Nicho}', '{Site}', '{Telefone}'];
+
 export default function Home() {
   // Navigation
   const [activeTab, setActiveTab] = useState<'extractor' | 'crm' | 'whatsapp' | 'ia' | 'support'>('extractor');
@@ -85,6 +114,13 @@ export default function Home() {
 
   const selectedWaCount = selectedWaDispatchableLeads.length;
   const activeBulkLeadKey = bulkQueue[bulkIndex] ? getLeadKey(bulkQueue[bulkIndex]) : null;
+  const waPreviewLead = selectedWaDispatchableLeads[0] || dispatchableWaLeads[0] || {
+    nome: 'Clínica Exemplo',
+    telefone: '(11) 99999-0000',
+    site: 'https://exemplo.com.br',
+    cidade: 'São Paulo',
+    nicho: 'Estética'
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -497,6 +533,22 @@ export default function Home() {
     link.click();
   };
 
+  const renderWhatsAppMessage = (lead: any, template = waTemplate) => {
+    return template
+      .replace(/{Nome}/g, lead.nome || 'seu negócio')
+      .replace(/{Telefone}/g, lead.telefone || '(00) 00000-0000')
+      .replace(/{Site}/g, lead.site || 'Sem site')
+      .replace(/{Cidade}/g, lead.cidade || location || 'sua região')
+      .replace(/{Nicho}/g, lead.nicho || keyword || 'comércio');
+  };
+
+  const appendWaTag = (tag: string) => {
+    setWaTemplate(prev => {
+      const spacer = prev.length === 0 || prev.endsWith(' ') || prev.endsWith('\n') ? '' : ' ';
+      return `${prev}${spacer}${tag}`;
+    });
+  };
+
   // WhatsApp Trigger Helper
   const openWhatsApp = (
     lead: any,
@@ -515,12 +567,7 @@ export default function Home() {
 
     let msg = '';
     if (customText) {
-      msg = customText
-        .replace(/{Nome}/g, lead.nome)
-        .replace(/{Telefone}/g, lead.telefone)
-        .replace(/{Site}/g, lead.site || 'Sem site')
-        .replace(/{Cidade}/g, lead.cidade || location || 'sua região')
-        .replace(/{Nicho}/g, lead.nicho || keyword || 'comércio');
+      msg = renderWhatsAppMessage(lead, customText);
     } else {
       msg = `Olá! Vi o perfil da *${lead.nome}* no Google e gostaria de saber mais sobre os serviços de vocês. Podemos conversar?`;
     }
@@ -1313,19 +1360,51 @@ export default function Home() {
               {/* MODELO DE MENSAGEM */}
               <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  ⚡ Mensagem Modelo
-                </h3>
-                <p className="text-xs text-gray-400 mb-4">
-                  Crie sua mensagem e utilize as tags mágicas. Elas serão preenchidas automaticamente para cada cliente.
-                </p>
+                <div className="mb-5">
+                  <h3 className="text-xl font-semibold flex items-center gap-2">
+                    ✍️ Mensagem da Campanha
+                  </h3>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                    <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-300 border border-green-500/20 font-bold">
+                      Personalizada
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">
+                      Envio assistido
+                    </span>
+                  </div>
+                </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {waMessagePresets.map((preset) => {
+                      const isSelected = waTemplate === preset.body;
+
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setWaTemplate(preset.body)}
+                          className={`text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-green-500/15 border-green-500/40 shadow-[0_0_18px_rgba(34,197,94,0.12)]'
+                              : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20'
+                          }`}
+                        >
+                          <span className="block text-xs font-bold text-gray-100">{preset.title}</span>
+                          <span className="block text-[10px] text-gray-500 mt-0.5">{preset.subtitle}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-2">Mensagem (Suporta Tags):</label>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <label className="block text-xs font-medium text-gray-400">Editor</label>
+                      <span className="text-[10px] text-gray-500 font-mono">{waTemplate.length} caracteres</span>
+                    </div>
                     <textarea
-                      rows={5}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-green-500 transition-all resize-none"
+                      rows={7}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-green-500 transition-all resize-none leading-relaxed"
                       value={waTemplate}
                       onChange={(e) => setWaTemplate(e.target.value)}
                     />
@@ -1333,13 +1412,13 @@ export default function Home() {
 
                   {/* TAG HELPERS */}
                   <div>
-                    <label className="block text-[11px] font-medium text-gray-500 mb-2">Clique para inserir Tag:</label>
+                    <label className="block text-[11px] font-medium text-gray-500 mb-2">Campos dinâmicos</label>
                     <div className="flex flex-wrap gap-1.5">
-                      {['{Nome}', '{Cidade}', '{Nicho}', '{Site}', '{Telefone}'].map(tag => (
+                      {waTemplateTags.map(tag => (
                         <button
                           key={tag}
                           type="button"
-                          onClick={() => setWaTemplate(prev => prev + tag)}
+                          onClick={() => appendWaTag(tag)}
                           className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-[11px] font-mono text-gray-300 hover:text-white transition-all cursor-pointer"
                         >
                           {tag}
@@ -1348,9 +1427,14 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-gray-400 space-y-2">
-                    <span className="font-bold text-gray-200 block">Como funciona a fila assistida?</span>
-                    O GeoLeads abre a conversa no WhatsApp Web ou no app com a mensagem preenchida. Por segurança, o envio final precisa ser confirmado por você dentro do WhatsApp; depois volte aqui e avance para o próximo contato.
+                  <div className="rounded-2xl bg-black/45 border border-green-500/15 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
+                      <span className="text-xs font-bold text-green-300">Prévia</span>
+                      <span className="text-[10px] text-gray-500 truncate">{waPreviewLead.nome}</span>
+                    </div>
+                    <div className="p-4 text-xs text-gray-300 leading-relaxed">
+                      {renderWhatsAppMessage(waPreviewLead)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1511,12 +1595,7 @@ export default function Home() {
                           const isSent = waSentStatus[lead.nome] || false;
                           const isActive = activeBulkLeadKey === leadKey;
                           const queueIndex = bulkQueue.findIndex(l => getLeadKey(l) === leadKey);
-                          const previewText = waTemplate
-                            .replace(/{Nome}/g, lead.nome)
-                            .replace(/{Telefone}/g, lead.telefone)
-                            .replace(/{Site}/g, lead.site || 'Sem site')
-                            .replace(/{Cidade}/g, lead.cidade || 'Região')
-                            .replace(/{Nicho}/g, lead.nicho || 'Geral');
+                          const previewText = renderWhatsAppMessage(lead);
 
                           return (
                             <tr key={i} className={`transition-all duration-300 ${
@@ -1603,12 +1682,7 @@ export default function Home() {
                         const isSent = waSentStatus[lead.nome] || false;
                         const isActive = activeBulkLeadKey === leadKey;
                         const queueIndex = bulkQueue.findIndex(l => getLeadKey(l) === leadKey);
-                        const previewText = waTemplate
-                          .replace(/{Nome}/g, lead.nome)
-                          .replace(/{Telefone}/g, lead.telefone)
-                          .replace(/{Site}/g, lead.site || 'Sem site')
-                          .replace(/{Cidade}/g, lead.cidade || 'Região')
-                          .replace(/{Nicho}/g, lead.nicho || 'Geral');
+                        const previewText = renderWhatsAppMessage(lead);
 
                         return (
                           <div 
