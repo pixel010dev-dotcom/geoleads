@@ -324,29 +324,29 @@ export default function Home() {
 
       {/* NAVBAR */}
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 group cursor-default">
-            <Globe size={40} />
-            <span className="font-extrabold text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 group cursor-default">
+            <Globe size={32} />
+            <span className="font-extrabold text-xl sm:text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
           </div>
           
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2.5 sm:gap-4 text-xs sm:text-sm">
             {user ? (
               <>
-                <div className="px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-bold">
-                  💰 {tokens !== null ? tokens.toLocaleString('pt-BR') : '...'} Tokens
+                <div className="px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-bold whitespace-nowrap">
+                  💰 {tokens !== null ? tokens.toLocaleString('pt-BR') : '...'} <span className="hidden sm:inline">Tokens</span>
                 </div>
-                <a href="/pricing" className="text-gray-400 hover:text-white transition-colors">Planos & Recargas</a>
+                <a href="/pricing" className="text-gray-400 hover:text-white transition-colors font-medium">Planos</a>
                 <button onClick={logout} className="text-red-400 hover:text-red-300 font-medium cursor-pointer">Sair</button>
               </>
             ) : (
               <>
-                <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
-                  <span>Motor Online</span>
+                <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5 text-[11px] sm:text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
+                  <span className="hidden sm:inline">Motor Online</span>
                 </div>
-                <a href="/login" className="px-5 py-2 rounded-full bg-white text-black font-semibold hover:bg-gray-200 transition-all shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                  Entrar / Registrar
+                <a href="/login" className="px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full bg-white text-black font-semibold hover:bg-gray-200 transition-all text-xs sm:text-sm shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                  Entrar
                 </a>
               </>
             )}
@@ -354,41 +354,41 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 relative z-10">
         <header className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
             A Maior Máquina de <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Leads B2B</span>
           </h1>
-          <p className="text-gray-400 text-lg max-w-2xl mb-8">
+          <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl mb-6 sm:mb-8 leading-relaxed">
             Encontre clientes potenciais em qualquer lugar do mundo. Defina o nicho, a região e deixe a nossa inteligência extrair os contatos, sites e muito mais.
           </p>
 
           {/* TAB NAVIGATION BAR */}
-          <div className="flex border-b border-white/10 gap-2 mb-6 max-w-3xl overflow-x-auto pb-1">
+          <div className="flex border-b border-white/10 gap-2 mb-6 max-w-3xl overflow-x-auto pb-1 no-scrollbar">
             <button 
               onClick={() => setActiveTab('extractor')}
-              className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-2 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🚀 Motor Extrator
             </button>
             <button 
               onClick={() => setActiveTab('crm')}
-              className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-2 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               📋 CRM de Leads
               {crmLeads.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-blue-500 text-black text-xs font-bold">{crmLeads.length}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>
               )}
             </button>
             <button 
               onClick={() => setActiveTab('whatsapp')}
-              className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-2 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               ⚡ Disparador WhatsApp
             </button>
             <button 
               onClick={() => setActiveTab('ia')}
-              className={`px-5 py-2.5 rounded-t-xl text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-2 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🤖 Gerador de Copys IA
             </button>
@@ -538,7 +538,7 @@ export default function Home() {
                 {/* Tabela de Resultados */}
                 {!isExtracting && (
                   <div className="flex-1 rounded-2xl border border-white/5 bg-black/20 overflow-hidden relative overflow-y-auto max-h-[500px]">
-                    <table className="w-full text-left text-sm">
+                    <table className="hidden md:table w-full text-left text-sm">
                       <thead className="bg-white/5 border-b border-white/5 text-gray-400 sticky top-0 backdrop-blur-md z-10">
                         <tr>
                           <th className="px-4 py-3 font-medium">Empresa</th>
@@ -641,6 +641,96 @@ export default function Home() {
                         )}
                       </tbody>
                     </table>
+
+                    {/* Mobile Card List */}
+                    <div className="md:hidden space-y-3 p-4">
+                      {displayLeads.map((lead: any, i: number) => (
+                        <div 
+                          key={i} 
+                          className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-3 animate-slide-up"
+                          style={{ animationDelay: `${i * 0.03}s` }}
+                        >
+                          <div>
+                            <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
+                            {lead.site && lead.site !== 'Sem site' ? (
+                              <a href={lead.site} target="_blank" className="inline-block text-xs text-blue-400 hover:underline mt-1">🌐 Site Oficial</a>
+                            ) : (
+                              <span className="text-xs text-gray-600 mt-1 block">Sem site comercial</span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-xs border-t border-white/5 pt-3">
+                            <div>
+                              <span className="text-gray-500 block mb-0.5">Contato</span>
+                              <span className="font-mono text-gray-300 block">{lead.telefone}</span>
+                              {lead.telefone && lead.telefone !== 'Não informado' && (
+                                <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 text-[9px] w-fit">
+                                  ✓ Válido
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block mb-0.5">E-mail</span>
+                              {lead.email ? (
+                                <a href={`mailto:${lead.email}`} className="text-purple-400 hover:underline font-mono block truncate">{lead.email}</a>
+                              ) : (
+                                <span className="text-gray-600 block">—</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center border-t border-white/5 pt-3 gap-2 flex-wrap">
+                            <div className="flex gap-2">
+                              {lead.instagram && (
+                                <a href={lead.instagram} target="_blank" className="text-pink-400 text-xs hover:underline bg-pink-500/5 px-2 py-1 rounded border border-pink-500/10">📷 Insta</a>
+                              )}
+                              {lead.facebook && (
+                                <a href={lead.facebook} target="_blank" className="text-blue-500 text-xs hover:underline bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10">📘 Face</a>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2 w-full xs:w-auto mt-2 xs:mt-0">
+                              <button 
+                                onClick={() => handleAddToCRM(lead)}
+                                className="flex-1 xs:flex-initial px-3 py-2 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs cursor-pointer flex items-center justify-center gap-1"
+                              >
+                                📁 Salvar
+                              </button>
+                              {lead.telefone && lead.telefone !== 'Não informado' && (
+                                <button 
+                                  onClick={() => openWhatsApp(lead)}
+                                  className="flex-1 xs:flex-initial px-3 py-2 rounded bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 text-xs cursor-pointer flex items-center justify-center gap-1"
+                                >
+                                  💬 WhatsApp
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Estado vazio: antes de buscar */}
+                      {displayLeads.length === 0 && !hasSearched && !isExtracting && (
+                        <div className="py-16 text-center">
+                          <div className="text-4xl mb-4">🔍</div>
+                          <p className="text-gray-300 font-medium text-lg mb-2">Pronto para começar!</p>
+                          <p className="text-gray-500 text-xs max-w-xs mx-auto">
+                            Preencha o formulário acima com o nicho e a cidade desejada, defina a quantidade de leads e clique em <span className="text-blue-400 font-semibold">Iniciar Extração</span>.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Estado vazio: depois de buscar e não achar nada */}
+                      {displayLeads.length === 0 && hasSearched && !isExtracting && (
+                        <div className="py-16 text-center">
+                          <div className="text-4xl mb-4">🕵️</div>
+                          <p className="text-gray-300 font-medium text-lg mb-2">Nenhum lead encontrado</p>
+                          <p className="text-gray-500 text-xs max-w-xs mx-auto">
+                            O motor não encontrou empresas que atendam ao filtro selecionado nessa região. Tente mudar o filtro ou busque outra cidade.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -686,9 +776,10 @@ export default function Home() {
               </div>
             </div>
 
-            {/* TABLE */}
-            <div className="rounded-2xl border border-white/5 bg-black/20 overflow-x-auto">
-              <table className="w-full text-left text-sm min-w-[800px]">
+            {/* TABLE / CARDS CONTAINER */}
+            <div className="rounded-2xl border border-white/5 bg-black/20 overflow-hidden">
+              {/* Desktop Table */}
+              <table className="hidden md:table w-full text-left text-sm">
                 <thead className="bg-white/5 border-b border-white/5 text-gray-400">
                   <tr>
                     <th className="px-4 py-3 font-medium">Lead Info</th>
@@ -781,6 +872,98 @@ export default function Home() {
                   )}
                 </tbody>
               </table>
+
+              {/* Mobile Card List CRM */}
+              <div className="md:hidden space-y-4 p-4">
+                {filteredCrmLeads.map((lead, i) => (
+                  <div 
+                    key={i} 
+                    className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-4"
+                  >
+                    <div>
+                      <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
+                      <div className="text-xs text-gray-500 mt-1">{lead.nicho} · {lead.cidade}</div>
+                      {lead.site && lead.site !== 'Sem site' && (
+                        <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1.5 block">🌐 Site comercial</a>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 border-t border-white/5 pt-3">
+                      {lead.telefone && lead.telefone !== 'Não informado' && (
+                        <div className="text-xs text-gray-300 flex items-center gap-2 font-mono">
+                          <span className="opacity-60">📞</span> {lead.telefone}
+                        </div>
+                      )}
+                      {lead.email && (
+                        <div className="text-xs text-purple-400 flex items-center gap-2 font-mono truncate">
+                          <span className="opacity-60">✉️</span> {lead.email}
+                        </div>
+                      )}
+                      {lead.instagram && (
+                        <a href={lead.instagram} target="_blank" className="text-xs text-pink-400 flex items-center gap-2 hover:underline">
+                          <span className="opacity-60">📷</span> Instagram
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
+                      <span className="text-[11px] text-gray-500 font-medium">Funil / Status:</span>
+                      <select
+                        value={lead.stage || 'Novo'}
+                        onChange={(e) => handleUpdateCRMLead(lead.nome, 'stage', e.target.value)}
+                        style={{ colorScheme: 'dark' }}
+                        className={`w-full px-3 py-2 rounded-xl border text-xs font-bold focus:outline-none cursor-pointer ${
+                          lead.stage === 'Novo' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' :
+                          lead.stage === 'Em Contato' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
+                          lead.stage === 'Proposta' ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' :
+                          lead.stage === 'Fechado' ? 'bg-green-500/10 border-green-500/30 text-green-400' :
+                          'bg-red-500/10 border-red-500/30 text-red-400'
+                        }`}
+                      >
+                        <option value="Novo">Novo Lead</option>
+                        <option value="Em Contato">Em Contato</option>
+                        <option value="Proposta">Proposta Enviada</option>
+                        <option value="Fechado">Vendido / Ganho</option>
+                        <option value="Perdido">Perdido</option>
+                      </select>
+                    </div>
+
+                    <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
+                      <span className="text-[11px] text-gray-500 font-medium">Minhas Anotações:</span>
+                      <textarea
+                        placeholder="Clique para anotar detalhes..."
+                        value={lead.notes || ''}
+                        onChange={(e) => handleUpdateCRMLead(lead.nome, 'notes', e.target.value)}
+                        className="w-full bg-black/40 border border-white/5 hover:border-white/10 focus:border-blue-500 focus:outline-none rounded-xl p-3 text-xs text-gray-300 resize-none h-16 transition-colors"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 border-t border-white/5 pt-3">
+                      {lead.telefone && lead.telefone !== 'Não informado' && (
+                        <button
+                          onClick={() => openWhatsApp(lead)}
+                          className="flex-1 py-2.5 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          💬 Contatar
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRemoveFromCRM(lead.nome)}
+                        className="flex-1 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredCrmLeads.length === 0 && (
+                  <div className="py-16 text-center text-gray-500">
+                    <div className="text-3xl mb-3">📁</div>
+                    <p className="font-semibold text-sm">Nenhum lead encontrado no CRM.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -850,7 +1033,7 @@ export default function Home() {
                 </div>
 
                 <div className="flex-1 rounded-2xl border border-white/5 bg-black/20 overflow-hidden overflow-y-auto max-h-[500px]">
-                  <table className="w-full text-left text-sm">
+                  <table className="hidden md:table w-full text-left text-sm">
                     <thead className="bg-white/5 border-b border-white/5 text-gray-400 sticky top-0">
                       <tr>
                         <th className="px-4 py-3 font-medium">Nome / Empresa</th>
@@ -911,6 +1094,58 @@ export default function Home() {
                       )}
                     </tbody>
                   </table>
+
+                  {/* Mobile Card List WhatsApp */}
+                  <div className="md:hidden space-y-4 p-4">
+                    {crmLeads
+                      .filter(l => l.telefone && l.telefone !== 'Não informado')
+                      .map((lead, i) => {
+                        const isSent = waSentStatus[lead.nome] || false;
+                        const previewText = waTemplate
+                          .replace(/{Nome}/g, lead.nome)
+                          .replace(/{Telefone}/g, lead.telefone)
+                          .replace(/{Site}/g, lead.site || 'Sem site')
+                          .replace(/{Cidade}/g, lead.cidade || 'Região')
+                          .replace(/{Nicho}/g, lead.nicho || 'Geral');
+
+                        return (
+                          <div 
+                            key={i} 
+                            className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-3"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
+                                <div className="text-xs text-gray-500 mt-0.5">{lead.nicho} · {lead.cidade}</div>
+                              </div>
+                              <span className="text-xs font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">{lead.telefone}</span>
+                            </div>
+
+                            <div className="bg-black/50 border border-white/5 rounded-xl p-3 text-xs text-gray-400 font-sans italic leading-relaxed">
+                              "{previewText}"
+                            </div>
+
+                            <button
+                              onClick={() => openWhatsApp(lead, waTemplate)}
+                              className={`w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer border transition-all flex items-center justify-center gap-1.5 ${
+                                isSent 
+                                  ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
+                                  : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
+                              }`}
+                            >
+                              {isSent ? '✓ Re-enviar Abordagem' : '⚡ Disparar no WhatsApp'}
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                    {crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length === 0 && (
+                      <div className="py-16 text-center text-gray-500">
+                        <div className="text-3xl mb-3">💬</div>
+                        <p className="font-semibold text-sm">Nenhum lead com telefone no CRM.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -998,9 +1233,9 @@ export default function Home() {
                             navigator.clipboard.writeText(copy.text);
                             alert('Copiado para a área de transferência!');
                           }}
-                          className="absolute top-6 right-6 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-xs font-semibold cursor-pointer transition-colors"
+                          className="w-full sm:w-auto mt-3 sm:mt-0 sm:absolute sm:top-6 sm:right-6 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
                         >
-                          📋 Copiar
+                          📋 Copiar Roteiro
                         </button>
                       </div>
                     ))}

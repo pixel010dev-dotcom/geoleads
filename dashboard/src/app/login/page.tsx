@@ -63,7 +63,7 @@ export default function Login() {
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-md p-8 rounded-3xl bg-white/[0.02] border border-white/10 backdrop-blur-xl shadow-2xl relative z-10 group hover:border-blue-500/30 transition-all duration-300">
+      <div className="w-full max-w-md p-6 sm:p-8 rounded-[1.5rem] sm:rounded-3xl bg-white/[0.02] border border-white/10 backdrop-blur-xl shadow-2xl relative z-10 group hover:border-blue-500/30 transition-all duration-300">
         <div className="flex flex-col items-center mb-8">
           <Globe size={52} className="mb-4" />
           <span className="font-extrabold text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>

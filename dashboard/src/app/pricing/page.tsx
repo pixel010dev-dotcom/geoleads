@@ -27,7 +27,7 @@ export default function Pricing() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white py-12 px-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#0a0a0a] text-white py-8 px-4 sm:px-6 relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
 
@@ -55,7 +55,7 @@ export default function Pricing() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {/* Plano Iniciante */}
-          <div className="p-8 rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-blue-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
+          <div className="p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-blue-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
             <div className="text-3xl mb-4">🔍</div>
             <h3 className="text-2xl font-bold mb-1">Iniciante</h3>
             <p className="text-gray-400 text-sm mb-6">Ideal para testar o motor e ver resultados reais.</p>
@@ -78,7 +78,7 @@ export default function Pricing() {
           </div>
 
           {/* Plano Profissional */}
-          <div className="p-8 rounded-[2rem] bg-gradient-to-b from-indigo-900/40 to-purple-900/20 border border-indigo-500/50 relative flex flex-col transform md:-translate-y-4 shadow-2xl shadow-indigo-500/10 backdrop-blur-xl group">
+          <div className="p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-indigo-900/40 to-purple-900/20 border border-indigo-500/50 relative flex flex-col transform md:-translate-y-4 shadow-2xl shadow-indigo-500/10 backdrop-blur-xl group">
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-5 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-indigo-500/30">
               ⭐ MAIS VENDIDO
             </div>
@@ -107,7 +107,7 @@ export default function Pricing() {
           </div>
 
           {/* Plano Agência */}
-          <div className="p-8 rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-purple-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
+          <div className="p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-purple-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
             <div className="text-3xl mb-4">🚀</div>
             <h3 className="text-2xl font-bold mb-1">Agência</h3>
             <p className="text-gray-400 text-sm mb-6">Para empresas e agências de marketing digital.</p>
