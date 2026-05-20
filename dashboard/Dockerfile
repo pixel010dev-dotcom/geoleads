@@ -1,5 +1,5 @@
 # Dockerfile para rodar o Next.js com Playwright (Chromium) na nuvem (Railway, Render, VPS)
-FROM node:18-bullseye-slim
+FROM node:20-bullseye-slim
 
 # Instalar dependências necessárias do sistema para o Chromium rodar headless
 RUN apt-get update && apt-get install -y \
