@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import Globe from '@/components/Globe';
 import HackerRadar from '@/components/HackerRadar';
+
+const getLeadKey = (lead: any) => `${lead.nome || ''}|${lead.telefone || ''}|${lead.cidade || ''}`;
 
 export default function Home() {
   // Navigation
@@ -33,11 +35,13 @@ export default function Home() {
   const [waTemplate, setWaTemplate] = useState('Olá {Nome}! Vi seu perfil comercial em {Cidade} e gostaria de saber se vocês têm interesse em receber mais clientes de {Nicho}. Podemos conversar?');
   const [waSentStatus, setWaSentStatus] = useState<Record<string, boolean>>({});
   const [isSendingBulk, setIsSendingBulk] = useState(false);
-  const [bulkDelay, setBulkDelay] = useState(20);
+  const [bulkDelay, setBulkDelay] = useState('20');
   const [bulkSimulateHuman, setBulkSimulateHuman] = useState(true);
   const [bulkIndex, setBulkIndex] = useState(-1);
   const [bulkTimer, setBulkTimer] = useState(0);
-  const [bulkAutoNext, setBulkAutoNext] = useState(true);
+  const [bulkAutoNext, setBulkAutoNext] = useState(false);
+  const [selectedWaLeads, setSelectedWaLeads] = useState<string[]>([]);
+  const [bulkQueue, setBulkQueue] = useState<any[]>([]);
 
   // AI Copywriter States
   const [aiProduct, setAiProduct] = useState('');
@@ -68,6 +72,19 @@ export default function Home() {
     { name: "Lucas T.", action: "disparou", detail: "75 mensagens", target: "agora", type: "whatsapp" },
     { name: "Beatriz G.", action: "extraiu", detail: "52 Leads", target: "em Porto Alegre", type: "extract" }
   ];
+
+  const dispatchableWaLeads = useMemo(
+    () => crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado'),
+    [crmLeads]
+  );
+
+  const selectedWaDispatchableLeads = useMemo(
+    () => dispatchableWaLeads.filter(l => selectedWaLeads.includes(getLeadKey(l))),
+    [dispatchableWaLeads, selectedWaLeads]
+  );
+
+  const selectedWaCount = selectedWaDispatchableLeads.length;
+  const activeBulkLeadKey = bulkQueue[bulkIndex] ? getLeadKey(bulkQueue[bulkIndex]) : null;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -144,6 +161,9 @@ export default function Home() {
         localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm));
       }
       setCrmLeads(parsedCrm);
+
+      const dispatchable = parsedCrm.filter(l => l.telefone && l.telefone !== 'Não informado').map(getLeadKey);
+      setSelectedWaLeads(dispatchable);
     };
     loadData();
   }, []);
@@ -173,6 +193,10 @@ export default function Home() {
 
     const updated = [newCrmLead, ...crmLeads];
     saveCrmToLocal(updated);
+    if (newCrmLead.telefone && newCrmLead.telefone !== 'Não informado') {
+      const newKey = getLeadKey(newCrmLead);
+      setSelectedWaLeads(prev => prev.includes(newKey) ? prev : [newKey, ...prev]);
+    }
     alert(`"${lead.nome}" foi salvo com sucesso no CRM!`);
   };
 
@@ -182,23 +206,32 @@ export default function Home() {
     let addedCount = 0;
     const updated = [...crmLeads];
 
+    const newDispatchableKeys: string[] = [];
+
     leads.forEach(lead => {
       const exists = updated.some(l => l.nome === lead.nome);
       if (!exists) {
-        updated.unshift({
+        const newLead = {
           ...lead,
           stage: 'Novo',
           notes: '',
           savedAt: new Date().toISOString(),
           nicho: keyword || 'Geral',
           cidade: location || 'Geral'
-        });
+        };
+        updated.unshift(newLead);
+        if (newLead.telefone && newLead.telefone !== 'Não informado') {
+          newDispatchableKeys.push(getLeadKey(newLead));
+        }
         addedCount++;
       }
     });
 
     if (addedCount > 0) {
       saveCrmToLocal(updated);
+      if (newDispatchableKeys.length > 0) {
+        setSelectedWaLeads(prev => Array.from(new Set([...newDispatchableKeys, ...prev])));
+      }
       alert(`${addedCount} novos leads foram adicionados ao seu CRM!`);
     } else {
       alert('Todos esses leads já existem no CRM.');
@@ -208,9 +241,13 @@ export default function Home() {
   // Remove lead from CRM
   const handleRemoveFromCRM = (nome: string) => {
     if (confirm(`Tem certeza que deseja excluir o lead "${nome}" do CRM?`)) {
+      const removedLead = crmLeads.find(l => l.nome === nome);
       const updated = crmLeads.filter(l => l.nome !== nome);
       saveCrmToLocal(updated);
       setSelectedCrmLeads(prev => prev.filter(n => n !== nome));
+      if (removedLead) {
+        setSelectedWaLeads(prev => prev.filter(key => key !== getLeadKey(removedLead)));
+      }
     }
   };
 
@@ -219,6 +256,30 @@ export default function Home() {
     setSelectedCrmLeads(prev => 
       prev.includes(nome) ? prev.filter(n => n !== nome) : [...prev, nome]
     );
+  };
+
+  // Toggle selection for a single WhatsApp lead
+  const handleToggleSelectWaLead = (leadKey: string) => {
+    if (isSendingBulk) return;
+    setSelectedWaLeads(prev =>
+      prev.includes(leadKey) ? prev.filter(key => key !== leadKey) : [...prev, leadKey]
+    );
+  };
+
+  // Toggle selection for all dispatchable WhatsApp leads
+  const handleToggleSelectAllWaLeads = (dispatchable: any[]) => {
+    if (isSendingBulk) return;
+    const allKeys = dispatchable.map(getLeadKey);
+    const areAllSelected = allKeys.every(key => selectedWaLeads.includes(key));
+
+    if (areAllSelected) {
+      setSelectedWaLeads(prev => prev.filter(key => !allKeys.includes(key)));
+    } else {
+      setSelectedWaLeads(prev => {
+        const unique = new Set([...prev, ...allKeys]);
+        return Array.from(unique);
+      });
+    }
   };
 
   // Toggle selection for all filtered leads
@@ -240,15 +301,27 @@ export default function Home() {
   const handleRemoveSelectedFromCRM = () => {
     if (selectedCrmLeads.length === 0) return;
     if (confirm(`Tem certeza que deseja excluir os ${selectedCrmLeads.length} leads selecionados do CRM?`)) {
+      const removedKeys = crmLeads
+        .filter(l => selectedCrmLeads.includes(l.nome))
+        .map(getLeadKey);
       const updated = crmLeads.filter(l => !selectedCrmLeads.includes(l.nome));
       saveCrmToLocal(updated);
       setSelectedCrmLeads([]);
+      setSelectedWaLeads(prev => prev.filter(key => !removedKeys.includes(key)));
     }
   };
 
-  // WhatsApp Guided Bulk Sending Effect
+  const finishBulkQueue = () => {
+    setIsSendingBulk(false);
+    setBulkIndex(-1);
+    setBulkTimer(0);
+    setBulkQueue([]);
+  };
+
+  // WhatsApp Guided Queue Effect. It can open the next chat, but cannot press
+  // WhatsApp's send button from another domain/app.
   useEffect(() => {
-    if (!isSendingBulk) return;
+    if (!isSendingBulk || !bulkAutoNext) return;
     
     if (bulkTimer > 0) {
       const timer = setTimeout(() => {
@@ -258,53 +331,77 @@ export default function Home() {
     }
     
     if (bulkTimer === 0 && bulkIndex >= 0) {
-      const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
       const nextIndex = bulkIndex + 1;
       
-      if (nextIndex < dispatchableLeads.length) {
+      if (nextIndex < bulkQueue.length) {
         if (bulkAutoNext) {
           handleTriggerBulkSendLead(nextIndex);
         } else {
           setIsSendingBulk(false);
         }
       } else {
-        alert('Disparo em massa concluído! Todos os contatos elegíveis da lista foram abertos.');
-        setIsSendingBulk(false);
+        alert('Fila concluída! Todos os contatos selecionados foram abertos.');
+        finishBulkQueue();
       }
     }
     // Dependency handles change of tick cleanly without state feedback loops
-  }, [isSendingBulk, bulkTimer, bulkIndex, bulkAutoNext, crmLeads]);
+  }, [isSendingBulk, bulkTimer, bulkIndex, bulkAutoNext, bulkQueue]);
 
   const handleStartBulkSending = () => {
-    const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
-    if (dispatchableLeads.length === 0) {
-      alert('Nenhum lead com telefone disponível para disparo no CRM.');
+    const queue = selectedWaDispatchableLeads;
+    if (queue.length === 0) {
+      alert('Nenhum lead selecionado com telefone disponível para disparo.');
       return;
     }
+    setBulkQueue(queue);
     setIsSendingBulk(true);
-    handleTriggerBulkSendLead(0);
+    handleTriggerBulkSendLead(0, queue);
   };
 
-  const handleTriggerBulkSendLead = (index: number) => {
-    const dispatchableLeads = crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado');
-    if (index < 0 || index >= dispatchableLeads.length) return;
+  const getSafeBulkDelay = () => {
+    if (bulkDelay.trim() === '') return 20;
+    const value = Number(bulkDelay);
+    if (!Number.isFinite(value)) return 20;
+    return Math.min(120, Math.max(10, value));
+  };
+
+  const handleTriggerBulkSendLead = (index: number, queueOverride?: any[]) => {
+    const queue = queueOverride || bulkQueue;
+    if (index < 0 || index >= queue.length) return;
     
-    const lead = dispatchableLeads[index];
+    const lead = queue[index];
     setBulkIndex(index);
     
-    let delay = Number(bulkDelay);
+    let delay = getSafeBulkDelay();
     if (bulkSimulateHuman) {
       const variance = Math.floor(Math.random() * 9) - 4; // -4 a +4 segundos de variação humana
       delay = Math.max(10, delay + variance);
     }
-    setBulkTimer(delay);
-    openWhatsApp(lead, waTemplate);
+    setBulkTimer(bulkAutoNext ? delay : 0);
+    openWhatsApp(lead, waTemplate, {
+      markSent: false,
+      preferWeb: true,
+      target: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? '_blank' : 'geoleads_whatsapp_queue',
+    });
+  };
+
+  const handleConfirmSentAndNext = () => {
+    if (!isSendingBulk || bulkIndex < 0 || !bulkQueue[bulkIndex]) return;
+
+    const lead = bulkQueue[bulkIndex];
+    setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
+
+    const nextIndex = bulkIndex + 1;
+    if (nextIndex < bulkQueue.length) {
+      handleTriggerBulkSendLead(nextIndex);
+    } else {
+      alert('Fila concluída! Todos os contatos selecionados foram marcados como enviados.');
+      finishBulkQueue();
+    }
   };
 
   const handleStopBulkSending = () => {
-    setIsSendingBulk(false);
-    setBulkIndex(-1);
-    setBulkTimer(0);
+    finishBulkQueue();
   };
 
   // Update CRM Lead field (stage or notes)
@@ -401,7 +498,11 @@ export default function Home() {
   };
 
   // WhatsApp Trigger Helper
-  const openWhatsApp = (lead: any, customText?: string) => {
+  const openWhatsApp = (
+    lead: any,
+    customText?: string,
+    options?: { markSent?: boolean; preferWeb?: boolean; target?: string }
+  ) => {
     if (!lead.telefone || lead.telefone === 'Não informado') {
       alert('Este lead não possui número de telefone válido.');
       return;
@@ -425,10 +526,15 @@ export default function Home() {
     }
 
     const messageEncoded = encodeURIComponent(msg);
-    window.open(`https://wa.me/55${number}?text=${messageEncoded}`, '_blank');
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const url = options?.preferWeb && !isMobile
+      ? `https://web.whatsapp.com/send?phone=55${number}&text=${messageEncoded}`
+      : `https://wa.me/55${number}?text=${messageEncoded}`;
+    window.open(url, options?.target || '_blank');
     
-    // Mark as sent
-    setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
+    if (options?.markSent !== false) {
+      setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
+    }
   };
 
   // AI Message Copywriting Engine (Gemini integration with local fallback)
@@ -1243,8 +1349,8 @@ export default function Home() {
                   </div>
 
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-gray-400 space-y-2">
-                    <span className="font-bold text-gray-200 block">Como funciona o Disparador Web?</span>
-                    Ao clicar em "Disparar", o sistema abrirá a aba do WhatsApp Web com a mensagem totalmente personalizada no seu navegador. Basta dar Enter no WhatsApp para enviar. É 100% livre de bloqueios!
+                    <span className="font-bold text-gray-200 block">Como funciona a fila assistida?</span>
+                    O GeoLeads abre a conversa no WhatsApp Web ou no app com a mensagem preenchida. Por segurança, o envio final precisa ser confirmado por você dentro do WhatsApp; depois volte aqui e avance para o próximo contato.
                   </div>
                 </div>
               </div>
@@ -1253,10 +1359,10 @@ export default function Home() {
               <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500" />
                 <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  🚀 Disparo Guiado em Massa
+                  🚀 Fila Assistida WhatsApp
                 </h3>
                 <p className="text-xs text-gray-400 mb-4">
-                  Envie mensagens sequencialmente com intervalos inteligentes para proteger sua conta do WhatsApp.
+                  Abra conversas em sequência, envie dentro do WhatsApp e avance sem perder o controle da lista.
                 </p>
 
                 <div className="space-y-4">
@@ -1266,9 +1372,12 @@ export default function Home() {
                       type="number" 
                       min={10}
                       max={120}
+                      inputMode="numeric"
+                      placeholder="20"
                       className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 font-mono"
                       value={bulkDelay}
-                      onChange={(e) => setBulkDelay(Math.max(10, Number(e.target.value)))}
+                      onChange={(e) => setBulkDelay(e.target.value)}
+                      onBlur={() => setBulkDelay(String(getSafeBulkDelay()))}
                     />
                   </div>
 
@@ -1290,14 +1399,14 @@ export default function Home() {
                         onChange={(e) => setBulkAutoNext(e.target.checked)}
                         className="rounded border-white/20 bg-black/40 text-red-500 focus:ring-0 cursor-pointer h-4 w-4"
                       />
-                      Avançar automaticamente para o próximo lead
+                      Abrir próximo chat automaticamente após o intervalo
                     </label>
                   </div>
 
                   {/* ALERTA DE BLOQUEIO DESTAQUE */}
                   <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/20 text-xs text-red-400 leading-relaxed space-y-1">
                     <span className="font-bold flex items-center gap-1">⚠️ AVISO DE RISCO DE BLOQUEIO</span>
-                    O WhatsApp possui algoritmos severos de detecção de spam. Evite enviar em massa para listas frias (contatos que nunca falaram com você), use mensagens personalizadas com tags dinâmicas e mantenha o intervalo seguro acima de 20 segundos.
+                    O WhatsApp limita automações de envio. Use a fila para abordagens legítimas, com contexto, personalização e opção de não receber novas mensagens.
                   </div>
 
                   {isSendingBulk ? (
@@ -1306,7 +1415,7 @@ export default function Home() {
                       onClick={handleStopBulkSending}
                       className="w-full py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 border border-red-500/30 cursor-pointer flex items-center justify-center gap-2 transition-colors"
                     >
-                      ⏹ Pausar Disparo em Massa
+                      ⏹ Parar Fila
                     </button>
                   ) : (
                     <button 
@@ -1314,7 +1423,7 @@ export default function Home() {
                       onClick={handleStartBulkSending}
                       className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer flex items-center justify-center gap-2 transition-all"
                     >
-                      🚀 Iniciar Disparo em Massa
+                      🚀 Iniciar Fila Assistida
                     </button>
                   )}
                 </div>
@@ -1329,27 +1438,44 @@ export default function Home() {
                     <h3 className="text-xl font-semibold">Leads Prontos para Abordagem</h3>
                     <p className="text-xs text-gray-500 mt-1">Lista com telefones extraídos do seu CRM.</p>
                   </div>
-                  <div className="text-xs px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold">
-                    Total: {crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length} leads com telefone
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <div className="text-xs px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold">
+                      Selecionados: {selectedWaCount}
+                    </div>
+                    <div className="text-xs px-3 py-1.5 rounded-full bg-white/5 text-gray-300 border border-white/10 font-bold">
+                      Total: {dispatchableWaLeads.length} com telefone
+                    </div>
                   </div>
                 </div>
 
                 {/* BANNER DE FILA ATIVA */}
                 {isSendingBulk && bulkIndex >= 0 && (
-                  <div className="mb-6 p-5 rounded-2xl bg-green-500/10 border border-green-500/20 text-sm text-green-400 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-pulse">
+                  <div className="mb-6 p-5 rounded-2xl bg-green-500/10 border border-green-500/20 text-sm text-green-400 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <span className="font-bold block">Fila de Disparo Guiada Ativa!</span>
-                      Processando lead {bulkIndex + 1} de {crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length}.
-                      Próxima aba abre em <span className="font-mono font-bold text-white bg-green-500 px-2 py-0.5 rounded text-xs ml-1">{bulkTimer}s</span>...
+                      <span className="font-bold block">Fila Assistida Ativa!</span>
+                      Processando lead {bulkIndex + 1} de {bulkQueue.length}.
+                      {bulkAutoNext ? (
+                        <>
+                          Próximo chat abre em <span className="font-mono font-bold text-white bg-green-500 px-2 py-0.5 rounded text-xs ml-1">{bulkTimer}s</span>.
+                        </>
+                      ) : (
+                        <span className="block text-green-300 mt-1">Envie a mensagem no WhatsApp, volte aqui e avance para o próximo contato.</span>
+                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <button 
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleConfirmSentAndNext}
+                        className="px-3.5 py-1.5 rounded-lg bg-green-500 text-black hover:bg-green-400 border border-green-400 text-xs font-extrabold cursor-pointer"
+                      >
+                        ✓ Já enviei / Próximo
+                      </button>
+                      <button
                         onClick={() => handleTriggerBulkSendLead(bulkIndex)}
                         className="px-3.5 py-1.5 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30 text-xs font-semibold cursor-pointer"
                       >
-                        ⚡ Abrir Agora
+                        ⚡ Reabrir Chat
                       </button>
-                      <button 
+                      <button
                         onClick={handleStopBulkSending}
                         className="px-3.5 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-semibold cursor-pointer"
                       >
@@ -1363,6 +1489,15 @@ export default function Home() {
                   <table className="hidden md:table w-full text-left text-sm">
                     <thead className="bg-white/5 border-b border-white/5 text-gray-400 sticky top-0">
                       <tr>
+                        <th className="px-4 py-3 font-medium w-12 text-center">
+                          <input
+                            type="checkbox"
+                            className="rounded border-white/20 bg-black/40 text-green-500 focus:ring-0 cursor-pointer h-4 w-4"
+                            checked={dispatchableWaLeads.length > 0 && dispatchableWaLeads.every(l => selectedWaLeads.includes(getLeadKey(l)))}
+                            disabled={isSendingBulk}
+                            onChange={() => handleToggleSelectAllWaLeads(dispatchableWaLeads)}
+                          />
+                        </th>
                         <th className="px-4 py-3 font-medium">Nome / Empresa</th>
                         <th className="px-4 py-3 font-medium">Telefone</th>
                         <th className="px-4 py-3 font-medium">Preview da Abordagem</th>
@@ -1370,11 +1505,12 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {crmLeads
-                        .filter(l => l.telefone && l.telefone !== 'Não informado')
+                      {dispatchableWaLeads
                         .map((lead, i) => {
+                          const leadKey = getLeadKey(lead);
                           const isSent = waSentStatus[lead.nome] || false;
-                          const isActive = i === bulkIndex;
+                          const isActive = activeBulkLeadKey === leadKey;
+                          const queueIndex = bulkQueue.findIndex(l => getLeadKey(l) === leadKey);
                           const previewText = waTemplate
                             .replace(/{Nome}/g, lead.nome)
                             .replace(/{Telefone}/g, lead.telefone)
@@ -1384,10 +1520,19 @@ export default function Home() {
 
                           return (
                             <tr key={i} className={`transition-all duration-300 ${
-                              isActive 
-                                ? 'bg-green-500/10 border-l-4 border-l-green-500' 
+                              isActive
+                                ? 'bg-green-500/10 border-l-4 border-l-green-500'
                                 : 'hover:bg-white/[0.03]'
                             }`}>
+                              <td className="px-4 py-4 w-12 text-center">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-white/20 bg-black/40 text-green-500 focus:ring-0 cursor-pointer h-4 w-4"
+                                  checked={selectedWaLeads.includes(leadKey)}
+                                  disabled={isSendingBulk}
+                                  onChange={() => handleToggleSelectWaLead(leadKey)}
+                                />
+                              </td>
                               <td className="px-4 py-4 font-bold text-gray-200">
                                 {lead.nome}
                                 <span className="block text-[10px] text-gray-500 font-normal mt-0.5">{lead.nicho} · {lead.cidade}</span>
@@ -1400,9 +1545,10 @@ export default function Home() {
                               </td>
                               <td className="px-4 py-4">
                                 <button
+                                  disabled={isSendingBulk && queueIndex < 0}
                                   onClick={() => {
                                     if (isSendingBulk) {
-                                      handleTriggerBulkSendLead(i);
+                                      if (queueIndex >= 0) handleTriggerBulkSendLead(queueIndex);
                                     } else {
                                       openWhatsApp(lead, waTemplate);
                                     }
@@ -1410,21 +1556,23 @@ export default function Home() {
                                   className={`px-3 py-2 rounded-lg font-bold text-xs cursor-pointer border transition-all ${
                                     isActive
                                       ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
+                                      : isSendingBulk && queueIndex < 0
+                                        ? 'bg-white/[0.02] border-white/5 text-gray-600 cursor-not-allowed'
                                       : isSent 
                                         ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
                                         : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
                                   }`}
                                 >
-                                  {isActive ? '👉 Fila Ativa' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
+                                  {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
                                 </button>
                               </td>
                             </tr>
                           );
                         })}
 
-                      {crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length === 0 && (
+                      {dispatchableWaLeads.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-4 py-16 text-center text-gray-500">
+                          <td colSpan={5} className="px-4 py-16 text-center text-gray-500">
                             <div className="text-3xl mb-3">💬</div>
                             <p className="font-semibold">Nenhum lead com telefone no CRM.</p>
                             <p className="text-xs max-w-md mx-auto mt-1">Vá para o Extrator, faça buscas com filtros e salve os contatos no seu CRM para liberá-los aqui.</p>
@@ -1436,11 +1584,25 @@ export default function Home() {
 
                   {/* Mobile Card List WhatsApp */}
                   <div className="md:hidden space-y-4 p-4">
-                    {crmLeads
-                      .filter(l => l.telefone && l.telefone !== 'Não informado')
+                    {dispatchableWaLeads.length > 0 && (
+                      <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 rounded-xl p-3.5">
+                        <span className="text-xs text-gray-400">Selecionados: {selectedWaCount} de {dispatchableWaLeads.length}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectAllWaLeads(dispatchableWaLeads)}
+                          disabled={isSendingBulk}
+                          className="text-xs font-bold text-green-400 hover:text-green-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {dispatchableWaLeads.every(l => selectedWaLeads.includes(getLeadKey(l))) ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                        </button>
+                      </div>
+                    )}
+                    {dispatchableWaLeads
                       .map((lead, i) => {
+                        const leadKey = getLeadKey(lead);
                         const isSent = waSentStatus[lead.nome] || false;
-                        const isActive = i === bulkIndex;
+                        const isActive = activeBulkLeadKey === leadKey;
+                        const queueIndex = bulkQueue.findIndex(l => getLeadKey(l) === leadKey);
                         const previewText = waTemplate
                           .replace(/{Nome}/g, lead.nome)
                           .replace(/{Telefone}/g, lead.telefone)
@@ -1458,9 +1620,18 @@ export default function Home() {
                             } flex flex-col gap-3`}
                           >
                             <div className="flex justify-between items-start">
-                              <div>
-                                <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
-                                <div className="text-xs text-gray-500 mt-0.5">{lead.nicho} · {lead.cidade}</div>
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-white/20 bg-black/40 text-green-500 focus:ring-0 cursor-pointer h-4 w-4 mt-0.5"
+                                  checked={selectedWaLeads.includes(leadKey)}
+                                  disabled={isSendingBulk}
+                                  onChange={() => handleToggleSelectWaLead(leadKey)}
+                                />
+                                <div>
+                                  <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
+                                  <div className="text-xs text-gray-500 mt-0.5">{lead.nicho} · {lead.cidade}</div>
+                                </div>
                               </div>
                               <span className="text-xs font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">{lead.telefone}</span>
                             </div>
@@ -1470,9 +1641,10 @@ export default function Home() {
                             </div>
 
                             <button
+                              disabled={isSendingBulk && queueIndex < 0}
                               onClick={() => {
                                 if (isSendingBulk) {
-                                  handleTriggerBulkSendLead(i);
+                                  if (queueIndex >= 0) handleTriggerBulkSendLead(queueIndex);
                                 } else {
                                   openWhatsApp(lead, waTemplate);
                                 }
@@ -1480,18 +1652,20 @@ export default function Home() {
                               className={`w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer border transition-all flex items-center justify-center gap-1.5 ${
                                 isActive
                                   ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
+                                  : isSendingBulk && queueIndex < 0
+                                    ? 'bg-white/[0.02] border-white/5 text-gray-600 cursor-not-allowed'
                                   : isSent 
                                     ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
                                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
                               }`}
                             >
-                              {isActive ? '👉 Fila de Disparo Ativa' : isSent ? '✓ Re-enviar Abordagem' : '⚡ Disparar no WhatsApp'}
+                              {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar Abordagem' : '⚡ Disparar no WhatsApp'}
                             </button>
                           </div>
                         );
                       })}
 
-                    {crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length === 0 && (
+                    {dispatchableWaLeads.length === 0 && (
                       <div className="py-16 text-center text-gray-500">
                         <div className="text-3xl mb-3">💬</div>
                         <p className="font-semibold text-sm">Nenhum lead com telefone no CRM.</p>

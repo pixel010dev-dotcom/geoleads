@@ -45,7 +45,6 @@ RUN npm run build
 
 EXPOSE 3000
 
-ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npm run start -- -H 0.0.0.0 -p ${PORT:-3000}"]
