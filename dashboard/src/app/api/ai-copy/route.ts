@@ -1,104 +1,228 @@
 import { NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+type CopyResult = {
+  title: string;
+  desc: string;
+  text: string;
+};
+
+const tags = '{Nome}, {Cidade}, {Nicho}, {Site}, {Telefone}';
+
+const toneLabels: Record<string, string> = {
+  persuasive: 'persuasivo, consultivo e convincente',
+  direct: 'curto, direto e objetivo',
+  curious: 'curioso, provocativo e leve',
+  friendly: 'humano, próximo e natural'
+};
+
+const channelLabels: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  email: 'Cold Email',
+  mixed: 'WhatsApp e Cold Email'
+};
+
+const pick = <T,>(items: T[], offset = 0) => items[(Math.floor(Math.random() * items.length) + offset) % items.length];
+
+const shuffle = <T,>(items: T[]) => {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const sanitize = (value: unknown, fallback = '') => (
+  typeof value === 'string' ? value.trim().slice(0, 800) : fallback
+);
+
+const buildLocalCopies = ({
+  product,
+  value,
+  tone,
+  channel,
+  audience
+}: {
+  product: string;
+  value: string;
+  tone: string;
+  channel: string;
+  audience: string;
+}): CopyResult[] => {
+  const toneHint = toneLabels[tone] || toneLabels.persuasive;
+  const audienceHint = audience || 'empresas locais';
+  const proof = pick([
+    'sem depender de indicação todo mês',
+    'com uma abordagem mais previsível',
+    'sem aumentar sua rotina operacional',
+    'com um plano simples de primeira conversa'
+  ]);
+  const hook = pick([
+    'vi o perfil de vocês no Google',
+    'estava mapeando empresas da região',
+    'notei que vocês aparecem para buscas locais',
+    'estava olhando negócios de {Nicho} em {Cidade}'
+  ]);
+  const cta = pick([
+    'posso te mandar uma ideia rápida por aqui?',
+    'faz sentido eu te explicar em 2 mensagens?',
+    'quer que eu te mostre um exemplo aplicado ao negócio de vocês?',
+    'posso te enviar um diagnóstico simples?'
+  ]);
+
+  const whatsappCopies: CopyResult[] = [
+    {
+      title: 'WhatsApp: Abertura consultiva',
+      desc: `Primeiro contato ${toneHint} para validar interesse sem parecer spam.`,
+      text: `Olá {Nome}, tudo bem? ${hook} e vi que vocês atuam com {Nicho} em {Cidade}.\n\nHoje eu ajudo ${audienceHint} com ${product} para ${value}, ${proof}.\n\n${cta}`
+    },
+    {
+      title: 'WhatsApp: Dor + solução',
+      desc: 'Boa para leads frios quando você quer abrir conversa com contexto.',
+      text: `Oi {Nome}! Uma coisa que vejo bastante em empresas de {Nicho} é ter bom serviço, mas pouca previsibilidade para atrair novos clientes em {Cidade}.\n\nMeu trabalho com ${product} é ajudar exatamente nisso: ${value}.\n\nSe fizer sentido, eu posso te mandar uma sugestão curta para aplicar no caso de vocês.`
+    },
+    {
+      title: 'WhatsApp: Diagnóstico gratuito',
+      desc: 'Modelo leve para oferecer análise antes de vender.',
+      text: `Olá {Nome}. Fiz uma análise rápida do posicionamento online de empresas de {Nicho} em {Cidade} e encontrei alguns pontos que costumam travar novas oportunidades.\n\nEu trabalho com ${product} para ${value}.\n\nQuer que eu te mande um diagnóstico gratuito e direto ao ponto?`
+    },
+    {
+      title: 'WhatsApp: Parceria local',
+      desc: 'Abordagem mais suave para nichos sensíveis.',
+      text: `Oi {Nome}, tudo certo? Estou buscando empresas de {Nicho} em {Cidade} para uma possível parceria local.\n\nA ideia é usar ${product} para ${value} sem atrapalhar a rotina da equipe.\n\nFaz sentido conversarmos por aqui?`
+    }
+  ];
+
+  const emailCopies: CopyResult[] = [
+    {
+      title: 'Email: Proposta objetiva',
+      desc: 'Email curto para apresentar valor e pedir uma conversa rápida.',
+      text: `Assunto: Ideia para {Nome} em {Cidade}\n\nOlá, equipe da {Nome}.\n\nEncontrei vocês pesquisando empresas de {Nicho} em {Cidade} e achei que faria sentido compartilhar uma ideia.\n\nTrabalho com ${product} para ajudar ${audienceHint} a ${value}.\n\nSe for prioridade para vocês, posso te mostrar em 10 minutos como isso funcionaria na prática.\n\nQual melhor horário esta semana?`
+    },
+    {
+      title: 'Email: Diagnóstico',
+      desc: 'Útil quando a oferta depende de mostrar oportunidade antes.',
+      text: `Assunto: Diagnóstico rápido para {Nome}\n\nOlá.\n\nEstava analisando negócios de {Nicho} em {Cidade} e vi uma oportunidade simples para melhorar a captação de clientes da {Nome}.\n\nMinha solução de ${product} tem foco em ${value}.\n\nPosso enviar um diagnóstico gratuito com 2 ou 3 pontos práticos?`
+    }
+  ];
+
+  const pool = channel === 'email' ? emailCopies : channel === 'mixed' ? [...whatsappCopies, ...emailCopies] : whatsappCopies;
+  return shuffle(pool).slice(0, 4);
+};
+
+const parseCopies = (text: string): CopyResult[] => {
+  const cleaned = text.trim().replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+  const parsed = JSON.parse(cleaned);
+  const items = Array.isArray(parsed) ? parsed : parsed?.copies;
+
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item) => ({
+      title: sanitize(item?.title, 'Modelo de abordagem'),
+      desc: sanitize(item?.desc, 'Copy gerada para prospecção.'),
+      text: sanitize(item?.text)
+    }))
+    .filter((item) => item.title && item.desc && item.text)
+    .slice(0, 6);
+};
+
 export async function POST(request: Request) {
   try {
-    const { product, value, tone } = await request.json();
+    const body = await request.json();
+    const product = sanitize(body.product);
+    const value = sanitize(body.value);
+    const tone = sanitize(body.tone, 'persuasive');
+    const channel = sanitize(body.channel, 'mixed');
+    const audience = sanitize(body.audience, 'empresas locais');
 
     if (!product || !value) {
       return NextResponse.json({ error: 'Preencha o produto e a proposta de valor.' }, { status: 400 });
     }
 
+    const localCopies = buildLocalCopies({ product, value, tone, channel, audience });
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Se NÃO tiver chave API configurada, usamos os templates de fallback avançados
     if (!apiKey) {
       return NextResponse.json({
         success: true,
         source: 'local_fallback',
-        copies: [
-          {
-            title: '📱 WhatsApp: Abordagem Curiosa (Alto engajamento)',
-            desc: 'Ideal para quebrar o gelo e iniciar uma conversa fluida de forma informal.',
-            text: `Olá {Nome}, tudo bem? Vi a página da sua empresa no Google e notei que vocês atendem em {Cidade}.\n\nTrabalho com ${product} especificamente para o nicho de {Nicho} e identifiquei 2 pontos no perfil de vocês que podem estar fazendo vocês perderem clientes para a concorrência hoje.\n\nSe eu te enviar um áudio de 45 segundos explicando como ajustar isso para ${value}, faria sentido para você?`
-          },
-          {
-            title: '⚡ WhatsApp: Oferta Direta com Proposta de Valor',
-            desc: 'Vá direto ao ponto focando no principal ganho que seu produto entrega.',
-            text: `Olá {Nome}! Meu nome é Rodrigo, sou especialista em aceleração de negócios locais.\n\nAchei sua empresa em {Cidade} e vi que prestam um excelente serviço. Nós ajudamos empresas do nicho de {Nicho} a ${value} através do nosso método de ${product}.\n\nVocê teria 5 minutos para uma rápida ligação amanhã às 14h para vermos se conseguimos replicar esse resultado para a sua empresa?`
-          },
-          {
-            title: '✉️ Cold Email: Estruturado de Alta Conversão',
-            desc: 'Um e-mail profissional, conciso e com gatilhos mentais perfeitos.',
-            text: `Assunto: Parceria comercial / Nova demanda de clientes para {Nome}\n\nOlá Equipe da {Nome},\n\nEspero que este e-mail os encontre bem.\n\nEstava mapeando as empresas de {Nicho} em {Cidade} e o perfil de vocês se destacou pela ótima nota de avaliação.\n\nDesenvolvemos uma solução de ${product} que tem como único objetivo ajudar vocês a ${value}.\n\nFaz sentido agendarmos uma conversa rápida de 10 minutos nesta semana para eu te mostrar como ajudamos negócios parecidos a crescerem?\n\nQual o melhor dia e horário para você?\n\nAbraço,\n[Seu Nome]\n[Seu Telefone]`
-          }
-        ]
+        model: 'local',
+        copies: localCopies
       });
     }
 
-    // Tradução amigável do tom para o prompt
-    const toneText = tone === 'direct' ? 'Direto e Objetivo' 
-                   : tone === 'curious' ? 'Curioso e Provocativo' 
-                   : 'Persuasivo e Marcante';
+    const model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+    const toneText = toneLabels[tone] || toneLabels.persuasive;
+    const channelText = channelLabels[channel] || channelLabels.mixed;
+    const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    // Prompt detalhado solicitando resposta estritamente estruturada em JSON
-    const prompt = `Você é um copywriter de elite especialista em vendas frias (outbound).
-Gere 3 roteiros de vendas (copys) em português para prospecção fria baseados nestas informações:
-- Produto/Serviço oferecido: ${product}
-- Principal benefício/Ganho do cliente: ${value}
-- Tom de voz: ${toneText}
+    const prompt = `Você é um copywriter B2B especialista em prospecção fria por ${channelText}.
+Gere 4 modelos diferentes em português do Brasil para abordagem comercial.
 
-IMPORTANTE: Você DEVE usar estritamente os seguintes placeholders/tags ao longo do texto dos roteiros, para que possamos substituí-los dinamicamente depois:
-- {Nome} (para o nome da empresa/lead)
-- {Cidade} (para a cidade da empresa)
-- {Nicho} (para o nicho/ramo de atuação da empresa)
-- {Site} (para o site comercial)
-- {Telefone} (para o telefone de contato)
+Oferta:
+- Produto/serviço: ${product}
+- Principal ganho prometido: ${value}
+- Público alvo: ${audience}
+- Tom: ${toneText}
+- Semente de variação: ${variationSeed}
 
-Exemplo de uso das tags: "Olá {Nome}, vi que vocês prestam serviços em {Cidade}..."
+Regras obrigatórias:
+- Use abordagem ética, humana e sem promessa milagrosa.
+- Não diga que já conversou com o lead.
+- Varie abertura, ângulo, CTA e tamanho entre os modelos.
+- Use placeholders compatíveis com o GeoLeads: ${tags}.
+- Para WhatsApp, mantenha mensagens naturais e curtas.
+- Para e-mail, inclua assunto no campo text.
 
-Estruture os 3 roteiros como um array JSON de objetos. Cada objeto deve possuir exatamente estas 3 chaves:
-1. "title": Título curto do roteiro (ex: "📱 WhatsApp: Abordagem Curiosa")
-2. "desc": Breve descrição de 1 frase explicando quando usar essa copy.
-3. "text": O texto completo do roteiro (com parágrafos e quebras de linha normais \\n, contendo as tags descritas acima).
+Responda somente JSON válido, como array de objetos.
+Cada objeto deve ter exatamente:
+- "title": string
+- "desc": string
+- "text": string`;
 
-Responda APENAS com o JSON válido. Não inclua nenhuma explicação adicional, introdução ou formatação Markdown (como \`\`\`json ... \`\`\`).`;
-
-    // Chamada à API do Gemini
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.7,
-          responseMimeType: "application/json"
+          temperature: 0.92,
+          topP: 0.95,
+          responseMimeType: 'application/json'
         }
       })
     });
 
     if (!res.ok) {
-      throw new Error(`Falha na API do Gemini: ${res.statusText}`);
+      return NextResponse.json({
+        success: true,
+        source: 'local_fallback',
+        model: 'local',
+        warning: `Gemini indisponível (${res.status}). Usei modelos locais.`,
+        copies: localCopies
+      });
     }
 
     const data = await res.json();
-    let textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    // Limpeza de possíveis blocos de código Markdown gerados pelo modelo
-    textResponse = textResponse.trim();
-    if (textResponse.startsWith('```')) {
-      textResponse = textResponse.replace(/^```(json)?/, '').replace(/```$/, '').trim();
-    }
-
-    const copies = JSON.parse(textResponse);
+    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const copies = parseCopies(textResponse);
 
     return NextResponse.json({
       success: true,
-      source: 'gemini_ai',
-      copies
+      source: copies.length > 0 ? 'gemini_ai' : 'local_fallback',
+      model: copies.length > 0 ? model : 'local',
+      copies: copies.length > 0 ? copies : localCopies
     });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'erro desconhecido';
+    console.error('ERRO NO COPYWRITER IA:', message);
 
-  } catch (error: any) {
-    console.error("ERRO NO COPYWRITER IA:", error.message);
-    return NextResponse.json({ error: 'Erro ao gerar cópias: ' + error.message }, { status: 500 });
+    return NextResponse.json({
+      error: `Erro ao gerar cópias: ${message}`
+    }, { status: 500 });
   }
 }

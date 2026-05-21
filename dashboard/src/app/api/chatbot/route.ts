@@ -122,8 +122,59 @@ const normalizeText = (value: string) => (
   value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
     .toLowerCase()
 );
+
+const getWords = (value: string) => normalizeText(value).split(/\s+/).filter(Boolean);
+
+const getDistance = (left: string, right: string) => {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = Array(right.length + 1).fill(0);
+
+  for (let i = 1; i <= left.length; i += 1) {
+    current[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const substitutionCost = left[i - 1] === right[j - 1] ? 0 : 1;
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + substitutionCost
+      );
+    }
+
+    for (let j = 0; j <= right.length; j += 1) {
+      previous[j] = current[j];
+    }
+  }
+
+  return previous[right.length];
+};
+
+const isCloseWord = (word: string, keyword: string) => {
+  if (keyword.length <= 3) return word === keyword;
+
+  const maxDistance = keyword.length <= 5 ? 1 : 2;
+  return Math.abs(word.length - keyword.length) <= maxDistance && getDistance(word, keyword) <= maxDistance;
+};
+
+const keywordMatchesText = (text: string, keyword: string) => {
+  const normalizedText = normalizeText(text);
+  const normalizedKeyword = normalizeText(keyword.trim());
+
+  if (!normalizedKeyword) return false;
+  if (normalizedText.includes(normalizedKeyword)) return true;
+
+  const textWords = getWords(text);
+  const keywordWords = getWords(keyword);
+  if (keywordWords.length === 0) return false;
+
+  return keywordWords.every(keywordWord => textWords.some(textWord => isCloseWord(textWord, keywordWord)));
+};
 
 const getMessageTimestampMs = (message: any) => {
   const timestamp = message?.messageTimestamp;
@@ -146,10 +197,8 @@ const renderResponse = (template: string, vars: Record<string, string>) => {
 };
 
 const pickResponse = (text: string, config: ChatbotConfig) => {
-  const normalized = normalizeText(text);
   const matched = config.rules.find(rule => {
-    const keyword = normalizeText(rule.keyword.trim());
-    return rule.enabled && keyword.length > 0 && normalized.includes(keyword);
+    return rule.enabled && keywordMatchesText(text, rule.keyword);
   });
 
   return matched?.response || config.fallbackMessage;

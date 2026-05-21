@@ -148,6 +148,12 @@ export default function Home() {
   const [bulkAutoNext, setBulkAutoNext] = useState(false);
   const [selectedWaLeads, setSelectedWaLeads] = useState<string[]>([]);
   const [bulkQueue, setBulkQueue] = useState<any[]>([]);
+  const [waAiProduct, setWaAiProduct] = useState('');
+  const [waAiValue, setWaAiValue] = useState('');
+  const [waAiTone, setWaAiTone] = useState('friendly');
+  const [waAiCopies, setWaAiCopies] = useState<any[]>([]);
+  const [waAiLoading, setWaAiLoading] = useState(false);
+  const [waAiMessage, setWaAiMessage] = useState('');
 
   // WhatsApp Chatbot States
   const [chatbotEnabled, setChatbotEnabled] = useState(true);
@@ -911,6 +917,48 @@ export default function Home() {
     });
   };
 
+  const generateWaAiTemplates = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!waAiProduct || !waAiValue) {
+      setWaAiMessage('Preencha a oferta e o principal benefício para gerar modelos.');
+      return;
+    }
+
+    setWaAiLoading(true);
+    setWaAiMessage('');
+    setWaAiCopies([]);
+
+    try {
+      const res = await fetch('/api/ai-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product: waAiProduct,
+          value: waAiValue,
+          tone: waAiTone,
+          channel: 'whatsapp',
+          audience: keyword || waPreviewLead.nicho || 'empresas locais'
+        })
+      });
+      const data = await res.json();
+
+      if (!data.success || !data.copies) {
+        throw new Error(data.error || 'Erro inesperado.');
+      }
+
+      setWaAiCopies(data.copies);
+      setWaAiMessage(data.source === 'gemini_ai'
+        ? `Modelos gerados com IA (${data.model}).`
+        : data.warning || 'Modelos locais gerados sem custo de API.'
+      );
+    } catch (error: any) {
+      setWaAiMessage(error.message || 'Erro ao gerar modelos.');
+    } finally {
+      setWaAiLoading(false);
+    }
+  };
+
   // WhatsApp Trigger Helper
   const openWhatsApp = (
     lead: any,
@@ -961,7 +1009,7 @@ export default function Home() {
       const res = await fetch('/api/ai-copy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: aiProduct, value: aiValue, tone: aiTone })
+        body: JSON.stringify({ product: aiProduct, value: aiValue, tone: aiTone, channel: 'mixed' })
       });
       const data = await res.json();
       if (data.success && data.copies) {
@@ -1775,6 +1823,78 @@ export default function Home() {
                     })}
                   </div>
 
+                  <form onSubmit={generateWaAiTemplates} className="rounded-2xl bg-green-500/[0.04] border border-green-500/15 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-bold text-green-300">Modelos com IA</h4>
+                        <p className="text-[11px] text-gray-500 mt-0.5">Gere abordagens novas e aplique no disparador.</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-black/30 border border-white/10 text-gray-400">
+                        Gemini ou local
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      <input
+                        value={waAiProduct}
+                        onChange={(e) => setWaAiProduct(e.target.value)}
+                        placeholder="O que você vende? ex: gestão de tráfego"
+                        className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-green-500"
+                      />
+                      <textarea
+                        rows={2}
+                        value={waAiValue}
+                        onChange={(e) => setWaAiValue(e.target.value)}
+                        placeholder="Principal benefício: ex: gerar mais orçamentos todos os meses"
+                        className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-green-500 resize-none"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                        <select
+                          value={waAiTone}
+                          onChange={(e) => setWaAiTone(e.target.value)}
+                          style={{ colorScheme: 'dark' }}
+                          className="w-full bg-black/80 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-green-500 cursor-pointer"
+                        >
+                          <option value="friendly">Humano e natural</option>
+                          <option value="direct">Curto e direto</option>
+                          <option value="curious">Curioso</option>
+                          <option value="persuasive">Persuasivo</option>
+                        </select>
+                        <button
+                          type="submit"
+                          disabled={waAiLoading}
+                          className="px-4 py-2.5 rounded-xl bg-green-500 hover:bg-green-400 text-black text-xs font-extrabold cursor-pointer disabled:opacity-60"
+                        >
+                          {waAiLoading ? 'Gerando...' : 'Gerar modelos'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {waAiMessage && (
+                      <div className="text-[11px] text-green-200 bg-black/25 border border-white/10 rounded-xl px-3 py-2">
+                        {waAiMessage}
+                      </div>
+                    )}
+
+                    {waAiCopies.length > 0 && (
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {waAiCopies.map((copy, index) => (
+                          <button
+                            key={`${copy.title}-${index}`}
+                            type="button"
+                            onClick={() => setWaTemplate(copy.text)}
+                            className="w-full text-left p-3 rounded-xl bg-black/35 hover:bg-black/50 border border-white/10 hover:border-green-500/30 transition-all cursor-pointer"
+                          >
+                            <span className="block text-xs font-bold text-white">{copy.title}</span>
+                            <span className="block text-[10px] text-gray-500 mt-0.5">{copy.desc}</span>
+                            <span className="block text-[11px] text-gray-300 mt-2 line-clamp-3 whitespace-pre-wrap">{copy.text}</span>
+                            <span className="block text-[10px] text-green-300 font-bold mt-2">Usar este modelo</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </form>
+
                   <div>
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <label className="block text-xs font-medium text-gray-400">Editor</label>
@@ -2458,7 +2578,7 @@ export default function Home() {
             {/* RESULTADO DAS COPYS */}
             <div className="lg:col-span-2">
               <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl h-full flex flex-col shadow-2xl">
-                <h3 className="text-xl font-semibold mb-6">Modelos Prontos Prontos para Uso</h3>
+                <h3 className="text-xl font-semibold mb-6">Modelos Prontos para Uso</h3>
 
                 {generatedCopies ? (
                   <div className="space-y-6 overflow-y-auto max-h-[550px] pr-2">
@@ -2471,15 +2591,26 @@ export default function Home() {
                           {copy.text}
                         </pre>
 
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(copy.text);
-                            alert('Copiado para a área de transferência!');
-                          }}
-                          className="w-full sm:w-auto mt-3 sm:mt-0 sm:absolute sm:top-6 sm:right-6 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          📋 Copiar Roteiro
-                        </button>
+                        <div className="w-full sm:w-auto mt-3 sm:mt-0 sm:absolute sm:top-6 sm:right-6 flex flex-col sm:flex-row gap-2">
+                          <button
+                            onClick={() => {
+                              setWaTemplate(copy.text);
+                              setActiveTab('whatsapp');
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-300 border border-green-500/20 text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            Usar no Disparador
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(copy.text);
+                              alert('Copiado para a área de transferência!');
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            📋 Copiar
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
