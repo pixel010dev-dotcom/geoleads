@@ -32,8 +32,16 @@ type BotSession = {
   lastDisconnectCode?: string;
   connectedAt?: string;
   lastMessageAt?: string;
+  lastIncomingAt?: string;
+  lastIncomingText?: string;
+  lastIncomingJid?: string;
+  lastReplyAt?: string;
+  lastReplyText?: string;
+  lastEventType?: string;
+  lastIgnoredReason?: string;
   repliedCount: number;
   reconnectAttempts: number;
+  startedAtMs?: number;
   config: ChatbotConfig;
   replyThrottle: Map<string, number>;
   optOut: Set<string>;
@@ -65,11 +73,32 @@ const getPublicSession = (session?: BotSession) => ({
   lastDisconnectCode: session?.lastDisconnectCode || '',
   connectedAt: session?.connectedAt || '',
   lastMessageAt: session?.lastMessageAt || '',
-  repliedCount: session?.repliedCount || 0
+  lastIncomingAt: session?.lastIncomingAt || '',
+  lastIncomingText: session?.lastIncomingText || '',
+  lastIncomingJid: session?.lastIncomingJid || '',
+  lastReplyAt: session?.lastReplyAt || '',
+  lastReplyText: session?.lastReplyText || '',
+  lastEventType: session?.lastEventType || '',
+  lastIgnoredReason: session?.lastIgnoredReason || '',
+  repliedCount: session?.repliedCount || 0,
+  enabled: session?.config.enabled ?? false,
+  rulesCount: session?.config.rules.filter(rule => rule.enabled && rule.keyword.trim().length > 0).length || 0
 });
 
+const unwrapMessageContent = (content: any): any => {
+  if (!content) return null;
+
+  const wrapped =
+    content.ephemeralMessage?.message ||
+    content.viewOnceMessage?.message ||
+    content.viewOnceMessageV2?.message ||
+    content.documentWithCaptionMessage?.message;
+
+  return wrapped ? unwrapMessageContent(wrapped) : content;
+};
+
 const getTextFromMessage = (message: any) => {
-  const content = message?.message;
+  const content = unwrapMessageContent(message?.message);
   if (!content) return '';
 
   return (
@@ -78,8 +107,35 @@ const getTextFromMessage = (message: any) => {
     content.imageMessage?.caption ||
     content.videoMessage?.caption ||
     content.documentMessage?.caption ||
+    content.buttonsResponseMessage?.selectedDisplayText ||
+    content.buttonsResponseMessage?.selectedButtonId ||
+    content.listResponseMessage?.title ||
+    content.listResponseMessage?.description ||
+    content.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    content.templateButtonReplyMessage?.selectedDisplayText ||
+    content.templateButtonReplyMessage?.selectedId ||
     ''
   ).trim();
+};
+
+const normalizeText = (value: string) => (
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+);
+
+const getMessageTimestampMs = (message: any) => {
+  const timestamp = message?.messageTimestamp;
+  let seconds = 0;
+
+  if (typeof timestamp === 'number') seconds = timestamp;
+  if (typeof timestamp === 'string') seconds = Number(timestamp);
+  if (typeof timestamp === 'bigint') seconds = Number(timestamp);
+  if (timestamp && typeof timestamp.toNumber === 'function') seconds = timestamp.toNumber();
+  if (!seconds && timestamp?.low) seconds = Number(timestamp.low);
+
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
 };
 
 const renderResponse = (template: string, vars: Record<string, string>) => {
@@ -90,9 +146,9 @@ const renderResponse = (template: string, vars: Record<string, string>) => {
 };
 
 const pickResponse = (text: string, config: ChatbotConfig) => {
-  const normalized = text.toLowerCase();
+  const normalized = normalizeText(text);
   const matched = config.rules.find(rule => {
-    const keyword = rule.keyword.trim().toLowerCase();
+    const keyword = normalizeText(rule.keyword.trim());
     return rule.enabled && keyword.length > 0 && normalized.includes(keyword);
   });
 
@@ -144,8 +200,10 @@ const startBotSession = async (session: BotSession) => {
   const { Browsers, DisconnectReason, useMultiFileAuthState } = baileys;
 
   session.status = 'connecting';
+  session.startedAtMs = Date.now();
   session.lastError = '';
   session.lastDisconnectCode = '';
+  session.lastIgnoredReason = '';
 
   try {
     session.socket?.end?.();
@@ -221,45 +279,98 @@ const startBotSession = async (session: BotSession) => {
   });
 
   socket.ev.on('messages.upsert', async (event: any) => {
-    if (!session.config.enabled || event.type !== 'notify') return;
+    session.lastEventType = event.type || 'unknown';
+
+    if (!session.config.enabled) {
+      session.lastIgnoredReason = 'Bot desativado nas configurações.';
+      return;
+    }
 
     for (const message of event.messages || []) {
       const jid = message.key?.remoteJid;
-      if (!jid || message.key?.fromMe) continue;
-      if (!jid.endsWith('@s.whatsapp.net')) continue;
-
       const text = getTextFromMessage(message);
-      if (!text) continue;
 
-      const senderName = message.pushName || 'tudo bem';
-      const lowerText = text.toLowerCase();
+      session.lastIncomingAt = new Date().toISOString();
+      session.lastIncomingJid = jid || '';
+      session.lastIncomingText = text || '';
 
-      if (lowerText.includes('sair') || lowerText.includes('parar') || lowerText.includes('cancelar')) {
-        session.optOut.add(jid);
-        await socket.sendMessage(jid, { text: 'Combinado. Não vou enviar novas respostas automáticas por aqui.' });
-        continue;
-      }
+      try {
+        if (!jid) {
+          session.lastIgnoredReason = 'Mensagem sem identificador de conversa.';
+          continue;
+        }
 
-      if (session.optOut.has(jid)) continue;
+        if (message.key?.fromMe) {
+          session.lastIgnoredReason = 'Mensagem enviada pelo próprio número conectado.';
+          continue;
+        }
 
-      const now = Date.now();
-      const lastReplyAt = session.replyThrottle.get(jid) || 0;
-      if (now - lastReplyAt < 30_000) continue;
+        if (jid.endsWith('@g.us') || jid === 'status@broadcast' || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) {
+          session.lastIgnoredReason = 'Grupo, status ou broadcast ignorado.';
+          continue;
+        }
 
-      const response = pickResponse(text, session.config);
-      if (!response) continue;
+        const messageTimestampMs = getMessageTimestampMs(message);
+        if (messageTimestampMs && session.startedAtMs && messageTimestampMs < session.startedAtMs - 120_000) {
+          session.lastIgnoredReason = 'Mensagem antiga ignorada após reconexão.';
+          continue;
+        }
 
-      await socket.sendMessage(jid, {
-        text: renderResponse(response, {
+        if (!text) {
+          session.lastIgnoredReason = 'Mensagem sem texto legível.';
+          continue;
+        }
+
+        const senderName = message.pushName || 'tudo bem';
+        const lowerText = normalizeText(text);
+
+        if (lowerText.includes('sair') || lowerText.includes('parar') || lowerText.includes('cancelar')) {
+          const optOutText = 'Combinado. Nao vou enviar novas respostas automaticas por aqui.';
+          session.optOut.add(jid);
+          await socket.sendMessage(jid, { text: optOutText });
+          session.lastReplyAt = new Date().toISOString();
+          session.lastReplyText = optOutText;
+          session.lastMessageAt = session.lastReplyAt;
+          session.lastIgnoredReason = 'Contato pediu para parar respostas automáticas.';
+          continue;
+        }
+
+        if (session.optOut.has(jid)) {
+          session.lastIgnoredReason = 'Contato está na lista de opt-out.';
+          continue;
+        }
+
+        const now = Date.now();
+        const lastReplyAt = session.replyThrottle.get(jid) || 0;
+        if (now - lastReplyAt < 30_000) {
+          session.lastIgnoredReason = 'Contato em intervalo de segurança de 30 segundos.';
+          continue;
+        }
+
+        const response = pickResponse(text, session.config);
+        if (!response) {
+          session.lastIgnoredReason = 'Nenhuma resposta configurada para essa mensagem.';
+          continue;
+        }
+
+        const replyText = renderResponse(response, {
           nome: senderName,
           mensagem: text,
           empresa: session.config.businessName
-        })
-      });
+        });
 
-      session.replyThrottle.set(jid, now);
-      session.lastMessageAt = new Date().toISOString();
-      session.repliedCount += 1;
+        await socket.sendMessage(jid, { text: replyText });
+
+        session.replyThrottle.set(jid, now);
+        session.lastReplyAt = new Date().toISOString();
+        session.lastReplyText = replyText;
+        session.lastMessageAt = session.lastReplyAt;
+        session.lastIgnoredReason = '';
+        session.repliedCount += 1;
+      } catch (error: any) {
+        session.lastError = `Falha ao responder mensagem: ${error?.message || 'erro desconhecido'}`;
+        session.lastIgnoredReason = 'Erro ao enviar resposta automática.';
+      }
     }
   });
 

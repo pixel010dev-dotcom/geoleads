@@ -323,6 +323,8 @@ export default function Home() {
   const saveChatbotConfig = async (silent = false) => {
     const config = getChatbotConfig();
     localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config));
+    let cloudSyncFailed = false;
+    let runtimeSyncFailed = false;
 
     if (user?.id) {
       const { error } = await supabase
@@ -338,11 +340,30 @@ export default function Home() {
 
       if (error) {
         console.warn('Chatbot config cloud sync failed:', error.message);
-        if (!silent) setChatbotMessage('Configuração salva localmente. Rode o SQL do Supabase para salvar na nuvem.');
+        cloudSyncFailed = true;
       }
     }
 
-    if (!silent) setChatbotMessage('Configuração do chatbot salva.');
+    if (user?.id && ['connected', 'qr', 'connecting'].includes(chatbotSession.status)) {
+      try {
+        await callChatbotApi('update-config', config);
+      } catch (error: any) {
+        console.warn('Chatbot runtime sync failed:', error.message);
+        runtimeSyncFailed = true;
+      }
+    }
+
+    if (!silent) {
+      if (runtimeSyncFailed) {
+        setChatbotMessage('Configuração salva, mas o bot conectado não recebeu a atualização. Reconecte o QR.');
+      } else if (cloudSyncFailed) {
+        setChatbotMessage('Configuração salva localmente. Rode o SQL do Supabase para salvar na nuvem.');
+      } else if (['connected', 'qr', 'connecting'].includes(chatbotSession.status)) {
+        setChatbotMessage('Configuração salva e enviada para o bot conectado.');
+      } else {
+        setChatbotMessage('Configuração do chatbot salva.');
+      }
+    }
   };
 
   const callChatbotApi = async (action: string, config = getChatbotConfig()) => {
@@ -2144,8 +2165,8 @@ export default function Home() {
                       <strong className="text-lg text-white">{chatbotSession.repliedCount || 0}</strong>
                     </div>
                     <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                      <span className="block text-gray-500">Regras</span>
-                      <strong className="text-lg text-white">{chatbotRules.filter(rule => rule.enabled).length}</strong>
+                      <span className="block text-gray-500">Regras no bot</span>
+                      <strong className="text-lg text-white">{chatbotSession.rulesCount ?? chatbotRules.filter(rule => rule.enabled).length}</strong>
                     </div>
                   </div>
 
@@ -2154,6 +2175,41 @@ export default function Home() {
                       {chatbotSession.lastError || 'Conexão instável.'}
                       {chatbotSession.lastDisconnectCode && (
                         <span className="block font-mono mt-1 opacity-80">Código: {chatbotSession.lastDisconnectCode}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {(chatbotSession.lastIncomingAt || chatbotSession.lastReplyAt || chatbotSession.lastIgnoredReason || chatbotSession.lastEventType) && (
+                    <div className="mt-3 p-3 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] text-gray-300 leading-relaxed space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-gray-500">Bot</span>
+                        <span className={chatbotSession.enabled ? 'text-emerald-300' : 'text-red-300'}>
+                          {chatbotSession.enabled ? 'Ativo' : 'Pausado'}
+                        </span>
+                      </div>
+                      {chatbotSession.lastEventType && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-gray-500">Evento</span>
+                          <span className="font-mono text-gray-200">{chatbotSession.lastEventType}</span>
+                        </div>
+                      )}
+                      {chatbotSession.lastIncomingAt && (
+                        <div>
+                          <span className="block text-gray-500">Última mensagem</span>
+                          <span className="block text-gray-200 break-words">{chatbotSession.lastIncomingText || 'Sem texto legível'}</span>
+                        </div>
+                      )}
+                      {chatbotSession.lastReplyAt && (
+                        <div>
+                          <span className="block text-gray-500">Última resposta</span>
+                          <span className="block text-gray-200 break-words">{chatbotSession.lastReplyText}</span>
+                        </div>
+                      )}
+                      {chatbotSession.lastIgnoredReason && (
+                        <div>
+                          <span className="block text-gray-500">Último motivo</span>
+                          <span className="block text-amber-300 break-words">{chatbotSession.lastIgnoredReason}</span>
+                        </div>
                       )}
                     </div>
                   )}
