@@ -79,19 +79,19 @@ export default function Account() {
         <p className="text-gray-400 mb-8">{user?.email}</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
             <p className="text-sm text-gray-400 mb-1">Plano Atual</p>
             <p className="text-2xl font-bold">{currentPlan.name}</p>
             <p className="text-sm text-gray-500 mt-1">{formatPlanPrice(currentPlan.price)}{currentPlan.price > 0 ? '/mês' : ''}</p>
           </div>
 
-          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
             <p className="text-sm text-gray-400 mb-1">Tokens Disponíveis</p>
             <p className="text-2xl font-bold">{tokens.toLocaleString('pt-BR')}</p>
             <p className="text-sm text-gray-500 mt-1">de {currentPlan.tokens.toLocaleString('pt-BR')} inclusos</p>
           </div>
 
-          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
             <p className="text-sm text-gray-400 mb-1">Uso do Plano</p>
             <div className="mt-2">
               <div className="h-3 rounded-full bg-white/10 overflow-hidden">
@@ -105,7 +105,7 @@ export default function Account() {
           </div>
         </div>
 
-        <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl mb-8">
+        <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 mb-8">
           <h2 className="text-xl font-bold mb-4">Comparativo de Recursos</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -152,7 +152,7 @@ export default function Account() {
         </div>
 
         {payments.length > 0 && (
-          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
             <h2 className="text-xl font-bold mb-4">Histórico de Pagamentos</h2>
             <div className="space-y-3">
               {payments.map(p => (

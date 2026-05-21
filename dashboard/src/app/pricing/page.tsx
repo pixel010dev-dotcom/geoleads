@@ -85,7 +85,7 @@ export default function Pricing() {
   return (
     <div className="app-shell min-h-screen text-white py-5 sm:py-8 relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-35" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(820px,95vw)] h-[360px] bg-blue-600/18 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(760px,92vw)] h-[280px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
 
       <div className="app-container relative z-10">
         <div className="flex items-center justify-between gap-3 mb-7">

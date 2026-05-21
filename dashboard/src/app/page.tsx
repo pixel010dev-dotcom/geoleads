@@ -290,7 +290,7 @@ export default function Home() {
       : fallbackCopy;
 
     return (
-      <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl animate-slide-up">
+      <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl animate-slide-up">
         <div className="max-w-2xl">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold mb-4">
             🔒 Plano {requiredPlan.name}
@@ -1284,7 +1284,7 @@ export default function Home() {
   return (
     <div className="app-shell min-h-screen text-white font-sans selection:bg-blue-500/30 relative pb-12 sm:pb-16 overflow-x-hidden">
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(800px,95vw)] h-[360px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(720px,92vw)] h-[260px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
 
       {/* NAVBAR */}
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
@@ -1405,7 +1405,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20">
             {/* PAINEL DE BUSCA */}
             <div className="lg:col-span-1 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
                 
                 <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -1529,7 +1529,7 @@ export default function Home() {
 
             {/* PAINEL DE RESULTADOS */}
             <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl h-full min-h-[400px] flex flex-col shadow-2xl">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 h-full min-h-[400px] flex flex-col shadow-2xl">
                 
                 {/* Header dos resultados */}
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -1795,7 +1795,7 @@ export default function Home() {
 
         {/* ==================== TAB 2: CRM ==================== */}
         {activeTab === 'crm' && !activeTabLocked && (
-          <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden animate-slide-up">
+          <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden animate-slide-up">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -2109,7 +2109,7 @@ export default function Home() {
             {/* CONFIGURAÇÃO DO DISPARO */}
             <div className="lg:col-span-1 space-y-5">
               {/* MODELO DE MENSAGEM */}
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
                 <div className="mb-5">
                   <h3 className="text-xl font-semibold flex items-center gap-2">
@@ -2263,7 +2263,7 @@ export default function Home() {
               </div>
 
               {/* PAINEL DE DISPARO EM MASSA E ANTIBAN */}
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500" />
                 <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                   🚀 Fila Assistida WhatsApp
@@ -2339,7 +2339,7 @@ export default function Home() {
 
             {/* LISTA DE DISPARO */}
             <div className="lg:col-span-2">
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl h-full flex flex-col">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl h-full flex flex-col">
                 <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                   <div>
                     <h3 className="text-xl font-semibold">Leads Prontos para Abordagem</h3>
@@ -2579,7 +2579,7 @@ export default function Home() {
         {activeTab === 'chatbot' && !activeTabLocked && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
             <div className="lg:col-span-1 space-y-5">
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-cyan-500" />
                 <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">🤖 Chatbot WhatsApp</h3>
                 <p className="text-xs text-gray-400 leading-relaxed mb-5">
@@ -2715,7 +2715,7 @@ export default function Home() {
             </div>
 
             <div className="lg:col-span-2 space-y-5">
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                   <div>
                     <h3 className="text-xl font-semibold">Configuração do Atendimento</h3>
@@ -2773,7 +2773,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <div>
                     <h3 className="text-xl font-semibold">Fluxos de Resposta</h3>
@@ -2846,7 +2846,7 @@ export default function Home() {
             
             {/* PAINEL DE ENTRADAS */}
             <div className="lg:col-span-1">
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
                 
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -2902,7 +2902,7 @@ export default function Home() {
 
             {/* RESULTADO DAS COPYS */}
             <div className="lg:col-span-2">
-              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl h-full flex flex-col shadow-2xl">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 h-full flex flex-col shadow-2xl">
                 <h3 className="text-xl font-semibold mb-6">Modelos Prontos para Uso</h3>
 
                 {generatedCopies ? (
@@ -2955,7 +2955,7 @@ export default function Home() {
         {activeTab === 'support' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 relative z-20 animate-slide-up">
             {/* CARD 1: CONTATO E SUPORTE */}
-            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
+            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
               
               <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -2992,7 +2992,7 @@ export default function Home() {
             </div>
 
             {/* CARD 2: AVALIAÇÃO DE DESEMPENHO */}
-            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-purple-500/30 transition-all duration-500">
+            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden group hover:border-purple-500/30 transition-all duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
               
               <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -3081,7 +3081,7 @@ export default function Home() {
 
       {/* Widget de Prova Social */}
       <div
-        className={`hidden 2xl:flex fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm px-4 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
+        className={`hidden 2xl:flex fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm px-4 py-3 bg-black/60 border border-white/10 rounded-2xl shadow-2xl items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
           proofVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
         }`}
       >

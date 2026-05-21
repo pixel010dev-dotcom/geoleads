@@ -830,11 +830,14 @@ body {
 .app-card {
   border-radius: clamp(1rem, 2.2vw, 1.5rem);
   padding: clamp(1rem, 2.5vw, 1.75rem);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.42));
+  background: linear-gradient(180deg, rgba(17, 23, 30, 0.96), rgba(3, 6, 10, 0.94)) !important;
+  background-clip: padding-box;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+  contain: paint;
   transition: none;
 }
 
@@ -843,11 +846,18 @@ body {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
 }
 
+.app-card::before,
+.app-card::after {
+  content: none !important;
+  display: none !important;
+}
+
 .app-panel {
   border-radius: clamp(0.875rem, 2vw, 1.25rem);
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .app-tab::after {
@@ -916,10 +926,14 @@ button.bg-white {
   border-radius: 1.25rem;
   padding: clamp(1rem, 2vw, 1.25rem);
   background:
-    linear-gradient(180deg, rgba(59, 130, 246, 0.11), rgba(255, 255, 255, 0.035)),
-    rgba(0, 0, 0, 0.28);
+    linear-gradient(180deg, rgba(30, 64, 175, 0.24), rgba(4, 8, 14, 0.94)),
+    rgba(0, 0, 0, 0.88);
   border: 1px solid rgba(96, 165, 250, 0.18);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+  contain: paint;
 }
 
 .lead-step {
@@ -962,7 +976,9 @@ button.bg-white {
   padding: 0.35rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1rem;
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.66);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .dashboard-tabs .app-tab {

@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface GlobeProps {
   size?: number;
@@ -7,9 +7,78 @@ interface GlobeProps {
 }
 
 export default function Globe({ size = 36, className = "" }: GlobeProps) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const offsetRef = useRef(0);
+  const velocityRef = useRef(-10.5);
+  const lastFrameRef = useRef(0);
+  const lastPointerXRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    let animationFrame = 0;
+
+    const animate = (time: number) => {
+      const deltaSeconds = lastFrameRef.current ? Math.min((time - lastFrameRef.current) / 1000, 0.05) : 0;
+      lastFrameRef.current = time;
+      offsetRef.current += velocityRef.current * deltaSeconds;
+
+      while (offsetRef.current <= -33.333) offsetRef.current += 33.333;
+      while (offsetRef.current >= 0) offsetRef.current -= 33.333;
+
+      if (trackRef.current) {
+        trackRef.current.style.transform = `translate3d(${offsetRef.current}%, 0, 0)`;
+      }
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, []);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    isDraggingRef.current = true;
+    lastPointerXRef.current = event.clientX;
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    event.preventDefault();
+
+    const deltaX = event.clientX - lastPointerXRef.current;
+    lastPointerXRef.current = event.clientX;
+
+    if (Math.abs(deltaX) < 1) return;
+
+    const direction = deltaX > 0 ? 1 : -1;
+    const speed = Math.min(30, Math.max(7, Math.abs(deltaX) * 2.4));
+    velocityRef.current = direction * speed;
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {}
+  };
+
   return (
     <div 
-      className={`relative rounded-full overflow-hidden select-none flex-shrink-0 transition-all duration-300 hover:scale-110 cursor-pointer group hover:shadow-[0_0_20px_rgba(0,217,255,0.7)] ${className}`}
+      data-geoleads-globe="true"
+      onContextMenu={(event) => event.preventDefault()}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      className={`relative rounded-full overflow-hidden select-none flex-shrink-0 transition-all duration-300 hover:scale-110 ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'} group hover:shadow-[0_0_20px_rgba(0,217,255,0.7)] ${className}`}
       style={{ 
         width: size, 
         height: size,
@@ -42,7 +111,8 @@ export default function Globe({ size = 36, className = "" }: GlobeProps) {
 
       {/* Animating Continents Container */}
       <div 
-        className="absolute inset-0 flex items-center animate-[spinGlobe_6s_linear_infinite] group-hover:animate-[spinGlobe_3s_linear_infinite]"
+        ref={trackRef}
+        className="absolute inset-0 flex items-center will-change-transform"
         style={{
           zIndex: 1,
           width: '300%',
