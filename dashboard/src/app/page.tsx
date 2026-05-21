@@ -7,6 +7,60 @@ import HackerRadar from '@/components/HackerRadar';
 
 const getLeadKey = (lead: any) => `${lead.nome || ''}|${lead.telefone || ''}|${lead.cidade || ''}`;
 
+const normalizeCrmLead = (lead: any) => ({
+  ...lead,
+  nome: lead.nome || 'Lead sem nome',
+  telefone: lead.telefone || 'Não informado',
+  email: lead.email || '',
+  site: lead.site || 'Sem site',
+  avaliacao: lead.avaliacao || 'N/A',
+  instagram: lead.instagram || '',
+  facebook: lead.facebook || '',
+  stage: lead.stage || 'Novo',
+  notes: lead.notes || '',
+  savedAt: lead.savedAt || new Date().toISOString(),
+  nicho: lead.nicho || 'Geral',
+  cidade: lead.cidade || 'Geral'
+});
+
+const crmLeadToRow = (lead: any, userId: string) => {
+  const normalized = normalizeCrmLead(lead);
+
+  return {
+    user_id: userId,
+    lead_key: getLeadKey(normalized),
+    nome: normalized.nome,
+    telefone: normalized.telefone,
+    email: normalized.email,
+    site: normalized.site,
+    avaliacao: normalized.avaliacao,
+    instagram: normalized.instagram,
+    facebook: normalized.facebook,
+    stage: normalized.stage,
+    notes: normalized.notes,
+    nicho: normalized.nicho,
+    cidade: normalized.cidade,
+    saved_at: normalized.savedAt,
+    payload: normalized
+  };
+};
+
+const crmRowToLead = (row: any) => normalizeCrmLead({
+  ...(row.payload || {}),
+  nome: row.nome,
+  telefone: row.telefone,
+  email: row.email,
+  site: row.site,
+  avaliacao: row.avaliacao,
+  instagram: row.instagram,
+  facebook: row.facebook,
+  stage: row.stage,
+  notes: row.notes,
+  nicho: row.nicho,
+  cidade: row.cidade,
+  savedAt: row.saved_at || row.payload?.savedAt
+});
+
 const waMessagePresets = [
   {
     id: 'local',
@@ -59,6 +113,8 @@ export default function Home() {
   const [crmSearch, setCrmSearch] = useState('');
   const [crmFilterStage, setCrmFilterStage] = useState('all');
   const [selectedCrmLeads, setSelectedCrmLeads] = useState<string[]>([]);
+  const [crmSyncStatus, setCrmSyncStatus] = useState<'local' | 'syncing' | 'cloud' | 'error'>('local');
+  const [crmSyncMessage, setCrmSyncMessage] = useState('CRM local');
 
   // WhatsApp Sender States
   const [waTemplate, setWaTemplate] = useState('Olá {Nome}! Vi seu perfil comercial em {Cidade} e gostaria de saber se vocês têm interesse em receber mais clientes de {Nicho}. Podemos conversar?');
@@ -122,6 +178,101 @@ export default function Home() {
     nicho: 'Estética'
   };
 
+  const sampleCrmLeads = () => [
+    {
+      nome: "Petshop Amigo Canino",
+      telefone: "(11) 99888-7766",
+      email: "contato@amigocanino.com.br",
+      site: "https://amigocanino.com.br",
+      stage: "Novo",
+      notes: "Cliente potencial de petshop em São Paulo. Falar com Dr. Carlos.",
+      savedAt: new Date().toISOString(),
+      nicho: "Petshop",
+      cidade: "São Paulo"
+    },
+    {
+      nome: "Restaurante Sabor & Cia",
+      telefone: "(21) 98765-4321",
+      email: "contato@saborecia.com.br",
+      site: "Sem site",
+      stage: "Em Contato",
+      notes: "Enviada mensagem inicial de apresentação.",
+      savedAt: new Date().toISOString(),
+      nicho: "Restaurante",
+      cidade: "Rio de Janeiro"
+    },
+    {
+      nome: "Clínica Odonto Riso",
+      telefone: "(31) 97766-5544",
+      email: "atendimento@odontoriso.com.br",
+      site: "https://odontoriso.com.br",
+      stage: "Proposta",
+      notes: "Aguardando retorno sobre proposta de tráfego pago.",
+      savedAt: new Date().toISOString(),
+      nicho: "Dentista",
+      cidade: "Belo Horizonte"
+    }
+  ];
+
+  const loadCrmFromCloud = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('crm_leads')
+      .select('*')
+      .eq('user_id', userId)
+      .order('saved_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(crmRowToLead);
+  };
+
+  const syncCrmToCloud = async (updatedCrm: any[], targetUserId = user?.id) => {
+    if (!targetUserId) {
+      setCrmSyncStatus('local');
+      setCrmSyncMessage('CRM local');
+      return;
+    }
+
+    setCrmSyncStatus('syncing');
+    setCrmSyncMessage('Sincronizando...');
+
+    const rows = updatedCrm.map(lead => crmLeadToRow(lead, targetUserId));
+    if (rows.length === 0) {
+      setCrmSyncStatus('cloud');
+      setCrmSyncMessage('CRM na nuvem');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('crm_leads')
+      .upsert(rows, { onConflict: 'user_id,lead_key' });
+
+    if (error) {
+      console.warn('CRM cloud sync failed:', error.message);
+      setCrmSyncStatus('error');
+      setCrmSyncMessage('Salvo localmente');
+      return;
+    }
+
+    setCrmSyncStatus('cloud');
+    setCrmSyncMessage('CRM na nuvem');
+  };
+
+  const deleteCrmFromCloud = async (leadKeys: string[], targetUserId = user?.id) => {
+    if (!targetUserId || leadKeys.length === 0) return;
+
+    const { error } = await supabase
+      .from('crm_leads')
+      .delete()
+      .eq('user_id', targetUserId)
+      .in('lead_key', leadKeys);
+
+    if (error) {
+      console.warn('CRM cloud delete failed:', error.message);
+      setCrmSyncStatus('error');
+      setCrmSyncMessage('Exclusão só local');
+    }
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       setProofVisible(false);
@@ -133,12 +284,15 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [socialProofMsgs.length]);
 
-  // Load User, Tokens and local CRM Data on Mount
+  // Load User, Tokens and CRM Data on Mount
   useEffect(() => {
     const loadData = async () => {
+      let sessionUserId = '';
+
       // Load Supabase session
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        sessionUserId = session.user.id;
         setUser(session.user);
         const { data } = await supabase
           .from('profiles')
@@ -147,53 +301,41 @@ export default function Home() {
           .single();
         if (data) setTokens(data.tokens);
       }
-      
-      // Load CRM from LocalStorage
+
+      // Load CRM from local cache first, then prefer cloud when available.
       const localCrm = localStorage.getItem('geoleads_crm');
       let parsedCrm: any[] = [];
       if (localCrm) {
         try {
-          parsedCrm = JSON.parse(localCrm);
+          parsedCrm = JSON.parse(localCrm).map(normalizeCrmLead);
         } catch(e) {}
       }
-      
-      // If empty, load B2B mock data by default to prevent a blank cold start
-      if (!Array.isArray(parsedCrm) || parsedCrm.length === 0) {
-        parsedCrm = [
-          {
-            nome: "Petshop Amigo Canino",
-            telefone: "(11) 99888-7766",
-            email: "contato@amigocanino.com.br",
-            site: "https://amigocanino.com.br",
-            stage: "Novo",
-            notes: "Cliente potencial de petshop em São Paulo. Falar com Dr. Carlos.",
-            savedAt: new Date().toISOString(),
-            nicho: "Petshop",
-            cidade: "São Paulo"
-          },
-          {
-            nome: "Restaurante Sabor & Cia",
-            telefone: "(21) 98765-4321",
-            email: "contato@saborecia.com.br",
-            site: "Sem site",
-            stage: "Em Contato",
-            notes: "Enviada mensagem inicial de apresentação.",
-            savedAt: new Date().toISOString(),
-            nicho: "Restaurante",
-            cidade: "Rio de Janeiro"
-          },
-          {
-            nome: "Clínica Odonto Riso",
-            telefone: "(31) 97766-5544",
-            email: "atendimento@odontoriso.com.br",
-            site: "https://odontoriso.com.br",
-            stage: "Proposta",
-            notes: "Aguardando retorno sobre proposta de tráfego pago.",
-            savedAt: new Date().toISOString(),
-            nicho: "Dentista",
-            cidade: "Belo Horizonte"
+
+      if (sessionUserId) {
+        try {
+          setCrmSyncStatus('syncing');
+          setCrmSyncMessage('Carregando nuvem...');
+          const cloudCrm = await loadCrmFromCloud(sessionUserId);
+
+          if (cloudCrm.length > 0) {
+            parsedCrm = cloudCrm;
+            localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm));
+          } else if (parsedCrm.length > 0) {
+            await syncCrmToCloud(parsedCrm, sessionUserId);
+          } else {
+            setCrmSyncStatus('cloud');
+            setCrmSyncMessage('CRM na nuvem');
           }
-        ];
+        } catch (error: any) {
+          console.warn('CRM cloud load failed:', error.message);
+          setCrmSyncStatus('error');
+          setCrmSyncMessage('Modo local');
+        }
+      }
+
+      // If empty, load B2B mock data by default to prevent a blank cold start.
+      if (!Array.isArray(parsedCrm) || parsedCrm.length === 0) {
+        parsedCrm = sampleCrmLeads();
         localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm));
       }
       setCrmLeads(parsedCrm);
@@ -204,10 +346,12 @@ export default function Home() {
     loadData();
   }, []);
 
-  // Save CRM to LocalStorage whenever it changes
-  const saveCrmToLocal = (updatedCrm: any[]) => {
-    setCrmLeads(updatedCrm);
-    localStorage.setItem('geoleads_crm', JSON.stringify(updatedCrm));
+  // Save CRM to local cache and cloud when the user is authenticated.
+  const saveCrm = (updatedCrm: any[]) => {
+    const normalized = updatedCrm.map(normalizeCrmLead);
+    setCrmLeads(normalized);
+    localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
+    syncCrmToCloud(normalized);
   };
 
   // Add lead to CRM
@@ -228,7 +372,7 @@ export default function Home() {
     };
 
     const updated = [newCrmLead, ...crmLeads];
-    saveCrmToLocal(updated);
+    saveCrm(updated);
     if (newCrmLead.telefone && newCrmLead.telefone !== 'Não informado') {
       const newKey = getLeadKey(newCrmLead);
       setSelectedWaLeads(prev => prev.includes(newKey) ? prev : [newKey, ...prev]);
@@ -264,7 +408,7 @@ export default function Home() {
     });
 
     if (addedCount > 0) {
-      saveCrmToLocal(updated);
+      saveCrm(updated);
       if (newDispatchableKeys.length > 0) {
         setSelectedWaLeads(prev => Array.from(new Set([...newDispatchableKeys, ...prev])));
       }
@@ -279,10 +423,11 @@ export default function Home() {
     if (confirm(`Tem certeza que deseja excluir o lead "${nome}" do CRM?`)) {
       const removedLead = crmLeads.find(l => l.nome === nome);
       const updated = crmLeads.filter(l => l.nome !== nome);
-      saveCrmToLocal(updated);
+      saveCrm(updated);
       setSelectedCrmLeads(prev => prev.filter(n => n !== nome));
       if (removedLead) {
         setSelectedWaLeads(prev => prev.filter(key => key !== getLeadKey(removedLead)));
+        deleteCrmFromCloud([getLeadKey(removedLead)]);
       }
     }
   };
@@ -341,9 +486,10 @@ export default function Home() {
         .filter(l => selectedCrmLeads.includes(l.nome))
         .map(getLeadKey);
       const updated = crmLeads.filter(l => !selectedCrmLeads.includes(l.nome));
-      saveCrmToLocal(updated);
+      saveCrm(updated);
       setSelectedCrmLeads([]);
       setSelectedWaLeads(prev => prev.filter(key => !removedKeys.includes(key)));
+      deleteCrmFromCloud(removedKeys);
     }
   };
 
@@ -448,7 +594,7 @@ export default function Home() {
       }
       return l;
     });
-    saveCrmToLocal(updated);
+    saveCrm(updated);
   };
 
   // Extraction trigger
@@ -1084,7 +1230,17 @@ export default function Home() {
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                   📋 Seu CRM de Vendas
                 </h2>
-                <p className="text-xs text-gray-500 mt-1">Gerencie os leads que você já salvou e altere as etapas do funil comercial.</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-gray-500">Gerencie os leads que você já salvou e altere as etapas do funil comercial.</p>
+                  <span className={`text-[10px] px-2 py-1 rounded-full border font-bold ${
+                    crmSyncStatus === 'cloud' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                    crmSyncStatus === 'syncing' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                    crmSyncStatus === 'error' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                    'bg-white/5 border-white/10 text-gray-400'
+                  }`}>
+                    {crmSyncMessage}
+                  </span>
+                </div>
               </div>
 
               {/* SEARCH & STAGE FILTER */}
