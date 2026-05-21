@@ -215,6 +215,7 @@ export default function Home() {
   const [supportFeedback, setSupportFeedback] = useState('');
   const [supportSubmitted, setSupportSubmitted] = useState(false);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   // Social Proof Notification Loop State
   const [proofIndex, setProofIndex] = useState(0);
@@ -621,6 +622,21 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [socialProofMsgs.length]);
 
+  const refreshProfile = async (userId: string) => {
+    const { data: profileData, error } = await supabase
+      .from('profiles')
+      .select('tokens, plan_id')
+      .eq('id', userId)
+      .single();
+
+    if (error || !profileData) return;
+
+    setTokens(profileData.tokens);
+    const savedPlanId = getPlanById(profileData.plan_id).id;
+    const inferredPlanId = getPlanIdFromTokens(profileData.tokens);
+    setPlanId(plans[savedPlanId].tokens >= plans[inferredPlanId].tokens ? savedPlanId : inferredPlanId);
+  };
+
   // Load User, Tokens and CRM Data on Mount
   useEffect(() => {
     const loadData = async () => {
@@ -650,11 +666,29 @@ export default function Home() {
         }
 
         if (profileData) {
-          setTokens(profileData.tokens);
-          const savedPlanId = getPlanById(profileData.plan_id).id;
-          const inferredPlanId = getPlanIdFromTokens(profileData.tokens);
-          setPlanId(plans[savedPlanId].tokens >= plans[inferredPlanId].tokens ? savedPlanId : inferredPlanId);
+          await refreshProfile(session.user.id);
         }
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const checkoutState = params.get('checkout');
+      const purchasedPlanId = params.get('plan') as PlanId | null;
+
+      if (checkoutState === 'success') {
+        const planName = purchasedPlanId ? getPlanById(purchasedPlanId).name : 'seu plano';
+        setCheckoutNotice(`Pagamento recebido! Estamos liberando os tokens do plano ${planName}. Se o saldo não atualizar em 1 minuto, recarregue a página.`);
+
+        if (sessionUserId) {
+          await refreshProfile(sessionUserId);
+          window.setTimeout(() => refreshProfile(sessionUserId), 4000);
+          window.setTimeout(() => refreshProfile(sessionUserId), 12000);
+        }
+
+        params.delete('checkout');
+        params.delete('plan');
+        const nextQuery = params.toString();
+        const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
+        window.history.replaceState({}, '', nextUrl);
       }
 
       // Load CRM from local cache first, then prefer cloud when available.
@@ -1323,6 +1357,19 @@ export default function Home() {
       </nav>
 
       <main className="app-container py-6 sm:py-10 lg:py-12 relative z-10">
+        {checkoutNotice && (
+          <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-emerald-100 leading-relaxed">{checkoutNotice}</p>
+            <button
+              type="button"
+              onClick={() => setCheckoutNotice(null)}
+              className="self-end sm:self-auto px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-xs text-gray-200 hover:text-white cursor-pointer"
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+
         <header className="mb-6 sm:mb-8">
           <div className="dashboard-hero">
             <div>
@@ -2953,9 +3000,9 @@ export default function Home() {
 
         {/* ==================== TAB 5: SUPPORT & RATING ==================== */}
         {activeTab === 'support' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 relative z-20 animate-slide-up">
+          <div className="support-panels-grid grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 relative z-20 animate-slide-up">
             {/* CARD 1: CONTATO E SUPORTE */}
-            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
+            <div className="support-panel-card app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative group hover:border-blue-500/30 transition-all duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
               
               <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -2992,7 +3039,7 @@ export default function Home() {
             </div>
 
             {/* CARD 2: AVALIAÇÃO DE DESEMPENHO */}
-            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden group hover:border-purple-500/30 transition-all duration-500">
+            <div className="support-panel-card app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative group hover:border-purple-500/30 transition-all duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
               
               <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -3030,9 +3077,9 @@ export default function Home() {
                   }}
                   className="space-y-5"
                 >
-                  <div className="flex flex-col items-center justify-center p-4 bg-black/35 rounded-xl border border-white/5">
+                  <div className="support-rating-box flex flex-col items-center justify-center p-4 bg-black/35 rounded-xl border border-white/5">
                     <span className="text-xs text-gray-500 mb-2 font-medium">Sua nota de 1 a 5 estrelas:</span>
-                    <div className="flex gap-2">
+                    <div className="support-rating-stars">
                       {[1, 2, 3, 4, 5].map(star => {
                         const StarIsHighlighted = (hoveredStar !== null ? star <= hoveredStar : star <= supportRating);
                         return (

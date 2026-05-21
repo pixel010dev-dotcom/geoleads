@@ -841,6 +841,36 @@ body {
   transition: none;
 }
 
+.support-panel-card {
+  overflow: visible !important;
+  contain: none !important;
+}
+
+.support-rating-box {
+  overflow: visible;
+  padding-bottom: 0.35rem;
+}
+
+.support-rating-stars {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.support-rating-stars button {
+  flex: 0 0 auto;
+}
+
+.support-panels-grid {
+  align-items: start;
+}
+
+.support-panels-grid > * {
+  min-width: 0;
+}
+
 .app-card:hover {
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);

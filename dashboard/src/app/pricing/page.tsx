@@ -110,7 +110,7 @@ export default function Pricing() {
               Escolha o volume do seu <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">motor comercial</span>
             </h1>
             <p className="text-gray-400 text-sm sm:text-lg leading-relaxed max-w-2xl">
-              Cada token vale um lead entregue. Selecione o pacote, confira o resumo e finalize pelo Mercado Pago.
+              Cada token vale um lead entregue. Selecione o pacote, confira o resumo e pague com PIX (QR Code ou copia e cola), cartão ou boleto no Mercado Pago.
             </p>
           </div>
 
@@ -209,11 +209,18 @@ export default function Pricing() {
               disabled={loadingPlan !== null}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 transition-all font-bold flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-wait shadow-[0_0_22px_rgba(59,130,246,0.25)]"
             >
-              {loadingPlan === selectedPlan.id ? 'Abrindo checkout...' : user ? 'Pagar com Mercado Pago' : 'Entrar para comprar'}
+              {loadingPlan === selectedPlan.id ? 'Abrindo checkout...' : user ? 'Pagar com PIX ou cartão' : 'Entrar para comprar'}
             </button>
 
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] text-gray-400">
-              <span className="rounded-lg bg-white/5 border border-white/8 px-2 py-2">PIX</span>
+            <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3">
+              <p className="text-xs font-bold text-emerald-300 mb-1">PIX com QR Code</p>
+              <p className="text-[11px] text-gray-300 leading-relaxed">
+                No checkout do Mercado Pago, escolha PIX para ver o QR Code na tela ou copiar o código. Os tokens entram na conta após a confirmação.
+              </p>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] text-gray-400">
+              <span className="rounded-lg bg-emerald-500/10 border border-emerald-500/25 px-2 py-2 text-emerald-300 font-semibold">PIX</span>
               <span className="rounded-lg bg-white/5 border border-white/8 px-2 py-2">Cartão</span>
               <span className="rounded-lg bg-white/5 border border-white/8 px-2 py-2">Boleto</span>
             </div>

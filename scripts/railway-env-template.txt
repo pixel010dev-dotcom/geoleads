@@ -1,0 +1,9 @@
+# Cole estas variaveis no Railway (Settings -> Variables)
+# Troque NEXT_PUBLIC_APP_URL quando o dominio estiver ativo
+
+NEXT_PUBLIC_SUPABASE_URL=https://mwnpwrzwgwrqqlomqhux.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<mesma do .env.local>
+SUPABASE_SERVICE_ROLE_KEY=<mesma do .env.local>
+MERCADO_PAGO_ACCESS_TOKEN=<mesma do .env.local>
+NEXT_PUBLIC_APP_URL=https://geoleads.com
+GEMINI_API_KEY=
