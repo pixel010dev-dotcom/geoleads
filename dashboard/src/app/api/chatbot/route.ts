@@ -29,9 +29,11 @@ type BotSession = {
   qr?: string;
   qrDataUrl?: string;
   lastError?: string;
+  lastDisconnectCode?: string;
   connectedAt?: string;
   lastMessageAt?: string;
   repliedCount: number;
+  reconnectAttempts: number;
   config: ChatbotConfig;
   replyThrottle: Map<string, number>;
   optOut: Set<string>;
@@ -60,6 +62,7 @@ const getPublicSession = (session?: BotSession) => ({
   status: session?.status || 'idle',
   qrDataUrl: session?.qrDataUrl || '',
   lastError: session?.lastError || '',
+  lastDisconnectCode: session?.lastDisconnectCode || '',
   connectedAt: session?.connectedAt || '',
   lastMessageAt: session?.lastMessageAt || '',
   repliedCount: session?.repliedCount || 0
@@ -125,6 +128,7 @@ const getOrCreateSession = (userId: string, config?: Partial<ChatbotConfig>) => 
     userId,
     status: 'idle',
     repliedCount: 0,
+    reconnectAttempts: 0,
     config: { ...DEFAULT_CONFIG, ...config, rules: config?.rules || DEFAULT_CONFIG.rules },
     replyThrottle: new Map(),
     optOut: new Set()
@@ -141,6 +145,11 @@ const startBotSession = async (session: BotSession) => {
 
   session.status = 'connecting';
   session.lastError = '';
+  session.lastDisconnectCode = '';
+
+  try {
+    session.socket?.end?.();
+  } catch {}
 
   const safeUserId = session.userId.replace(/[^a-zA-Z0-9_-]/g, '');
   const authDir = path.join(process.cwd(), '.geoleads-wa-auth', safeUserId);
@@ -173,13 +182,41 @@ const startBotSession = async (session: BotSession) => {
       session.qr = '';
       session.qrDataUrl = '';
       session.connectedAt = new Date().toISOString();
+      session.lastError = '';
+      session.lastDisconnectCode = '';
+      session.reconnectAttempts = 0;
     }
 
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
+      session.lastDisconnectCode = statusCode ? String(statusCode) : 'unknown';
       const loggedOut = statusCode === DisconnectReason.loggedOut;
-      session.status = loggedOut ? 'disconnected' : 'error';
-      session.lastError = loggedOut ? 'Sessão encerrada. Conecte novamente.' : 'Conexão caiu. Tente conectar novamente.';
+
+      if (loggedOut) {
+        session.status = 'disconnected';
+        session.lastError = 'Sessão encerrada. Conecte novamente.';
+        session.qr = '';
+        session.qrDataUrl = '';
+        session.reconnectAttempts = 0;
+        return;
+      }
+
+      if (session.reconnectAttempts < 5) {
+        session.reconnectAttempts += 1;
+        session.status = 'connecting';
+        session.lastError = `Reconectando WhatsApp (${session.reconnectAttempts}/5). Código: ${session.lastDisconnectCode}`;
+
+        setTimeout(() => {
+          startBotSession(session).catch((error) => {
+            session.status = 'error';
+            session.lastError = `Falha ao reconectar: ${error?.message || 'erro desconhecido'}`;
+          });
+        }, 1500);
+        return;
+      }
+
+      session.status = 'error';
+      session.lastError = `Conexão caiu após várias tentativas. Código: ${session.lastDisconnectCode}`;
     }
   });
 

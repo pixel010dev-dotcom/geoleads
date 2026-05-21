@@ -2148,6 +2148,15 @@ export default function Home() {
                       <strong className="text-lg text-white">{chatbotRules.filter(rule => rule.enabled).length}</strong>
                     </div>
                   </div>
+
+                  {(chatbotSession.lastError || chatbotSession.lastDisconnectCode) && (
+                    <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 leading-relaxed">
+                      {chatbotSession.lastError || 'Conexão instável.'}
+                      {chatbotSession.lastDisconnectCode && (
+                        <span className="block font-mono mt-1 opacity-80">Código: {chatbotSession.lastDisconnectCode}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {chatbotSession.qrDataUrl ? (
