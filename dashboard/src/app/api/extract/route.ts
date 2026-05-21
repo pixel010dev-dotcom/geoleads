@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
-import { getAuthUser, requireFeature } from '@/lib/server-auth';
+import { createRequestSupabaseClient, getAuthUser, requireFeature } from '@/lib/server-auth';
 import { type FeatureKey } from '@/lib/plans';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
 
 // Algoritmo de Distância de Levenshtein para medir similaridade entre palavras
 function getLevenshteinDistance(a: string, b: string): number {
@@ -400,6 +394,7 @@ export async function POST(request: Request) {
     }
 
     const { keyword: rawKeyword, location: rawLocation, limit, filterRule } = await request.json();
+    const requestSupabase = createRequestSupabaseClient(request);
 
     if (!rawKeyword || !rawLocation) {
       return NextResponse.json({ error: 'Preencha o termo e a cidade.' }, { status: 400 });
@@ -596,7 +591,7 @@ export async function POST(request: Request) {
     const gastos = validLeads.length;
     if (auth && gastos > 0) {
       const novoSaldo = Math.max(0, auth.tokens - gastos);
-      await supabase.from('profiles').update({ tokens: novoSaldo }).eq('id', auth.user.id);
+      await requestSupabase.from('profiles').update({ tokens: novoSaldo }).eq('id', auth.user.id);
     }
 
     return NextResponse.json({ 

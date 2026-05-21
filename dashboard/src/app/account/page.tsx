@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getPlanById, plans, paidPlanIds, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
 import Globe from '@/components/Globe';
-import FloatingOrbs from '@/components/FloatingOrbs';
 
 export default function Account() {
   const [user, setUser] = useState<any>(null);
@@ -63,8 +62,6 @@ export default function Account() {
 
   return (
     <div className="app-shell min-h-screen text-white relative pb-16">
-      <FloatingOrbs />
-
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
         <div className="app-container min-h-16 py-3 flex items-center justify-between gap-3">
           <a href="/" className="flex items-center gap-2 group">

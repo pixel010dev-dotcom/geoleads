@@ -17,8 +17,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "Courier New", monospace;
 }
 
 html {
@@ -804,5 +804,71 @@ input[type="number"]::-webkit-outer-spin-button {
   .floating-orb,
   .social-proof {
     display: none;
+  }
+}
+
+/* ===== GEOLEADS LEGACY VISUAL RESET ===== */
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: normal;
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.18), transparent 34rem),
+    radial-gradient(circle at 10% 35%, rgba(20, 184, 166, 0.08), transparent 28rem),
+    #0a0a0a;
+}
+
+.app-shell::before,
+.floating-orb,
+.social-proof,
+.social-proof.visible {
+  display: none;
+}
+
+.app-card {
+  border-radius: clamp(1rem, 2.2vw, 1.5rem);
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.42));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: none;
+}
+
+.app-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.app-panel {
+  border-radius: clamp(0.875rem, 2vw, 1.25rem);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: none;
+}
+
+.app-tab::after {
+  display: none;
+}
+
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@media (max-width: 640px) {
+  .app-card {
+    padding: 1rem;
+    border-radius: 0.9rem;
+  }
+
+  .app-panel {
+    border-radius: 0.9rem;
   }
 }

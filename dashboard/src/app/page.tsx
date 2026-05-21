@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature, plans, type FeatureKey, type PlanId } from '@/lib/plans';
 import Globe from '@/components/Globe';
 import HackerRadar from '@/components/HackerRadar';
-import FloatingOrbs from '@/components/FloatingOrbs';
 
 type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
 
@@ -263,6 +262,21 @@ export default function Home() {
   const showLockedFeature = (feature: FeatureKey) => {
     const requiredPlan = getUpgradePlan(feature);
     alert(`Recurso do plano ${requiredPlan.name}. Faça upgrade para liberar.`);
+  };
+
+  const getAuthedJsonHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      window.location.href = '/login';
+      return null;
+    }
+
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    };
   };
 
   const LockedFeaturePanel = ({ feature }: { feature: FeatureKey }) => {
@@ -965,13 +979,20 @@ export default function Home() {
     setExtractStats(null);
 
     try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+
       const res = await fetch('/api/extract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ keyword, location, limit: Number(limit), filterRule })
       });
       
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao extrair leads.');
+      }
       
       if (data.success && data.leads) {
         setLeads(data.leads);
@@ -981,19 +1002,18 @@ export default function Home() {
           if (data.stats.correctedLocation) setLocation(data.stats.correctedLocation);
         }
         
-        // Desconta tokens (1 por lead retornado)
-        const gastos = data.leads.length;
-        if (tokens !== null && gastos > 0) {
-          const novoSaldo = tokens - gastos;
-          setTokens(novoSaldo);
-          await supabase.from('profiles').update({ tokens: novoSaldo }).eq('id', user.id);
+        if (typeof data.stats?.tokensRemaining === 'number') {
+          setTokens(data.stats.tokensRemaining);
+        } else if (tokens !== null && data.leads.length > 0) {
+          setTokens(Math.max(0, tokens - data.leads.length));
         }
       } else if (data.error) {
         alert("Erro do Motor: " + data.error);
       }
     } catch(error) {
       console.error(error);
-      alert("Erro de conexão com o motor. Verifique se o servidor está rodando.");
+      const message = error instanceof Error ? error.message : 'Erro de conexão com o motor.';
+      alert("Erro do Motor: " + message);
     } finally {
       setIsExtracting(false);
       setHasSearched(true);
@@ -1069,9 +1089,12 @@ export default function Home() {
     setWaAiCopies([]);
 
     try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+
       const res = await fetch('/api/ai-copy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           product: waAiProduct,
           value: waAiValue,
@@ -1155,9 +1178,12 @@ export default function Home() {
     setGeneratedCopies(null);
 
     try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+
       const res = await fetch('/api/ai-copy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ product: aiProduct, value: aiValue, tone: aiTone, channel: 'mixed' })
       });
       const data = await res.json();
@@ -2963,24 +2989,29 @@ export default function Home() {
         )}
       </main>
 
-      <FloatingOrbs />
-
       {/* Widget de Prova Social */}
-      <div className={`social-proof ${proofVisible ? 'visible' : ''}`}>
-        <div className="social-proof-card">
-          <div className="social-proof-avatar">
-            {socialProofMsgs[proofIndex].name.charAt(0)}
-          </div>
-          <div className="social-proof-content">
-            <div className="social-proof-name">{socialProofMsgs[proofIndex].name}</div>
-            <div className="social-proof-action">
-              {socialProofMsgs[proofIndex].action}{' '}
-              <span className="text-blue-400 font-semibold">{socialProofMsgs[proofIndex].detail}</span>{' '}
-              {socialProofMsgs[proofIndex].target}
-            </div>
-            <div className="social-proof-time">agora mesmo</div>
-          </div>
-        </div>
+      <div
+        className={`hidden 2xl:flex fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm px-4 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
+          proofVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
+        }`}
+      >
+        <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+          socialProofMsgs[proofIndex].type === 'whatsapp' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' :
+          socialProofMsgs[proofIndex].type === 'ia' ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]' :
+          socialProofMsgs[proofIndex].type === 'export' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' :
+          'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]'
+        }`} />
+        <p className="text-xs text-gray-300 font-medium leading-snug">
+          <span className="text-white font-bold">{socialProofMsgs[proofIndex].name}</span>{' '}
+          {socialProofMsgs[proofIndex].action}{' '}
+          <span className={`font-bold ${
+            socialProofMsgs[proofIndex].type === 'whatsapp' ? 'text-green-400' :
+            socialProofMsgs[proofIndex].type === 'ia' ? 'text-purple-400' :
+            socialProofMsgs[proofIndex].type === 'export' ? 'text-amber-400' :
+            'text-blue-400'
+          }`}>{socialProofMsgs[proofIndex].detail}</span>{' '}
+          <span className="text-gray-400">{socialProofMsgs[proofIndex].target}</span>
+        </p>
       </div>
     </div>
   );

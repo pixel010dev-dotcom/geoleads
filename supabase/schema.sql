@@ -2,6 +2,7 @@
 -- Run this file in the Supabase SQL Editor before enabling real cloud persistence.
 
 create extension if not exists "pgcrypto";
+create extension if not exists "pg_trgm";
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,

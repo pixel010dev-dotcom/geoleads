@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getCostPerLeadLabel, paidPlanIds, plans, type PlanId } from '@/lib/plans';
-import Globe from '@/components/Globe';
-import FloatingOrbs from '@/components/FloatingOrbs';
 
 const planIcons: Record<PlanId, string> = {
   free: '🔎',
@@ -54,7 +52,8 @@ export default function Pricing() {
 
   return (
     <div className="app-shell min-h-screen text-white py-6 sm:py-8 relative overflow-hidden">
-      <FloatingOrbs />
+      <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(800px,95vw)] h-[360px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="app-container relative z-10">
         <a href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 group">
