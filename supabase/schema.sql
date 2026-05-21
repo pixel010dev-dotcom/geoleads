@@ -6,10 +6,14 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
+  plan_id text not null default 'free',
   tokens integer not null default 10,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists plan_id text not null default 'free';
 
 create table if not exists public.crm_leads (
   id uuid primary key default gen_random_uuid(),
@@ -22,6 +26,8 @@ create table if not exists public.crm_leads (
   avaliacao text,
   instagram text,
   facebook text,
+  tiktok text,
+  cnpj text,
   stage text not null default 'Novo',
   notes text not null default '',
   nicho text,
@@ -32,6 +38,10 @@ create table if not exists public.crm_leads (
   updated_at timestamptz not null default now(),
   constraint crm_leads_user_lead_key_unique unique (user_id, lead_key)
 );
+
+alter table public.crm_leads
+  add column if not exists tiktok text,
+  add column if not exists cnpj text;
 
 create table if not exists public.chatbot_configs (
   id uuid primary key default gen_random_uuid(),
@@ -124,8 +134,8 @@ for each row execute function public.set_updated_at();
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, tokens)
-  values (new.id, new.email, 10)
+  insert into public.profiles (id, email, plan_id, tokens)
+  values (new.id, new.email, 'free', 10)
   on conflict (id) do nothing;
   return new;
 end;

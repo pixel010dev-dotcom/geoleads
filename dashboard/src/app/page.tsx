@@ -2,8 +2,39 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature, plans, type FeatureKey, type PlanId } from '@/lib/plans';
 import Globe from '@/components/Globe';
 import HackerRadar from '@/components/HackerRadar';
+
+type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
+
+const tabFeatureMap: Record<DashboardTab, FeatureKey | null> = {
+  extractor: 'extractor',
+  crm: 'crm',
+  whatsapp: 'whatsappSender',
+  chatbot: 'chatbot',
+  ia: 'aiCopy',
+  support: null
+};
+
+const tabUpgradeCopy: Record<Exclude<DashboardTab, 'extractor' | 'support'>, { title: string; description: string }> = {
+  crm: {
+    title: 'CRM liberado no Starter',
+    description: 'Salve leads, organize o funil e exporte contatos com um pacote pago de entrada.'
+  },
+  whatsapp: {
+    title: 'Disparador liberado no Pro',
+    description: 'Use a fila assistida e os modelos de abordagem quando seu plano tiver WhatsApp.'
+  },
+  chatbot: {
+    title: 'Chatbot liberado no Agencia',
+    description: 'Automatize respostas por QR Code apenas na camada de maior volume.'
+  },
+  ia: {
+    title: 'Copys com IA liberadas no Pro',
+    description: 'Gere abordagens comerciais para WhatsApp e e-mail nos planos com IA.'
+  }
+};
 
 const getLeadKey = (lead: any) => `${lead.nome || ''}|${lead.telefone || ''}|${lead.cidade || ''}`;
 
@@ -16,6 +47,8 @@ const normalizeCrmLead = (lead: any) => ({
   avaliacao: lead.avaliacao || 'N/A',
   instagram: lead.instagram || '',
   facebook: lead.facebook || '',
+  tiktok: lead.tiktok || '',
+  cnpj: lead.cnpj || '',
   stage: lead.stage || 'Novo',
   notes: lead.notes || '',
   savedAt: lead.savedAt || new Date().toISOString(),
@@ -36,6 +69,8 @@ const crmLeadToRow = (lead: any, userId: string) => {
     avaliacao: normalized.avaliacao,
     instagram: normalized.instagram,
     facebook: normalized.facebook,
+    tiktok: normalized.tiktok,
+    cnpj: normalized.cnpj,
     stage: normalized.stage,
     notes: normalized.notes,
     nicho: normalized.nicho,
@@ -54,6 +89,8 @@ const crmRowToLead = (row: any) => normalizeCrmLead({
   avaliacao: row.avaliacao,
   instagram: row.instagram,
   facebook: row.facebook,
+  tiktok: row.tiktok || row.payload?.tiktok,
+  cnpj: row.cnpj || row.payload?.cnpj,
   stage: row.stage,
   notes: row.notes,
   nicho: row.nicho,
@@ -113,7 +150,7 @@ const defaultChatbotRules = [
 
 export default function Home() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support'>('extractor');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('extractor');
 
   // Extractor States
   const [keyword, setKeyword] = useState('');
@@ -128,6 +165,7 @@ export default function Home() {
   // Auth & Account
   const [user, setUser] = useState<any>(null);
   const [tokens, setTokens] = useState<number | null>(null);
+  const [planId, setPlanId] = useState<PlanId>('free');
 
   // CRM States
   const [crmLeads, setCrmLeads] = useState<any[]>([]);
@@ -213,6 +251,54 @@ export default function Home() {
     site: 'https://exemplo.com.br',
     cidade: 'São Paulo',
     nicho: 'Estética'
+  };
+
+  const currentPlan = getPlanById(planId);
+  const activeTabFeature = tabFeatureMap[activeTab];
+  const activeTabLocked = Boolean(activeTabFeature && !hasFeature(planId, activeTabFeature));
+  const requireFeature = (feature: FeatureKey) => hasFeature(planId, feature);
+  const getUpgradePlan = (feature: FeatureKey) => getPlanById(getRequiredPlanForFeature(feature));
+
+  const showLockedFeature = (feature: FeatureKey) => {
+    const requiredPlan = getUpgradePlan(feature);
+    alert(`Recurso do plano ${requiredPlan.name}. Faça upgrade para liberar.`);
+  };
+
+  const LockedFeaturePanel = ({ feature }: { feature: FeatureKey }) => {
+    const requiredPlan = getUpgradePlan(feature);
+    const fallbackCopy = {
+      title: `Recurso do plano ${requiredPlan.name}`,
+      description: 'Faça upgrade para liberar esta ferramenta no GeoLeads.'
+    };
+    const copy = activeTab !== 'extractor' && activeTab !== 'support'
+      ? tabUpgradeCopy[activeTab] || fallbackCopy
+      : fallbackCopy;
+
+    return (
+      <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl animate-slide-up">
+        <div className="max-w-2xl">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold mb-4">
+            🔒 Plano {requiredPlan.name}
+          </span>
+          <h2 className="text-2xl font-bold mb-2">{copy.title}</h2>
+          <p className="text-gray-400 text-sm leading-relaxed mb-5">{copy.description}</p>
+          <div className="flex flex-wrap gap-2 mb-6">
+            <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300">
+              Seu plano atual: {currentPlan.name}
+            </span>
+            <span className="px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+              {requiredPlan.tokens.toLocaleString('pt-BR')} tokens inclusos
+            </span>
+          </div>
+          <a
+            href="/pricing"
+            className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors"
+          >
+            Ver planos
+          </a>
+        </div>
+      </div>
+    );
   };
 
   const sampleCrmLeads = () => [
@@ -410,6 +496,11 @@ export default function Home() {
   };
 
   const handleConnectChatbot = async () => {
+    if (!requireFeature('chatbot')) {
+      setActiveTab('chatbot');
+      return;
+    }
+
     setChatbotLoading(true);
     setChatbotMessage('');
 
@@ -479,12 +570,30 @@ export default function Home() {
       if (session?.user) {
         sessionUserId = session.user.id;
         setUser(session.user);
-        const { data } = await supabase
+        let profileData: any = null;
+        const { data, error } = await supabase
           .from('profiles')
-          .select('tokens')
+          .select('tokens, plan_id')
           .eq('id', session.user.id)
           .single();
-        if (data) setTokens(data.tokens);
+
+        if (error) {
+          const fallback = await supabase
+            .from('profiles')
+            .select('tokens')
+            .eq('id', session.user.id)
+            .single();
+          profileData = fallback.data;
+        } else {
+          profileData = data;
+        }
+
+        if (profileData) {
+          setTokens(profileData.tokens);
+          const savedPlanId = getPlanById(profileData.plan_id).id;
+          const inferredPlanId = getPlanIdFromTokens(profileData.tokens);
+          setPlanId(plans[savedPlanId].tokens >= plans[inferredPlanId].tokens ? savedPlanId : inferredPlanId);
+        }
       }
 
       // Load CRM from local cache first, then prefer cloud when available.
@@ -561,12 +670,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (activeTab !== 'chatbot' || !user) return;
+    if (activeTab !== 'chatbot' || !user || !requireFeature('chatbot')) return;
 
     refreshChatbotStatus();
     const interval = setInterval(refreshChatbotStatus, 5000);
     return () => clearInterval(interval);
-  }, [activeTab, user]);
+  }, [activeTab, user, planId]);
 
   // Save CRM to local cache and cloud when the user is authenticated.
   const saveCrm = (updatedCrm: any[]) => {
@@ -578,6 +687,11 @@ export default function Home() {
 
   // Add lead to CRM
   const handleAddToCRM = (lead: any) => {
+    if (!requireFeature('crm')) {
+      setActiveTab('crm');
+      return;
+    }
+
     const exists = crmLeads.some(l => l.nome === lead.nome);
     if (exists) {
       alert(`O lead "${lead.nome}" já está cadastrado no seu CRM.`);
@@ -604,6 +718,11 @@ export default function Home() {
 
   // Save all current leads to CRM
   const handleAddAllToCRM = () => {
+    if (!requireFeature('crm')) {
+      setActiveTab('crm');
+      return;
+    }
+
     if (leads.length === 0) return;
     let addedCount = 0;
     const updated = [...crmLeads];
@@ -827,6 +946,13 @@ export default function Home() {
       window.location.href = '/login';
       return;
     }
+
+    const selectedFilter = filterOptions.find(opt => opt.value === filterRule);
+    if (selectedFilter && !requireFeature(selectedFilter.feature)) {
+      showLockedFeature(selectedFilter.feature);
+      return;
+    }
+
     if (tokens !== null && Number(limit) > tokens) {
       alert(`Saldo insuficiente! Você pediu ${limit} leads mas tem ${tokens} tokens. Reduza a quantidade ou compre mais tokens.`);
       return;
@@ -879,17 +1005,24 @@ export default function Home() {
   };
 
   const exportToCSV = () => {
+    if (!requireFeature('export')) {
+      showLockedFeature('export');
+      return;
+    }
+
     if (leads.length === 0) return;
-    const headers = ['Empresa', 'Telefone', 'E-mail', 'Avaliação', 'Instagram', 'Facebook', 'Site'];
+    const headers = ['Empresa', 'Telefone', 'E-mail', 'CNPJ', 'Avaliação', 'Instagram', 'Facebook', 'TikTok', 'Site'];
     const csvContent = [
       headers.join(','),
       ...leads.map(l => [
         `"${l.nome}"`,
         `"${l.telefone}"`,
         `"${l.email || ''}"`,
+        `"${l.cnpj || ''}"`,
         `"${l.avaliacao}"`,
         `"${l.instagram || ''}"`,
         `"${l.facebook || ''}"`,
+        `"${l.tiktok || ''}"`,
         `"${l.site}"`
       ].join(','))
     ].join('\n');
@@ -919,6 +1052,11 @@ export default function Home() {
 
   const generateWaAiTemplates = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!requireFeature('aiCopy')) {
+      setActiveTab('ia');
+      return;
+    }
 
     if (!waAiProduct || !waAiValue) {
       setWaAiMessage('Preencha a oferta e o principal benefício para gerar modelos.');
@@ -965,6 +1103,11 @@ export default function Home() {
     customText?: string,
     options?: { markSent?: boolean; preferWeb?: boolean; target?: string }
   ) => {
+    if (!requireFeature('whatsappSender')) {
+      setActiveTab('whatsapp');
+      return;
+    }
+
     if (!lead.telefone || lead.telefone === 'Não informado') {
       alert('Este lead não possui número de telefone válido.');
       return;
@@ -997,6 +1140,11 @@ export default function Home() {
   // AI Message Copywriting Engine (Gemini integration with local fallback)
   const generateAICopies = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requireFeature('aiCopy')) {
+      setActiveTab('ia');
+      return;
+    }
+
     if (!aiProduct || !aiValue) {
       alert('Preencha os campos para gerar copys.');
       return;
@@ -1027,12 +1175,14 @@ export default function Home() {
 
   // Filter options config for beautiful Grid Selection
   const filterOptions = [
-    { value: 'none', label: 'Trazer tudo', icon: '🔍', desc: 'Recomendado para varredura completa' },
-    { value: 'phone', label: 'Só Telefone', icon: '📞', desc: 'Filtra empresas com contato telefônico' },
-    { value: 'email', label: 'Só E-mail', icon: '✉️', desc: 'Filtra empresas com e-mail no site' },
-    { value: 'insta', label: 'Só Instagram', icon: '📷', desc: 'Extrai apenas contas com Instagram' },
-    { value: 'face', label: 'Só Facebook', icon: '📘', desc: 'Filtra leads que possuem página Facebook' },
-    { value: 'site', label: 'Só Site', icon: '🌐', desc: 'Filtra apenas empresas com site próprio' },
+    { value: 'none', label: 'Trazer tudo', icon: '🔍', desc: 'Recomendado para varredura completa', feature: 'extractor' as FeatureKey },
+    { value: 'phone', label: 'Só Telefone', icon: '📞', desc: 'Filtra empresas com contato telefônico', feature: 'extractor' as FeatureKey },
+    { value: 'cnpj', label: 'Só CNPJ', icon: '🏢', desc: 'Filtra empresas com CNPJ no site', feature: 'cnpjEnrichment' as FeatureKey },
+    { value: 'email', label: 'Só E-mail', icon: '✉️', desc: 'Filtra empresas com e-mail no site', feature: 'emailEnrichment' as FeatureKey },
+    { value: 'insta', label: 'Só Instagram', icon: '📷', desc: 'Extrai apenas contas com Instagram', feature: 'socialEnrichment' as FeatureKey },
+    { value: 'face', label: 'Só Facebook', icon: '📘', desc: 'Filtra leads que possuem página Facebook', feature: 'socialEnrichment' as FeatureKey },
+    { value: 'tiktok', label: 'Só TikTok', icon: '🎵', desc: 'Filtra leads com perfil TikTok', feature: 'socialEnrichment' as FeatureKey },
+    { value: 'site', label: 'Só Site', icon: '🌐', desc: 'Filtra apenas empresas com site próprio', feature: 'extractor' as FeatureKey },
   ];
 
   // CRM Filter / Search logic
@@ -1041,6 +1191,7 @@ export default function Home() {
       lead.nome.toLowerCase().includes(crmSearch.toLowerCase()) || 
       lead.telefone.toLowerCase().includes(crmSearch.toLowerCase()) ||
       lead.email?.toLowerCase().includes(crmSearch.toLowerCase()) ||
+      lead.cnpj?.toLowerCase().includes(crmSearch.toLowerCase()) ||
       lead.nicho.toLowerCase().includes(crmSearch.toLowerCase()) ||
       lead.cidade.toLowerCase().includes(crmSearch.toLowerCase());
     
@@ -1068,6 +1219,9 @@ export default function Home() {
               <>
                 <div className="px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-bold whitespace-nowrap">
                   💰 {tokens !== null ? tokens.toLocaleString('pt-BR') : '...'} <span className="hidden sm:inline">Tokens</span>
+                </div>
+                <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-300 font-bold whitespace-nowrap">
+                  {currentPlan.shortName}
                 </div>
                 <a href="/pricing" className="text-gray-400 hover:text-white transition-colors font-medium">Planos</a>
                 <button onClick={logout} className="text-red-400 hover:text-red-300 font-medium cursor-pointer">Sair</button>
@@ -1109,6 +1263,7 @@ export default function Home() {
               className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               📋 CRM de Leads
+              {!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}
               {crmLeads.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>
               )}
@@ -1118,18 +1273,21 @@ export default function Home() {
               className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               ⚡ Disparador WhatsApp
+              {!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}
             </button>
             <button
               onClick={() => setActiveTab('chatbot')}
               className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🤖 Chatbot WhatsApp
+              {!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}
             </button>
             <button 
               onClick={() => setActiveTab('ia')}
               className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🤖 Gerador de Copys IA
+              {!requireFeature('aiCopy') && <span className="text-[10px] text-amber-300">🔒</span>}
             </button>
             <button 
               onClick={() => setActiveTab('support')}
@@ -1139,6 +1297,10 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {activeTabLocked && activeTabFeature && (
+          <LockedFeaturePanel feature={activeTabFeature} />
+        )}
 
         {/* ==================== TAB 1: EXTRACTOR ==================== */}
         {activeTab === 'extractor' && (
@@ -1196,14 +1358,25 @@ export default function Home() {
                     <div className="grid grid-cols-2 gap-2.5">
                       {filterOptions.map((opt) => {
                         const isSelected = filterRule === opt.value;
+                        const isLocked = !requireFeature(opt.feature);
+                        const requiredPlan = getUpgradePlan(opt.feature);
                         return (
                           <button
                             key={opt.value}
                             type="button"
-                            onClick={() => setFilterRule(opt.value)}
-                            className={`p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between h-20 relative overflow-hidden ${isSelected ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.2)]' : 'bg-black/40 border-white/5 hover:bg-white/[0.04] hover:border-white/20'}`}
+                            onClick={() => isLocked ? showLockedFeature(opt.feature) : setFilterRule(opt.value)}
+                            className={`p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between h-20 relative overflow-hidden ${
+                              isLocked
+                                ? 'bg-black/25 border-white/5 opacity-60'
+                                : isSelected
+                                  ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.2)]'
+                                  : 'bg-black/40 border-white/5 hover:bg-white/[0.04] hover:border-white/20'
+                            }`}
                           >
-                            <span className="text-xl">{opt.icon}</span>
+                            <span className="text-xl flex items-center justify-between">
+                              <span>{opt.icon}</span>
+                              {isLocked && <span className="text-[10px] text-amber-300">🔒 {requiredPlan.shortName}</span>}
+                            </span>
                             <span className="text-xs font-bold leading-tight block text-gray-200 mt-1">{opt.label}</span>
                             {isSelected && (
                               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-400" />
@@ -1310,6 +1483,9 @@ export default function Home() {
                               ) : (
                                 <span className="text-xs text-gray-600 mt-1 block">Sem site comercial</span>
                               )}
+                              {lead.cnpj && (
+                                <span className="block text-[11px] text-amber-300 font-mono mt-1">CNPJ {lead.cnpj}</span>
+                              )}
                             </td>
                             <td className="px-4 py-4 text-gray-400 font-mono text-xs">
                               <div className="flex flex-col gap-1">
@@ -1336,7 +1512,10 @@ export default function Home() {
                                 {lead.facebook && (
                                   <a href={lead.facebook} target="_blank" className="text-blue-500 text-xs hover:underline">📘 Facebook</a>
                                 )}
-                                {!lead.instagram && !lead.facebook && (
+                                {lead.tiktok && (
+                                  <a href={lead.tiktok} target="_blank" className="text-cyan-300 text-xs hover:underline">🎵 TikTok</a>
+                                )}
+                                {!lead.instagram && !lead.facebook && !lead.tiktok && (
                                   <span className="text-gray-600 text-xs">—</span>
                                 )}
                               </div>
@@ -1409,6 +1588,9 @@ export default function Home() {
                             ) : (
                               <span className="text-xs text-gray-600 mt-1 block">Sem site comercial</span>
                             )}
+                            {lead.cnpj && (
+                              <span className="block text-[11px] text-amber-300 font-mono mt-1">CNPJ {lead.cnpj}</span>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs border-t border-white/5 pt-3">
@@ -1438,6 +1620,9 @@ export default function Home() {
                               )}
                               {lead.facebook && (
                                 <a href={lead.facebook} target="_blank" className="text-blue-500 text-xs hover:underline bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10">📘 Face</a>
+                              )}
+                              {lead.tiktok && (
+                                <a href={lead.tiktok} target="_blank" className="text-cyan-300 text-xs hover:underline bg-cyan-500/5 px-2 py-1 rounded border border-cyan-500/10">🎵 TikTok</a>
                               )}
                             </div>
 
@@ -1491,7 +1676,7 @@ export default function Home() {
         )}
 
         {/* ==================== TAB 2: CRM ==================== */}
-        {activeTab === 'crm' && (
+        {activeTab === 'crm' && !activeTabLocked && (
           <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden animate-slide-up">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
             
@@ -1595,6 +1780,9 @@ export default function Home() {
                         {lead.site && lead.site !== 'Sem site' && (
                           <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1 block">🌐 Site comercial</a>
                         )}
+                        {lead.cnpj && (
+                          <span className="block text-[11px] text-amber-300 font-mono mt-1">CNPJ {lead.cnpj}</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-xs font-mono">
                         <div className="space-y-1">
@@ -1606,6 +1794,12 @@ export default function Home() {
                           )}
                           {lead.instagram && (
                             <a href={lead.instagram} target="_blank" className="text-pink-400 block hover:underline">📷 Instagram</a>
+                          )}
+                          {lead.facebook && (
+                            <a href={lead.facebook} target="_blank" className="text-blue-400 block hover:underline">📘 Facebook</a>
+                          )}
+                          {lead.tiktok && (
+                            <a href={lead.tiktok} target="_blank" className="text-cyan-300 block hover:underline">🎵 TikTok</a>
                           )}
                         </div>
                       </td>
@@ -1660,7 +1854,7 @@ export default function Home() {
 
                   {filteredCrmLeads.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-16 text-center text-gray-500">
+                      <td colSpan={6} className="px-4 py-16 text-center text-gray-500">
                         <div className="text-3xl mb-3">📁</div>
                         <p className="font-semibold">Nenhum lead encontrado no CRM.</p>
                         <p className="text-xs max-w-md mx-auto mt-1">Salve leads a partir do "Motor Extrator" para visualizá-los e gerenciá-los aqui no seu pipeline.</p>
@@ -1694,6 +1888,9 @@ export default function Home() {
                         {lead.site && lead.site !== 'Sem site' && (
                           <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1.5 block">🌐 Site comercial</a>
                         )}
+                        {lead.cnpj && (
+                          <span className="block text-[11px] text-amber-300 font-mono mt-1.5">CNPJ {lead.cnpj}</span>
+                        )}
                       </div>
                     </div>
 
@@ -1711,6 +1908,16 @@ export default function Home() {
                       {lead.instagram && (
                         <a href={lead.instagram} target="_blank" className="text-xs text-pink-400 flex items-center gap-2 hover:underline">
                           <span className="opacity-60">📷</span> Instagram
+                        </a>
+                      )}
+                      {lead.facebook && (
+                        <a href={lead.facebook} target="_blank" className="text-xs text-blue-400 flex items-center gap-2 hover:underline">
+                          <span className="opacity-60">📘</span> Facebook
+                        </a>
+                      )}
+                      {lead.tiktok && (
+                        <a href={lead.tiktok} target="_blank" className="text-xs text-cyan-300 flex items-center gap-2 hover:underline">
+                          <span className="opacity-60">🎵</span> TikTok
                         </a>
                       )}
                     </div>
@@ -1778,7 +1985,7 @@ export default function Home() {
         )}
 
         {/* ==================== TAB 3: WHATSAPP BULK ==================== */}
-        {activeTab === 'whatsapp' && (
+        {activeTab === 'whatsapp' && !activeTabLocked && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
             
             {/* CONFIGURAÇÃO DO DISPARO */}
@@ -2251,7 +2458,7 @@ export default function Home() {
         )}
 
         {/* ==================== TAB 4: WHATSAPP CHATBOT ==================== */}
-        {activeTab === 'chatbot' && (
+        {activeTab === 'chatbot' && !activeTabLocked && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
             <div className="lg:col-span-1 space-y-5">
               <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
@@ -2516,7 +2723,7 @@ export default function Home() {
         )}
 
         {/* ==================== TAB 5: AI MESSAGE GENERATOR ==================== */}
-        {activeTab === 'ia' && (
+        {activeTab === 'ia' && !activeTabLocked && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
             
             {/* PAINEL DE ENTRADAS */}

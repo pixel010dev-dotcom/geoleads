@@ -179,40 +179,182 @@ function smartNormalizeQuery(keyword: string, location: string) {
   };
 }
 
-// Enriquecimento: visita o site da empresa e caça E-mails e Redes Sociais
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+const BAD_EMAIL_REGEX = /sentry|wix|example|schema|wordpress|localhost|yourdomain|domain\.com|noreply|no-reply/i;
+const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
+const HREF_REGEX = /href=["']([^"']+)["']/gi;
+const ABSOLUTE_SOCIAL_REGEX = /https?:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi;
+
+function normalizeCnpj(value: string) {
+  return value.replace(/\D/g, '').slice(0, 14);
+}
+
+function formatCnpj(value: string) {
+  const digits = normalizeCnpj(value);
+  if (digits.length !== 14) return '';
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+}
+
+function safeUrl(rawUrl: string, baseUrl: string) {
+  try {
+    if (!rawUrl || /^(mailto:|tel:|javascript:|#)/i.test(rawUrl)) return '';
+    const url = new URL(rawUrl, baseUrl);
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+async function fetchHtml(url: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3500);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      redirect: 'follow',
+    });
+
+    if (!res.ok) return '';
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType && !contentType.includes('text/html')) return '';
+    return await res.text();
+  } catch {
+    return '';
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function pickEmail(html: string) {
+  const matches = Array.from(html.matchAll(EMAIL_REGEX), match => match[0]);
+  return matches.find(email => !BAD_EMAIL_REGEX.test(email)) || '';
+}
+
+function pickCnpj(html: string) {
+  const match = html.match(CNPJ_REGEX);
+  return match ? formatCnpj(match[0]) : '';
+}
+
+function normalizeSocialUrl(rawUrl: string, baseUrl: string) {
+  const fullUrl = safeUrl(rawUrl, baseUrl);
+  if (!fullUrl) return null;
+
+  try {
+    const url = new URL(fullUrl);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    const path = url.pathname.replace(/\/+$/, '');
+
+    if (host === 'instagram.com') {
+      const blocked = /^\/(p|reel|reels|stories|explore|accounts|privacy|terms)\b/i.test(path);
+      if (!blocked && /^\/[a-zA-Z0-9._]+$/.test(path)) return { key: 'instagram', url: `https://instagram.com${path}` };
+    }
+
+    if (host === 'facebook.com' || host === 'fb.com') {
+      const blocked = /^\/(sharer|share|dialog|plugins|events|groups|login|privacy|help)\b/i.test(path);
+      if (!blocked && path.length > 1) {
+        const profileId = path === '/profile.php' ? url.searchParams.get('id') : '';
+        const query = profileId ? `?id=${profileId}` : '';
+        return { key: 'facebook', url: `https://facebook.com${path}${query}` };
+      }
+    }
+
+    if (host === 'tiktok.com') {
+      if (/^\/@[a-zA-Z0-9._]+$/.test(path)) return { key: 'tiktok', url: `https://www.tiktok.com${path}` };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function pickSocialLinks(html: string, baseUrl: string) {
+  const socials: Record<'instagram' | 'facebook' | 'tiktok', string> = {
+    instagram: '',
+    facebook: '',
+    tiktok: ''
+  };
+  const candidates = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  HREF_REGEX.lastIndex = 0;
+  while ((match = HREF_REGEX.exec(html))) candidates.add(match[1]);
+  for (const socialMatch of html.matchAll(ABSOLUTE_SOCIAL_REGEX)) candidates.add(socialMatch[0]);
+
+  for (const candidate of candidates) {
+    const social = normalizeSocialUrl(candidate, baseUrl);
+    if (social && !socials[social.key as keyof typeof socials]) {
+      socials[social.key as keyof typeof socials] = social.url;
+    }
+  }
+
+  return socials;
+}
+
+function pickContactUrls(html: string, baseUrl: string) {
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return [];
+  }
+
+  const urls: string[] = [];
+  let match: RegExpExecArray | null;
+
+  HREF_REGEX.lastIndex = 0;
+  while ((match = HREF_REGEX.exec(html))) {
+    const fullUrl = safeUrl(match[1], baseUrl);
+    if (!fullUrl) continue;
+
+    try {
+      const url = new URL(fullUrl);
+      if (url.hostname !== base.hostname) continue;
+      const path = decodeURIComponent(url.pathname).toLowerCase();
+      if (!/(contato|contact|sobre|about|quem-somos|institucional|empresa|localizacao|unidades)/i.test(path)) continue;
+      if (!urls.includes(url.toString())) urls.push(url.toString());
+      if (urls.length >= 2) break;
+    } catch {}
+  }
+
+  return urls;
+}
+
+function applySignalsToLead(lead: any, html: string, baseUrl: string) {
+  if (!lead.email) lead.email = pickEmail(html);
+  if (!lead.cnpj) lead.cnpj = pickCnpj(html);
+
+  const socials = pickSocialLinks(html, baseUrl);
+  if (!lead.instagram) lead.instagram = socials.instagram;
+  if (!lead.facebook) lead.facebook = socials.facebook;
+  if (!lead.tiktok) lead.tiktok = socials.tiktok;
+}
+
+// Enriquecimento: visita o site da empresa e caca contatos, CNPJ e redes.
 async function enrichLead(lead: any) {
   lead.email = '';
   lead.instagram = '';
   lead.facebook = '';
-  
+  lead.tiktok = '';
+  lead.cnpj = '';
+
   if (!lead.site || lead.site === 'Sem site') return lead;
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(lead.site, { 
-      signal: controller.signal, 
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      redirect: 'follow',
-    });
-    clearTimeout(timeout);
+    const homeHtml = await fetchHtml(lead.site);
+    if (!homeHtml) return lead;
 
-    if (res.ok) {
-      const html = await res.text();
-      
-      // Caça E-mails (ignora lixo tipo sentry, wix, example)
-      const emailMatch = html.match(/[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}/);
-      if (emailMatch && !/sentry|wix|example|schema|wordpress/.test(emailMatch[0])) {
-        lead.email = emailMatch[0];
-      }
-      
-      // Caça Instagram
-      const instaMatch = html.match(/https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+/);
-      if (instaMatch) lead.instagram = instaMatch[0];
+    applySignalsToLead(lead, homeHtml, lead.site);
 
-      // Caça Facebook
-      const faceMatch = html.match(/https?:\/\/(www\.)?facebook\.com\/[a-zA-Z0-9_.]+/);
-      if (faceMatch) lead.facebook = faceMatch[0];
+    const contactUrls = pickContactUrls(homeHtml, lead.site);
+    if (contactUrls.length > 0 && (!lead.email || !lead.cnpj || !lead.instagram || !lead.facebook || !lead.tiktok)) {
+      const extraPages = await Promise.all(contactUrls.map(url => fetchHtml(url)));
+      extraPages.forEach((html, index) => {
+        if (html) applySignalsToLead(lead, html, contactUrls[index]);
+      });
     }
   } catch (e) { /* Timeout ou site fora do ar - ok, continua */ }
 
@@ -236,6 +378,8 @@ function postFilter(lead: any, filterRule: string): boolean {
   if (filterRule === 'email') return !!lead.email;
   if (filterRule === 'insta') return !!lead.instagram;
   if (filterRule === 'face') return !!lead.facebook;
+  if (filterRule === 'tiktok') return !!lead.tiktok;
+  if (filterRule === 'cnpj') return !!lead.cnpj;
   return true;
 }
 
