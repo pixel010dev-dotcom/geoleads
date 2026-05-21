@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Globe from '@/components/Globe';
+import FloatingOrbs from '@/components/FloatingOrbs';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -60,8 +61,7 @@ export default function Login() {
 
   return (
     <div className="app-shell min-h-screen text-white flex items-center justify-center relative overflow-hidden py-10 sm:py-12 px-4">
-      <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(600px,95vw)] h-[520px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
+      <FloatingOrbs />
 
       <div className="app-card w-full max-w-md p-6 sm:p-8 rounded-[1.5rem] sm:rounded-3xl bg-white/[0.02] border border-white/10 backdrop-blur-xl shadow-2xl relative z-10 group hover:border-blue-500/30 transition-all duration-300">
         <div className="flex flex-col items-center mb-8">

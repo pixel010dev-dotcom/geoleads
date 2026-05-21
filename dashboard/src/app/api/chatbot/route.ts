@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import pino from 'pino';
 import QRCode from 'qrcode';
-import { createClient } from '@supabase/supabase-js';
+import { getAuthUser, requireFeature } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -202,22 +202,6 @@ const pickResponse = (text: string, config: ChatbotConfig) => {
   });
 
   return matched?.response || config.fallbackMessage;
-};
-
-const getAuthUser = async (request: Request) => {
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-
-  if (!token) return null;
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  );
-  const { data, error } = await supabase.auth.getUser(token);
-
-  if (error || !data.user) return null;
-  return data.user;
 };
 
 const getOrCreateSession = (userId: string, config?: Partial<ChatbotConfig>) => {
@@ -427,25 +411,29 @@ const startBotSession = async (session: BotSession) => {
 };
 
 export async function GET(request: Request) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  const auth = await getAuthUser(request);
+  if (!auth) {
+    return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
   }
 
-  const session = getSessionStore().get(user.id);
+  const session = getSessionStore().get(auth.user.id);
   return NextResponse.json({ success: true, session: getPublicSession(session) });
 }
 
 export async function POST(request: Request) {
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  const auth = await getAuthUser(request);
+  if (!auth) {
+    return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
+  }
+
+  if (!requireFeature(auth.planId, 'chatbot')) {
+    return NextResponse.json({ error: 'Chatbot WhatsApp exige plano Agencia ou superior.' }, { status: 403 });
   }
 
   const body = await request.json();
   const action = body.action;
   const config = body.config as Partial<ChatbotConfig> | undefined;
-  const session = getOrCreateSession(user.id, config);
+  const session = getOrCreateSession(auth.user.id, config);
 
   if (action === 'connect') {
     if (session.status === 'connected' || session.status === 'qr' || session.status === 'connecting') {

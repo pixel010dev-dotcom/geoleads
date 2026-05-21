@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { getCostPerLeadLabel, paidPlanIds, plans, type PlanId } from '@/lib/plans';
+import Globe from '@/components/Globe';
+import FloatingOrbs from '@/components/FloatingOrbs';
 
 const planIcons: Record<PlanId, string> = {
   free: '🔎',
@@ -12,13 +15,26 @@ const planIcons: Record<PlanId, string> = {
 
 export default function Pricing() {
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+    });
+  }, []);
 
   const buyPlan = async (planId: PlanId) => {
     setLoadingPlan(planId);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ planId })
       });
       const data = await res.json();
@@ -28,8 +44,9 @@ export default function Pricing() {
       } else {
         alert(`Erro do Mercado Pago: ${data.error}`);
       }
-    } catch (e: any) {
-      alert(`Erro de conexão ao tentar gerar o checkout: ${e.message}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Erro desconhecido';
+      alert(`Erro de conexao ao tentar gerar o checkout: ${message}`);
     } finally {
       setLoadingPlan(null);
     }
@@ -37,8 +54,7 @@ export default function Pricing() {
 
   return (
     <div className="app-shell min-h-screen text-white py-6 sm:py-8 relative overflow-hidden">
-      <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(800px,95vw)] h-[360px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
+      <FloatingOrbs />
 
       <div className="app-container relative z-10">
         <a href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 group">

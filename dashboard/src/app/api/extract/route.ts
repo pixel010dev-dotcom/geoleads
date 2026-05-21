@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
+import { getAuthUser, requireFeature } from '@/lib/server-auth';
+import { type FeatureKey } from '@/lib/plans';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 // Algoritmo de Distância de Levenshtein para medir similaridade entre palavras
 function getLevenshteinDistance(a: string, b: string): number {
@@ -386,10 +394,35 @@ function postFilter(lead: any, filterRule: string): boolean {
 export async function POST(request: Request) {
   let browser;
   try {
+    const auth = await getAuthUser(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Nao autenticado. Faca login para extrair leads.' }, { status: 401 });
+    }
+
     const { keyword: rawKeyword, location: rawLocation, limit, filterRule } = await request.json();
 
     if (!rawKeyword || !rawLocation) {
       return NextResponse.json({ error: 'Preencha o termo e a cidade.' }, { status: 400 });
+    }
+
+    if (filterRule && filterRule !== 'none' && filterRule !== 'phone' && filterRule !== 'site') {
+      const featureMap: Record<string, FeatureKey> = {
+        email: 'emailEnrichment',
+        cnpj: 'cnpjEnrichment',
+        insta: 'socialEnrichment',
+        face: 'socialEnrichment',
+        tiktok: 'socialEnrichment'
+      };
+      const requiredFeature = featureMap[filterRule];
+      if (requiredFeature && !requireFeature(auth.planId, requiredFeature)) {
+        return NextResponse.json({
+          error: `Filtro "${filterRule}" exige plano superior. Faca upgrade para usar.`
+        }, { status: 403 });
+      }
+    }
+
+    if (auth.tokens <= 0) {
+      return NextResponse.json({ error: 'Sem tokens disponiveis. Compre mais tokens para continuar extraindo.' }, { status: 402 });
     }
 
     // Normalização Inteligente (Tolerância a erros de digitação e abreviações)
@@ -560,6 +593,12 @@ export async function POST(request: Request) {
     await browser.close();
     browser = null;
 
+    const gastos = validLeads.length;
+    if (auth && gastos > 0) {
+      const novoSaldo = Math.max(0, auth.tokens - gastos);
+      await supabase.from('profiles').update({ tokens: novoSaldo }).eq('id', auth.user.id);
+    }
+
     return NextResponse.json({ 
       success: true, 
       leads: validLeads,
@@ -568,7 +607,9 @@ export async function POST(request: Request) {
         scanned: scrapedNames.size,
         time: Math.round((Date.now() - startTime) / 1000),
         correctedKeyword,
-        correctedLocation
+        correctedLocation,
+        tokensSpent: gastos,
+        tokensRemaining: auth ? Math.max(0, auth.tokens - gastos) : 0
       }
     });
 

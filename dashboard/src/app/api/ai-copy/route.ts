@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAuthUser, requireFeature } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -132,6 +133,15 @@ const parseCopies = (text: string): CopyResult[] => {
 
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthUser(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Nao autenticado. Faca login para usar a IA.' }, { status: 401 });
+    }
+
+    if (!requireFeature(auth.planId, 'aiCopy')) {
+      return NextResponse.json({ error: 'Gerador de copys com IA exige plano Pro ou superior.' }, { status: 403 });
+    }
+
     const body = await request.json();
     const product = sanitize(body.product);
     const value = sanitize(body.value);

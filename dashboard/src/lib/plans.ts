@@ -33,15 +33,15 @@ export const plans: Record<PlanId, Plan> = {
     id: 'free',
     name: 'Teste',
     shortName: 'Teste',
-    description: 'Para experimentar o motor antes de comprar creditos.',
+    description: 'Para experimentar o motor antes de comprar créditos.',
     price: 0,
     tokens: 10,
-    cta: 'Criar conta gratis',
+    cta: 'Criar conta grátis',
     features: [
       '10 tokens iniciais',
-      'Motor Maps basico',
+      'Motor Maps básico',
       'Filtro por telefone e site',
-      'Suporte padrao'
+      'Suporte padrão'
     ],
     featureKeys: ['extractor']
   },
@@ -52,13 +52,13 @@ export const plans: Record<PlanId, Plan> = {
     description: 'Para validar nichos, montar listas e exportar os primeiros contatos.',
     price: 19.9,
     tokens: 600,
-    cta: 'Comecar barato',
+    cta: 'Começar barato',
     features: [
-      '600 tokens de extracao',
-      'CRM de leads',
-      'Exportacao CSV',
-      'Cacador de e-mails em sites',
-      'CNPJ quando encontrado no site oficial'
+      '600 tokens de extração',
+      'CRM de leads completo',
+      'Exportação para CSV',
+      'Caçador de e-mails em sites oficiais',
+      'CNPJ quando encontrado no site ou Receita Federal'
     ],
     featureKeys: ['extractor', 'crm', 'export', 'emailEnrichment', 'cnpjEnrichment']
   },
@@ -66,18 +66,18 @@ export const plans: Record<PlanId, Plan> = {
     id: 'pro',
     name: 'Profissional',
     shortName: 'Pro',
-    description: 'Para prospeccao recorrente com redes sociais, WhatsApp e IA.',
+    description: 'Para prospecção recorrente com redes sociais, WhatsApp e IA.',
     price: 49.9,
     tokens: 2500,
     cta: 'Comprar Pro',
     badge: 'MAIS EQUILIBRADO',
     highlight: true,
     features: [
-      '2.500 tokens de extracao',
-      'Tudo do Starter',
+      '2.500 tokens de extração',
+      'Tudo do plano Starter',
       'Instagram, Facebook e TikTok quando encontrados',
-      'Disparador WhatsApp assistido',
-      'Gerador de mensagens com IA'
+      'Disparador WhatsApp assistido com fila inteligente',
+      'Gerador de mensagens de vendas com IA'
     ],
     featureKeys: [
       'extractor',
@@ -92,18 +92,18 @@ export const plans: Record<PlanId, Plan> = {
   },
   agency: {
     id: 'agency',
-    name: 'Agencia',
-    shortName: 'Agencia',
-    description: 'Para operacao em volume com automacao de atendimento e prioridade.',
+    name: 'Agência',
+    shortName: 'Agência',
+    description: 'Para operação em volume com automação de atendimento e prioridade.',
     price: 97,
     tokens: 7500,
-    cta: 'Escalar operacao',
+    cta: 'Escalar operação',
     features: [
-      '7.500 tokens de extracao',
-      'Tudo do Pro',
-      'Chatbot WhatsApp por QR Code',
-      'Fluxos de resposta automatica',
-      'Suporte prioritario'
+      '7.500 tokens de extração',
+      'Tudo do plano Pro',
+      'Chatbot WhatsApp por QR Code com regras automáticas',
+      'Fluxos de resposta personalizáveis',
+      'Suporte prioritário com atendimento humano'
     ],
     featureKeys: [
       'extractor',
@@ -153,6 +153,32 @@ export const formatPlanPrice = (price: number) => (
 );
 
 export const getCostPerLeadLabel = (plan: Plan) => {
-  if (!plan.tokens || !plan.price) return 'Incluido no teste';
+  if (!plan.tokens || !plan.price) return 'Incluído no teste';
   return `~ ${formatPlanPrice(plan.price / plan.tokens)} por lead`;
+};
+
+export const allFeatureKeys: FeatureKey[] = [
+  'extractor',
+  'crm',
+  'export',
+  'emailEnrichment',
+  'cnpjEnrichment',
+  'socialEnrichment',
+  'whatsappSender',
+  'aiCopy',
+  'chatbot',
+  'prioritySupport'
+];
+
+export const featureLabels: Record<FeatureKey, string> = {
+  extractor: 'Motor Extrator',
+  crm: 'CRM de Leads',
+  export: 'Exportação CSV',
+  emailEnrichment: 'Caçador de E-mails',
+  cnpjEnrichment: 'CNPJ Oficial',
+  socialEnrichment: 'Redes Sociais',
+  whatsappSender: 'Disparador WhatsApp',
+  aiCopy: 'Copys com IA',
+  chatbot: 'Chatbot WhatsApp',
+  prioritySupport: 'Suporte Prioritário'
 };

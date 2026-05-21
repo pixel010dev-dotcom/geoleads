@@ -1,0 +1,179 @@
+"use client";
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { getPlanById, plans, paidPlanIds, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
+import Globe from '@/components/Globe';
+import FloatingOrbs from '@/components/FloatingOrbs';
+
+export default function Account() {
+  const [user, setUser] = useState<any>(null);
+  const [tokens, setTokens] = useState<number>(0);
+  const [planId, setPlanId] = useState<PlanId>('free');
+  const [loading, setLoading] = useState(true);
+  const [payments, setPayments] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        window.location.href = '/login';
+        return;
+      }
+
+      setUser(session.user);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tokens, plan_id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profile) {
+        setTokens(profile.tokens);
+        setPlanId((profile.plan_id as PlanId) || 'free');
+      }
+
+      const { data: history } = await supabase
+        .from('payment_history')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      setPayments(history || []);
+      setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="app-shell min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <Globe size={48} className="mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-400">Carregando sua conta...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentPlan = getPlanById(planId);
+  const usagePercent = currentPlan.tokens > 0 ? Math.min(100, ((currentPlan.tokens - tokens) / currentPlan.tokens) * 100) : 0;
+
+  return (
+    <div className="app-shell min-h-screen text-white relative pb-16">
+      <FloatingOrbs />
+
+      <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
+        <div className="app-container min-h-16 py-3 flex items-center justify-between gap-3">
+          <a href="/" className="flex items-center gap-2 group">
+            <Globe size={28} />
+            <span className="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
+          </a>
+          <div className="flex items-center gap-4">
+            <a href="/" className="text-gray-400 hover:text-white transition-colors text-sm">Voltar ao Dashboard</a>
+          </div>
+        </div>
+      </nav>
+
+      <main className="app-container py-8 lg:py-12 relative z-10">
+        <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">Minha Conta</h1>
+        <p className="text-gray-400 mb-8">{user?.email}</p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+            <p className="text-sm text-gray-400 mb-1">Plano Atual</p>
+            <p className="text-2xl font-bold">{currentPlan.name}</p>
+            <p className="text-sm text-gray-500 mt-1">{formatPlanPrice(currentPlan.price)}{currentPlan.price > 0 ? '/mês' : ''}</p>
+          </div>
+
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+            <p className="text-sm text-gray-400 mb-1">Tokens Disponíveis</p>
+            <p className="text-2xl font-bold">{tokens.toLocaleString('pt-BR')}</p>
+            <p className="text-sm text-gray-500 mt-1">de {currentPlan.tokens.toLocaleString('pt-BR')} inclusos</p>
+          </div>
+
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+            <p className="text-sm text-gray-400 mb-1">Uso do Plano</p>
+            <div className="mt-2">
+              <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-2">{Math.round(usagePercent)}% utilizado</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl mb-8">
+          <h2 className="text-xl font-bold mb-4">Comparativo de Recursos</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="text-left py-3 pr-4 text-gray-400 font-medium">Recurso</th>
+                  {paidPlanIds.map(pid => (
+                    <th key={pid} className={`text-center py-3 px-2 font-bold ${plans[pid].highlight ? 'text-indigo-400' : 'text-gray-300'}`}>
+                      {plans[pid].name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-white/5">
+                  <td className="py-3 pr-4 text-gray-300">Tokens inclusos</td>
+                  {paidPlanIds.map(pid => (
+                    <td key={pid} className="text-center py-3 px-2 text-white font-medium">{plans[pid].tokens.toLocaleString('pt-BR')}</td>
+                  ))}
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-3 pr-4 text-gray-300">Preço</td>
+                  {paidPlanIds.map(pid => (
+                    <td key={pid} className="text-center py-3 px-2 text-white font-medium">{formatPlanPrice(plans[pid].price)}</td>
+                  ))}
+                </tr>
+                {allFeatureKeys.map(feature => (
+                  <tr key={feature} className="border-b border-white/5">
+                    <td className="py-3 pr-4 text-gray-300">{featureLabels[feature]}</td>
+                    {paidPlanIds.map(pid => (
+                      <td key={pid} className="text-center py-3 px-2">
+                        {plans[pid].featureKeys.includes(feature) ? (
+                          <span className="text-green-400 text-lg">✓</span>
+                        ) : (
+                          <span className="text-gray-600 text-lg">—</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {payments.length > 0 && (
+          <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl">
+            <h2 className="text-xl font-bold mb-4">Histórico de Pagamentos</h2>
+            <div className="space-y-3">
+              {payments.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-3 px-4 rounded-xl bg-white/5 border border-white/10">
+                  <div>
+                    <p className="font-medium">{getPlanById(p.plan_id).name} - {p.tokens_added.toLocaleString('pt-BR')} tokens</p>
+                    <p className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-green-400">{formatPlanPrice(p.amount)}</p>
+                    <p className="text-xs text-gray-500 capitalize">{p.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

@@ -145,3 +145,144 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
+
+-- Tabela de historico de pagamentos
+create table if not exists public.payment_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  mp_payment_id text not null,
+  plan_id text not null,
+  tokens_added integer not null,
+  amount numeric(10,2) not null,
+  status text not null default 'approved',
+  created_at timestamptz not null default now()
+);
+
+alter table public.payment_history enable row level security;
+
+drop policy if exists "payment_history_select_own" on public.payment_history;
+create policy "payment_history_select_own"
+  on public.payment_history for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "payment_history_insert_service" on public.payment_history;
+create policy "payment_history_insert_service"
+  on public.payment_history for insert
+  with check (true);
+
+-- Tabela de empresas CNPJ (base oficial)
+create table if not exists public.cnpj_companies (
+  id uuid primary key default gen_random_uuid(),
+  cnpj text not null unique,
+  razao_social text,
+  nome_fantasia text,
+  telefone text,
+  email text,
+  endereco text,
+  cidade text,
+  uf text,
+  cep text,
+  situacao text,
+  atividade_principal text,
+  naturezas_juridica text,
+  data_abertura date,
+  site text,
+  instagram text,
+  facebook text,
+  tiktok text,
+  source text not null default 'manual',
+  confidence_score integer not null default 100,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_cnpj_companies_cnpj on public.cnpj_companies(cnpj);
+create index if not exists idx_cnpj_companies_nome on public.cnpj_companies(nome_fantasia);
+create index if not exists idx_cnpj_companies_cidade on public.cnpj_companies(cidade);
+
+alter table public.cnpj_companies enable row level security;
+
+drop policy if exists "cnpj_companies_select_public" on public.cnpj_companies;
+create policy "cnpj_companies_select_public"
+  on public.cnpj_companies for select
+  using (true);
+
+drop policy if exists "cnpj_companies_insert_service" on public.cnpj_companies;
+create policy "cnpj_companies_insert_service"
+  on public.cnpj_companies for insert
+  with check (true);
+
+drop policy if exists "cnpj_companies_update_service" on public.cnpj_companies;
+create policy "cnpj_companies_update_service"
+  on public.cnpj_companies for update
+  using (true);
+
+-- Tabela de enriquecimento social (cache de buscas)
+create table if not exists public.social_enrichment_cache (
+  id uuid primary key default gen_random_uuid(),
+  company_name text not null,
+  city text,
+  niche text,
+  instagram text,
+  facebook text,
+  tiktok text,
+  linkedin text,
+  twitter text,
+  confidence_score integer not null default 0,
+  source text not null default 'search',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_social_cache_name_city on public.social_enrichment_cache(company_name, city);
+
+alter table public.social_enrichment_cache enable row level security;
+
+drop policy if exists "social_cache_select_public" on public.social_enrichment_cache;
+create policy "social_cache_select_public"
+  on public.social_enrichment_cache for select
+  using (true);
+
+drop policy if exists "social_cache_insert_service" on public.social_enrichment_cache;
+create policy "social_cache_insert_service"
+  on public.social_enrichment_cache for insert
+  with check (true);
+
+-- Funcao para buscar CNPJ pelo nome/cidade
+create or replace function public.search_cnpj_by_name(
+  search_name text,
+  search_city text default null,
+  limit_count integer default 5
+)
+returns table (
+  cnpj text,
+  razao_social text,
+  nome_fantasia text,
+  telefone text,
+  email text,
+  cidade text,
+  uf text,
+  situacao text,
+  atividade_principal text,
+  confidence_score integer
+) as $$
+begin
+  return query
+  select
+    c.cnpj, c.razao_social, c.nome_fantasia, c.telefone, c.email,
+    c.cidade, c.uf, c.situacao, c.atividade_principal, c.confidence_score
+  from public.cnpj_companies c
+  where
+    (search_city is null or lower(c.cidade) = lower(search_city))
+    and (
+      similarity(lower(c.nome_fantasia), lower(search_name)) > 0.2
+      or similarity(lower(c.razao_social), lower(search_name)) > 0.2
+    )
+  order by
+    greatest(
+      similarity(lower(c.nome_fantasia), lower(search_name)),
+      similarity(lower(c.razao_social), lower(search_name))
+    ) desc
+  limit limit_count;
+end;
+$$ language plpgsql security definer;
