@@ -90,9 +90,30 @@ const waMessagePresets = [
 
 const waTemplateTags = ['{Nome}', '{Cidade}', '{Nicho}', '{Site}', '{Telefone}'];
 
+const defaultChatbotRules = [
+  {
+    id: 'preco',
+    keyword: 'preço',
+    response: 'Oi {Nome}! Os valores dependem do objetivo e da região. Me fala qual serviço você procura que eu te ajudo por aqui.',
+    enabled: true
+  },
+  {
+    id: 'horario',
+    keyword: 'horário',
+    response: 'Olá {Nome}! Nosso horário de atendimento é de segunda a sexta, das 9h às 18h. Se quiser, já me diga o que precisa.',
+    enabled: true
+  },
+  {
+    id: 'orcamento',
+    keyword: 'orçamento',
+    response: 'Claro, {Nome}. Para montar um orçamento rápido, me envie sua cidade e o serviço que você deseja.',
+    enabled: true
+  }
+];
+
 export default function Home() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'extractor' | 'crm' | 'whatsapp' | 'ia' | 'support'>('extractor');
+  const [activeTab, setActiveTab] = useState<'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support'>('extractor');
 
   // Extractor States
   const [keyword, setKeyword] = useState('');
@@ -127,6 +148,16 @@ export default function Home() {
   const [bulkAutoNext, setBulkAutoNext] = useState(false);
   const [selectedWaLeads, setSelectedWaLeads] = useState<string[]>([]);
   const [bulkQueue, setBulkQueue] = useState<any[]>([]);
+
+  // WhatsApp Chatbot States
+  const [chatbotEnabled, setChatbotEnabled] = useState(true);
+  const [chatbotBusinessName, setChatbotBusinessName] = useState('GeoLeads');
+  const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState('Olá! Sou o assistente automático. Me diga como posso ajudar.');
+  const [chatbotFallbackMessage, setChatbotFallbackMessage] = useState('Recebi sua mensagem. Um atendente vai continuar por aqui em breve.');
+  const [chatbotRules, setChatbotRules] = useState(defaultChatbotRules);
+  const [chatbotSession, setChatbotSession] = useState<any>({ status: 'idle', repliedCount: 0 });
+  const [chatbotLoading, setChatbotLoading] = useState(false);
+  const [chatbotMessage, setChatbotMessage] = useState('');
 
   // AI Copywriter States
   const [aiProduct, setAiProduct] = useState('');
@@ -273,6 +304,133 @@ export default function Home() {
     }
   };
 
+  const applyChatbotConfig = (config: any) => {
+    setChatbotEnabled(config.enabled ?? true);
+    setChatbotBusinessName(config.businessName || config.business_name || 'GeoLeads');
+    setChatbotWelcomeMessage(config.welcomeMessage || config.welcome_message || 'Olá! Sou o assistente automático. Me diga como posso ajudar.');
+    setChatbotFallbackMessage(config.fallbackMessage || config.fallback_message || 'Recebi sua mensagem. Um atendente vai continuar por aqui em breve.');
+    setChatbotRules(Array.isArray(config.rules) && config.rules.length > 0 ? config.rules : defaultChatbotRules);
+  };
+
+  const getChatbotConfig = () => ({
+    enabled: chatbotEnabled,
+    businessName: chatbotBusinessName,
+    welcomeMessage: chatbotWelcomeMessage,
+    fallbackMessage: chatbotFallbackMessage,
+    rules: chatbotRules
+  });
+
+  const saveChatbotConfig = async (silent = false) => {
+    const config = getChatbotConfig();
+    localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config));
+
+    if (user?.id) {
+      const { error } = await supabase
+        .from('chatbot_configs')
+        .upsert({
+          user_id: user.id,
+          enabled: config.enabled,
+          business_name: config.businessName,
+          welcome_message: config.welcomeMessage,
+          fallback_message: config.fallbackMessage,
+          rules: config.rules
+        }, { onConflict: 'user_id' });
+
+      if (error) {
+        console.warn('Chatbot config cloud sync failed:', error.message);
+        if (!silent) setChatbotMessage('Configuração salva localmente. Rode o SQL do Supabase para salvar na nuvem.');
+      }
+    }
+
+    if (!silent) setChatbotMessage('Configuração do chatbot salva.');
+  };
+
+  const callChatbotApi = async (action: string, config = getChatbotConfig()) => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (!token) {
+      window.location.href = '/login';
+      return null;
+    }
+
+    const res = await fetch('/api/chatbot', {
+      method: action === 'status' ? 'GET' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: action === 'status' ? undefined : JSON.stringify({ action, config })
+    });
+    const payload = await res.json();
+
+    if (!res.ok) {
+      throw new Error(payload.error || 'Erro no chatbot.');
+    }
+
+    if (payload.session) setChatbotSession(payload.session);
+    return payload;
+  };
+
+  const refreshChatbotStatus = async () => {
+    if (!user) return;
+
+    try {
+      await callChatbotApi('status');
+    } catch (error: any) {
+      setChatbotMessage(error.message);
+    }
+  };
+
+  const handleConnectChatbot = async () => {
+    setChatbotLoading(true);
+    setChatbotMessage('');
+
+    try {
+      await saveChatbotConfig(true);
+      await callChatbotApi('connect');
+      setChatbotMessage('Conexão iniciada. Escaneie o QR Code quando aparecer.');
+    } catch (error: any) {
+      setChatbotMessage(error.message);
+    } finally {
+      setChatbotLoading(false);
+    }
+  };
+
+  const handleDisconnectChatbot = async () => {
+    setChatbotLoading(true);
+    setChatbotMessage('');
+
+    try {
+      await callChatbotApi('disconnect');
+      setChatbotMessage('Chatbot desconectado.');
+    } catch (error: any) {
+      setChatbotMessage(error.message);
+    } finally {
+      setChatbotLoading(false);
+    }
+  };
+
+  const updateChatbotRule = (id: string, field: 'keyword' | 'response' | 'enabled', value: string | boolean) => {
+    setChatbotRules(prev => prev.map(rule => rule.id === id ? { ...rule, [field]: value } : rule));
+  };
+
+  const addChatbotRule = () => {
+    setChatbotRules(prev => [
+      ...prev,
+      {
+        id: `rule-${Date.now()}`,
+        keyword: '',
+        response: 'Olá {Nome}! Recebi sua mensagem sobre {Mensagem}. Já te ajudo.',
+        enabled: true
+      }
+    ]);
+  };
+
+  const removeChatbotRule = (id: string) => {
+    setChatbotRules(prev => prev.filter(rule => rule.id !== id));
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       setProofVisible(false);
@@ -311,6 +469,13 @@ export default function Home() {
         } catch(e) {}
       }
 
+      const localChatbotConfig = localStorage.getItem('geoleads_chatbot_config');
+      if (localChatbotConfig) {
+        try {
+          applyChatbotConfig(JSON.parse(localChatbotConfig));
+        } catch(e) {}
+      }
+
       if (sessionUserId) {
         try {
           setCrmSyncStatus('syncing');
@@ -331,6 +496,28 @@ export default function Home() {
           setCrmSyncStatus('error');
           setCrmSyncMessage('Modo local');
         }
+
+        try {
+          const { data: cloudChatbotConfig } = await supabase
+            .from('chatbot_configs')
+            .select('*')
+            .eq('user_id', sessionUserId)
+            .maybeSingle();
+
+          if (cloudChatbotConfig) {
+            const config = {
+              enabled: cloudChatbotConfig.enabled,
+              businessName: cloudChatbotConfig.business_name,
+              welcomeMessage: cloudChatbotConfig.welcome_message,
+              fallbackMessage: cloudChatbotConfig.fallback_message,
+              rules: cloudChatbotConfig.rules
+            };
+            applyChatbotConfig(config);
+            localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config));
+          }
+        } catch (error: any) {
+          console.warn('Chatbot cloud config load failed:', error.message);
+        }
       }
 
       // If empty, load B2B mock data by default to prevent a blank cold start.
@@ -345,6 +532,14 @@ export default function Home() {
     };
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'chatbot' || !user) return;
+
+    refreshChatbotStatus();
+    const interval = setInterval(refreshChatbotStatus, 5000);
+    return () => clearInterval(interval);
+  }, [activeTab, user]);
 
   // Save CRM to local cache and cloud when the user is authenticated.
   const saveCrm = (updatedCrm: any[]) => {
@@ -854,6 +1049,12 @@ export default function Home() {
               className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               ⚡ Disparador WhatsApp
+            </button>
+            <button
+              onClick={() => setActiveTab('chatbot')}
+              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+            >
+              🤖 Chatbot WhatsApp
             </button>
             <button 
               onClick={() => setActiveTab('ia')}
@@ -1908,7 +2109,228 @@ export default function Home() {
           </div>
         )}
 
-        {/* ==================== TAB 4: AI MESSAGE GENERATOR ==================== */}
+        {/* ==================== TAB 4: WHATSAPP CHATBOT ==================== */}
+        {activeTab === 'chatbot' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-20 animate-slide-up">
+            <div className="lg:col-span-1 space-y-6">
+              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-cyan-500" />
+                <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">🤖 Chatbot WhatsApp</h3>
+                <p className="text-xs text-gray-400 leading-relaxed mb-5">
+                  Responda mensagens recebidas automaticamente com regras simples. Ideal para atendimento inicial, dúvidas frequentes e captação de interessados.
+                </p>
+
+                <div className="rounded-2xl bg-black/40 border border-white/10 p-4 mb-5">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="text-xs text-gray-400">Status da conexão</span>
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full border font-bold ${
+                      chatbotSession.status === 'connected' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                      chatbotSession.status === 'qr' ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' :
+                      chatbotSession.status === 'connecting' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                      chatbotSession.status === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                      'bg-white/5 border-white/10 text-gray-400'
+                    }`}>
+                      {chatbotSession.status === 'connected' ? 'Conectado' :
+                       chatbotSession.status === 'qr' ? 'Aguardando QR' :
+                       chatbotSession.status === 'connecting' ? 'Conectando' :
+                       chatbotSession.status === 'error' ? 'Erro' :
+                       chatbotSession.status === 'disconnected' ? 'Desconectado' : 'Inativo'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <span className="block text-gray-500">Respostas</span>
+                      <strong className="text-lg text-white">{chatbotSession.repliedCount || 0}</strong>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                      <span className="block text-gray-500">Regras</span>
+                      <strong className="text-lg text-white">{chatbotRules.filter(rule => rule.enabled).length}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {chatbotSession.qrDataUrl ? (
+                  <div className="p-4 rounded-2xl bg-white border border-cyan-500/20 mb-5">
+                    <img src={chatbotSession.qrDataUrl} alt="QR Code do WhatsApp" className="w-full max-w-[260px] mx-auto" />
+                    <p className="text-center text-xs text-black/70 font-semibold mt-3">Escaneie com o WhatsApp do usuário</p>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 leading-relaxed mb-5">
+                    Ao conectar, o GeoLeads gera um QR Code. Depois que o WhatsApp parear, o bot responde apenas conversas recebidas.
+                  </div>
+                )}
+
+                {chatbotMessage && (
+                  <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-gray-300 mb-4">
+                    {chatbotMessage}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-3">
+                  {chatbotSession.status === 'connected' || chatbotSession.status === 'qr' || chatbotSession.status === 'connecting' ? (
+                    <button
+                      type="button"
+                      disabled={chatbotLoading}
+                      onClick={handleDisconnectChatbot}
+                      className="w-full py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 border border-red-500/30 cursor-pointer disabled:opacity-60"
+                    >
+                      Desconectar Bot
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={chatbotLoading || !user}
+                      onClick={handleConnectChatbot}
+                      className="w-full py-3 rounded-xl font-bold text-black bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 cursor-pointer disabled:opacity-60"
+                    >
+                      {user ? 'Conectar via QR Code' : 'Faça login para conectar'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={chatbotLoading}
+                    onClick={() => saveChatbotConfig()}
+                    className="w-full py-3 rounded-xl font-bold text-white bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer disabled:opacity-60"
+                  >
+                    Salvar Configuração
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
+                <span className="font-bold block mb-1">Uso recomendado</span>
+                Use para atendimento e resposta a contatos que chamaram primeiro. O comando SAIR/PARAR/CANCELAR desativa respostas automáticas para aquele contato.
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 space-y-6">
+              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="text-xl font-semibold">Configuração do Atendimento</h3>
+                    <p className="text-xs text-gray-500 mt-1">Defina a identidade do bot e as mensagens padrão.</p>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-gray-300 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={chatbotEnabled}
+                      onChange={(e) => setChatbotEnabled(e.target.checked)}
+                      className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-4 w-4"
+                    />
+                    Bot ativo
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Nome da empresa/bot</label>
+                    <input
+                      value={chatbotBusinessName}
+                      onChange={(e) => setChatbotBusinessName(e.target.value)}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Variáveis disponíveis</label>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {['{Nome}', '{Mensagem}', '{Empresa}'].map(tag => (
+                        <span key={tag} className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] font-mono text-gray-300">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Mensagem inicial/fallback</label>
+                    <textarea
+                      rows={4}
+                      value={chatbotFallbackMessage}
+                      onChange={(e) => setChatbotFallbackMessage(e.target.value)}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Mensagem de boas-vindas interna</label>
+                    <textarea
+                      rows={4}
+                      value={chatbotWelcomeMessage}
+                      onChange={(e) => setChatbotWelcomeMessage(e.target.value)}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="text-xl font-semibold">Fluxos de Resposta</h3>
+                    <p className="text-xs text-gray-500 mt-1">Quando a mensagem recebida contiver a palavra-chave, o bot envia a resposta.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addChatbotRule}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold cursor-pointer"
+                  >
+                    + Nova Regra
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {chatbotRules.map((rule, index) => (
+                    <div key={rule.id} className="p-4 rounded-2xl bg-black/30 border border-white/10">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <span className="text-xs font-bold text-gray-300">Regra {index + 1}</span>
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 text-[11px] text-gray-400 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={rule.enabled}
+                              onChange={(e) => updateChatbotRule(rule.id, 'enabled', e.target.checked)}
+                              className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-3.5 w-3.5"
+                            />
+                            Ativa
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => removeChatbotRule(rule.id)}
+                            className="text-xs text-red-400 hover:text-red-300 cursor-pointer"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] text-gray-500 mb-1">Palavra-chave</label>
+                          <input
+                            value={rule.keyword}
+                            onChange={(e) => updateChatbotRule(rule.id, 'keyword', e.target.value)}
+                            placeholder="ex: preço"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-[11px] text-gray-500 mb-1">Resposta automática</label>
+                          <textarea
+                            rows={3}
+                            value={rule.response}
+                            onChange={(e) => updateChatbotRule(rule.id, 'response', e.target.value)}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB 5: AI MESSAGE GENERATOR ==================== */}
         {activeTab === 'ia' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-20 animate-slide-up">
             
