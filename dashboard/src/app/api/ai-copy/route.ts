@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     }
 
     if (!requireFeature(auth.planId, 'aiCopy')) {
-      return NextResponse.json({ error: 'Gerador de copys com IA exige plano Pro ou superior.' }, { status: 403 });
+      return NextResponse.json({ error: 'Gerador de copys com IA exige plano Profissional ou superior.' }, { status: 403 });
     }
 
     const body = await request.json();

@@ -11,6 +11,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  const getRedirectPath = () => {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next') || '/';
+    const plan = params.get('plan');
+    return plan ? `${next}?plan=${encodeURIComponent(plan)}` : next;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -31,7 +38,7 @@ export default function Login() {
           }
           throw error;
         }
-        window.location.href = '/';
+        window.location.href = getRedirectPath();
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
@@ -39,8 +46,8 @@ export default function Login() {
         setMessage('Falta pouco! Verifique seu e-mail para validar a conta e ganhar 10 Tokens.');
         setIsLogin(true);
       }
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Erro inesperado ao autenticar.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +57,7 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/',
+        redirectTo: window.location.origin + getRedirectPath(),
       },
     });
     if (error) {

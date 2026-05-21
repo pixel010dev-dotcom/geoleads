@@ -19,7 +19,7 @@ const tabFeatureMap: Record<DashboardTab, FeatureKey | null> = {
 
 const tabUpgradeCopy: Record<Exclude<DashboardTab, 'extractor' | 'support'>, { title: string; description: string }> = {
   crm: {
-    title: 'CRM liberado no Starter',
+    title: 'CRM liberado no Inicial',
     description: 'Salve leads, organize o funil e exporte contatos com um pacote pago de entrada.'
   },
   whatsapp: {
@@ -27,7 +27,7 @@ const tabUpgradeCopy: Record<Exclude<DashboardTab, 'extractor' | 'support'>, { t
     description: 'Use a fila assistida e os modelos de abordagem quando seu plano tiver WhatsApp.'
   },
   chatbot: {
-    title: 'Chatbot liberado no Agencia',
+    title: 'Chatbot liberado no Max',
     description: 'Automatize respostas por QR Code apenas na camada de maior volume.'
   },
   ia: {
@@ -315,6 +315,52 @@ export default function Home() {
       </div>
     );
   };
+
+  const LeadGuideWidget = () => (
+    <div className="lead-guide-widget">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <span className="text-xs text-blue-300 font-bold uppercase tracking-wide">Widget de ação</span>
+          <h3 className="text-lg font-bold mt-1">Próximo passo para vender</h3>
+        </div>
+        <span className="px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-300 text-[11px] font-bold">
+          Motor OK
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <button type="button" onClick={() => setActiveTab('extractor')} className="lead-step is-active">
+          <b>1</b>
+          <span>Buscar</span>
+        </button>
+        <button type="button" onClick={() => setActiveTab('crm')} className="lead-step">
+          <b>2</b>
+          <span>Salvar</span>
+        </button>
+        <button type="button" onClick={() => setActiveTab('whatsapp')} className="lead-step">
+          <b>3</b>
+          <span>Abordar</span>
+        </button>
+      </div>
+
+      <div className="rounded-2xl bg-black/25 border border-white/10 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-gray-500">Plano atual</p>
+            <p className="font-bold text-white">{user ? currentPlan.name : 'Conta gratuita'}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500">Saldo</p>
+            <p className="font-bold text-blue-300">{tokens !== null ? tokens.toLocaleString('pt-BR') : '10'} tokens</p>
+          </div>
+        </div>
+      </div>
+
+      <a href="/pricing" className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-white text-black font-bold text-sm py-3 hover:bg-gray-200 transition-colors">
+        Comprar ou trocar plano
+      </a>
+    </div>
+  );
 
   const sampleCrmLeads = () => [
     {
@@ -1212,6 +1258,13 @@ export default function Home() {
     { value: 'site', label: 'Só Site', icon: '🌐', desc: 'Filtra apenas empresas com site próprio', feature: 'extractor' as FeatureKey },
   ];
 
+  const quickSearches = [
+    { keyword: 'Clínicas de estética', location: 'São Paulo, SP' },
+    { keyword: 'Dentistas', location: 'Belo Horizonte, MG' },
+    { keyword: 'Academias', location: 'Rio de Janeiro, RJ' },
+    { keyword: 'Restaurantes', location: 'Curitiba, PR' }
+  ];
+
   // CRM Filter / Search logic
   const filteredCrmLeads = crmLeads.filter(lead => {
     const matchesSearch = 
@@ -1271,15 +1324,32 @@ export default function Home() {
 
       <main className="app-container py-6 sm:py-10 lg:py-12 relative z-10">
         <header className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 sm:mb-4 leading-tight max-w-4xl">
-            A Maior Máquina de <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Leads B2B</span>
-          </h1>
-          <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl mb-5 sm:mb-7 leading-relaxed">
-            Encontre clientes potenciais em qualquer lugar do mundo. Defina o nicho, a região e deixe a nossa inteligência extrair os contatos, sites e muito mais.
-          </p>
+          <div className="dashboard-hero">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold mb-4">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                Painel pronto para prospecção
+              </div>
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 sm:mb-4 leading-tight max-w-4xl">
+                Encontre, organize e aborde <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">clientes B2B</span>
+              </h1>
+              <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl leading-relaxed">
+                Escolha o nicho, a região e o nível de contato que você quer. O GeoLeads entrega a lista, o CRM e a abordagem em um fluxo só.
+              </p>
+              <div className="workflow-strip mt-5">
+                <span>Maps</span>
+                <span>CNPJ</span>
+                <span>E-mail</span>
+                <span>Redes</span>
+                <span>WhatsApp</span>
+              </div>
+            </div>
+
+            <LeadGuideWidget />
+          </div>
 
           {/* TAB NAVIGATION BAR */}
-          <div className="app-tabs flex border-b border-white/10 gap-2 mb-6 max-w-full overflow-x-auto pb-1 no-scrollbar">
+          <div className="app-tabs dashboard-tabs flex gap-2 mb-6 max-w-full overflow-x-auto no-scrollbar">
             <button 
               onClick={() => setActiveTab('extractor')}
               className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
@@ -1347,6 +1417,26 @@ export default function Home() {
 
                 <form onSubmit={handleExtract} className="space-y-5">
                   <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Comece por um modelo rápido</label>
+                    <div className="quick-preset-grid">
+                      {quickSearches.map((preset) => (
+                        <button
+                          key={`${preset.keyword}-${preset.location}`}
+                          type="button"
+                          onClick={() => {
+                            setKeyword(preset.keyword);
+                            setLocation(preset.location);
+                          }}
+                          className="quick-preset"
+                        >
+                          <span>{preset.keyword}</span>
+                          <small>{preset.location}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-400 mb-1">O que você procura?</label>
                     <input 
                       type="text" 
@@ -1383,7 +1473,7 @@ export default function Home() {
                   {/* PREMIUM GRID CHIPS FOR FILTER SELECTOR */}
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Exigência Obrigatória (Cobrança Justa)</label>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="extract-filter-grid">
                       {filterOptions.map((opt) => {
                         const isSelected = filterRule === opt.value;
                         const isLocked = !requireFeature(opt.feature);
@@ -1393,12 +1483,12 @@ export default function Home() {
                             key={opt.value}
                             type="button"
                             onClick={() => isLocked ? showLockedFeature(opt.feature) : setFilterRule(opt.value)}
-                            className={`p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between h-20 relative overflow-hidden ${
+                            className={`filter-option-card ${
                               isLocked
-                                ? 'bg-black/25 border-white/5 opacity-60'
+                                ? 'is-locked'
                                 : isSelected
-                                  ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.2)]'
-                                  : 'bg-black/40 border-white/5 hover:bg-white/[0.04] hover:border-white/20'
+                                  ? 'is-selected'
+                                  : ''
                             }`}
                           >
                             <span className="text-xl flex items-center justify-between">

@@ -144,7 +144,7 @@ export async function POST(request: Request) {
     }
 
     if (!requireFeature(auth.planId, 'socialEnrichment')) {
-      return NextResponse.json({ error: 'Enriquecimento social exige plano Pro ou superior.' }, { status: 403 });
+      return NextResponse.json({ error: 'Enriquecimento social exige plano Profissional ou superior.' }, { status: 403 });
     }
 
     const body = await request.json();

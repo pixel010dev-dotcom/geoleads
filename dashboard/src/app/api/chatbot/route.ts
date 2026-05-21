@@ -427,7 +427,7 @@ export async function POST(request: Request) {
   }
 
   if (!requireFeature(auth.planId, 'chatbot')) {
-    return NextResponse.json({ error: 'Chatbot WhatsApp exige plano Agencia ou superior.' }, { status: 403 });
+    return NextResponse.json({ error: 'Chatbot WhatsApp exige plano Max ou superior.' }, { status: 403 });
   }
 
   const body = await request.json();

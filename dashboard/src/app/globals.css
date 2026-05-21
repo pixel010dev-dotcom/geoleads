@@ -69,7 +69,6 @@ pre, code {
 
 a {
   text-decoration: none;
-  color: inherit;
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -870,5 +869,301 @@ body {
 
   .app-panel {
     border-radius: 0.9rem;
+  }
+}
+
+/* ===== GEOLEADS CUSTOMER-READY UX ===== */
+
+.tracking-tight {
+  letter-spacing: 0 !important;
+}
+
+.text-black,
+a.text-black,
+a.bg-white,
+button.bg-white {
+  color: #000 !important;
+}
+
+.dashboard-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 23rem);
+  gap: clamp(1rem, 3vw, 1.75rem);
+  align-items: stretch;
+  margin-bottom: clamp(1.25rem, 3vw, 2rem);
+}
+
+.workflow-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.workflow-strip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(229, 231, 235, 0.86);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.lead-guide-widget {
+  border-radius: 1.25rem;
+  padding: clamp(1rem, 2vw, 1.25rem);
+  background:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.11), rgba(255, 255, 255, 0.035)),
+    rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(96, 165, 250, 0.18);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+}
+
+.lead-step {
+  min-height: 4rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(229, 231, 235, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.lead-step b {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.09);
+  font-size: 0.75rem;
+}
+
+.lead-step span {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.lead-step:hover,
+.lead-step.is-active {
+  color: #fff;
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.dashboard-tabs {
+  padding: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.dashboard-tabs .app-tab {
+  border-radius: 0.75rem;
+  border-bottom-width: 0 !important;
+}
+
+.quick-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.quick-preset {
+  min-height: 3.65rem;
+  text-align: left;
+  padding: 0.75rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.quick-preset:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+.quick-preset span,
+.quick-preset small {
+  display: block;
+}
+
+.quick-preset span {
+  color: #f3f4f6;
+  font-weight: 800;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.quick-preset small {
+  margin-top: 0.22rem;
+  color: rgba(156, 163, 175, 0.92);
+  font-size: 0.68rem;
+}
+
+.extract-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.filter-option-card {
+  min-height: 5.15rem;
+  padding: 0.78rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.34);
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.filter-option-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.filter-option-card.is-selected {
+  border-color: rgba(96, 165, 250, 0.95);
+  background: rgba(37, 99, 235, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.22), 0 12px 30px rgba(37, 99, 235, 0.14);
+}
+
+.filter-option-card.is-locked {
+  opacity: 0.6;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.pricing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, 25rem);
+  align-items: end;
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.pricing-steps {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.pricing-steps div {
+  min-height: 3.5rem;
+  border-radius: 1rem;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pricing-steps b {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  font-size: 0.8rem;
+}
+
+.pricing-steps span {
+  color: rgba(229, 231, 235, 0.88);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pricing-plan-card {
+  min-height: 100%;
+  outline: none;
+}
+
+.pricing-plan-card:focus-visible {
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.35);
+}
+
+.pricing-radio {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.24);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.pricing-radio.is-selected {
+  border-color: #60a5fa;
+  background: radial-gradient(circle, #60a5fa 0 38%, transparent 42%);
+}
+
+.checkout-summary {
+  position: sticky;
+  top: 5.25rem;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-hero,
+  .pricing-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .lead-guide-widget,
+  .checkout-summary {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .workflow-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workflow-strip span {
+    justify-content: center;
+    padding-inline: 0.4rem;
+  }
+
+  .dashboard-tabs {
+    border-radius: 0.9rem;
+  }
+
+  .quick-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .extract-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-option-card {
+    min-height: 4.75rem;
+    padding: 0.7rem;
+  }
+
+  .checkout-summary {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-card-list.md\:hidden {
+    display: none !important;
   }
 }

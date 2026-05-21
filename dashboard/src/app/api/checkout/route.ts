@@ -12,7 +12,11 @@ const client = new MercadoPagoConfig({
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUser(request);
-    const user = auth?.user;
+    if (!auth) {
+      return NextResponse.json({ error: 'Faça login para comprar tokens.' }, { status: 401 });
+    }
+
+    const user = auth.user;
     const body = await request.json();
     const selectedPlanId = String(body.planId || '').trim() as PlanId;
 
@@ -21,13 +25,10 @@ export async function POST(request: Request) {
     }
 
     const plan = getPlanById(selectedPlanId);
-    const payerEmail = user?.email || body.email || '';
-    const profileTokens = auth?.tokens || 0;
-    const currentPlanId = auth?.planId || 'free';
-
-    const externalRef = user
-      ? `geoleads:${selectedPlanId}:${plan.tokens}:${user.id}`
-      : `geoleads:${selectedPlanId}:${plan.tokens}`;
+    const payerEmail = user.email || body.email || '';
+    const profileTokens = auth.tokens || 0;
+    const currentPlanId = auth.planId || 'free';
+    const externalRef = `geoleads:${selectedPlanId}:${plan.tokens}:${user.id}`;
 
     const preference = new Preference(client);
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
         metadata: {
           plan_id: plan.id,
           tokens: plan.tokens,
-          user_id: user?.id || '',
+          user_id: user.id,
           source: 'geoleads_dashboard'
         },
         back_urls: {

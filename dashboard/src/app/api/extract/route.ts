@@ -425,7 +425,14 @@ export async function POST(request: Request) {
     const keyword = correctedKeyword;
     const location = correctedLocation;
 
-    const targetLimit = Math.min(limit || 10, 500); 
+    const requestedLimit = Math.max(1, Number(limit) || 10);
+    const targetLimit = Math.min(requestedLimit, 500, auth.tokens);
+    if (requestedLimit > auth.tokens) {
+      return NextResponse.json({
+        error: `Saldo insuficiente. Você pediu ${requestedLimit} leads, mas tem ${auth.tokens} tokens.`
+      }, { status: 402 });
+    }
+
     const MAX_TIME = 50000; // 50 segundos
     const startTime = Date.now();
 

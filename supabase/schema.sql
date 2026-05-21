@@ -159,6 +159,9 @@ create table if not exists public.payment_history (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists payment_history_mp_payment_id_unique
+  on public.payment_history(mp_payment_id);
+
 alter table public.payment_history enable row level security;
 
 drop policy if exists "payment_history_select_own" on public.payment_history;

@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     if (!requireFeature(auth.planId, 'cnpjEnrichment')) {
-      return NextResponse.json({ error: 'Enriquecimento de CNPJ exige plano Starter ou superior.' }, { status: 403 });
+      return NextResponse.json({ error: 'Enriquecimento de CNPJ exige plano Inicial ou superior.' }, { status: 403 });
     }
 
     const body = await request.json();
