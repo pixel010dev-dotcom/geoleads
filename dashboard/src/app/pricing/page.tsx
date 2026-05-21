@@ -193,54 +193,87 @@ export default function Pricing() {
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(760px,92vw)] h-[280px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
 
       {pixSession && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="pix-checkout-modal app-card w-full max-w-md p-6 rounded-2xl border border-emerald-500/30 bg-[#0b1220] shadow-2xl">
-            <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={closePixModal}>
+          <div
+            className="pix-checkout-modal app-card w-full max-w-md p-6 sm:p-8 rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-[#0b1a15] to-[#0b1220] shadow-2xl shadow-emerald-500/10 animate-bounce-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-5">
               <div>
-                <p className="text-xs font-bold text-emerald-300 uppercase tracking-wide">Pagamento PIX</p>
-                <h3 className="text-xl font-bold mt-1">{plans[pixSession.planId].name}</h3>
-                <p className="text-sm text-gray-400">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold mb-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  PAGAMENTO PIX
+                </div>
+                <h3 className="text-xl font-bold">{plans[pixSession.planId].name}</h3>
+                <p className="text-2xl font-extrabold mt-1 text-emerald-300">
                   {pixSession.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closePixModal}
-                className="text-gray-400 hover:text-white text-xl leading-none cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white flex items-center justify-center cursor-pointer transition-all hover:scale-110"
                 aria-label="Fechar"
               >
-                ×
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
+            <div className="text-center mb-5">
+              <p className="text-xs text-gray-400 mb-2">Escaneie o QR Code abaixo com seu banco</p>
+            </div>
+
             {qrImageSrc ? (
-              <div className="mx-auto w-fit p-3 rounded-xl bg-white mb-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrImageSrc} alt="QR Code PIX" className="w-56 h-56 object-contain" />
+              <div className="mx-auto w-fit p-4 rounded-2xl bg-white shadow-[0_0_30px_rgba(16,185,129,0.15)] mb-4 transition-all hover:scale-105 duration-300 relative">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl blur opacity-30" />
+                <div className="relative bg-white rounded-xl p-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qrImageSrc} alt="QR Code PIX" className="w-56 h-56 object-contain" />
+                </div>
               </div>
             ) : (
-              <div className="rounded-xl bg-white/5 border border-white/10 p-6 text-center text-gray-400 mb-4">
-                Gerando QR Code...
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-10 text-center mb-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-emerald-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+                <p className="text-gray-400 text-sm">Gerando QR Code PIX...</p>
               </div>
             )}
 
             <button
               type="button"
               onClick={copyPixCode}
-              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white cursor-pointer mb-3"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 font-bold text-white cursor-pointer mb-3 transition-all hover:-translate-y-0.5 active:scale-[0.98] shadow-[0_0_20px_rgba(16,185,129,0.2)]"
             >
-              Copiar codigo PIX
+              <svg className="w-4 h-4 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copiar código PIX
             </button>
 
-            <p className="text-xs text-center text-gray-400 mb-2">
-              Status: <span className="text-emerald-300 font-semibold">{pixStatus}</span>
-            </p>
             {pixMessage && (
-              <p className="text-xs text-center text-gray-300 leading-relaxed">{pixMessage}</p>
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 mb-3 text-center">
+                <p className="text-xs text-emerald-200 font-medium">{pixMessage}</p>
+              </div>
             )}
 
-            <p className="text-[11px] text-center text-gray-500 mt-4 leading-relaxed">
-              Apos pagar, os tokens entram automaticamente em ate 1 minuto.
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mb-2">
+              <span>Status:</span>
+              <span className={`font-bold ${pixStatus === 'approved' ? 'text-green-400' : 'text-emerald-300'}`}>
+                {pixStatus === 'pending' ? 'Aguardando pagamento' : pixStatus === 'approved' ? 'Pago ✓' : pixStatus}
+              </span>
+              {pixStatus === 'pending' && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
+              )}
+            </div>
+
+            <p className="text-[11px] text-center text-gray-500 mt-4 leading-relaxed border-t border-white/5 pt-4">
+              Após pagar, os tokens entram automaticamente na sua conta em até 1 minuto.
             </p>
           </div>
         </div>
