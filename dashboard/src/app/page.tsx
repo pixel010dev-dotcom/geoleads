@@ -1051,19 +1051,19 @@ export default function Home() {
   const displayLeads = leads.length > 0 ? leads : [];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-blue-500/30 relative pb-16">
+    <div className="app-shell min-h-screen text-white font-sans selection:bg-blue-500/30 relative pb-12 sm:pb-16 overflow-x-hidden">
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(800px,95vw)] h-[360px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
 
       {/* NAVBAR */}
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3 group cursor-default">
+        <div className="app-container min-h-16 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 group cursor-default min-w-fit">
             <Globe size={32} />
             <span className="font-extrabold text-xl sm:text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
           </div>
           
-          <div className="flex items-center gap-2.5 sm:gap-4 text-xs sm:text-sm">
+          <div className="flex flex-wrap items-center justify-end gap-2.5 sm:gap-4 text-xs sm:text-sm">
             {user ? (
               <>
                 <div className="px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-bold whitespace-nowrap">
@@ -1074,7 +1074,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5 text-[11px] sm:text-xs">
+                <div className="hidden sm:flex px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/5 border border-white/10 items-center gap-1.5 text-[11px] sm:text-xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
                   <span className="hidden sm:inline">Motor Online</span>
                 </div>
@@ -1087,26 +1087,26 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 relative z-10">
-        <header className="mb-8">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
+      <main className="app-container py-6 sm:py-10 lg:py-12 relative z-10">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 sm:mb-4 leading-tight max-w-4xl">
             A Maior Máquina de <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Leads B2B</span>
           </h1>
-          <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl mb-6 sm:mb-8 leading-relaxed">
+          <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl mb-5 sm:mb-7 leading-relaxed">
             Encontre clientes potenciais em qualquer lugar do mundo. Defina o nicho, a região e deixe a nossa inteligência extrair os contatos, sites e muito mais.
           </p>
 
           {/* TAB NAVIGATION BAR */}
-          <div className="flex border-b border-white/10 gap-2 mb-6 max-w-3xl overflow-x-auto pb-1 no-scrollbar">
+          <div className="app-tabs flex border-b border-white/10 gap-2 mb-6 max-w-full overflow-x-auto pb-1 no-scrollbar">
             <button 
               onClick={() => setActiveTab('extractor')}
-              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🚀 Motor Extrator
             </button>
             <button 
               onClick={() => setActiveTab('crm')}
-              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               📋 CRM de Leads
               {crmLeads.length > 0 && (
@@ -1115,25 +1115,25 @@ export default function Home() {
             </button>
             <button 
               onClick={() => setActiveTab('whatsapp')}
-              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               ⚡ Disparador WhatsApp
             </button>
             <button
               onClick={() => setActiveTab('chatbot')}
-              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🤖 Chatbot WhatsApp
             </button>
             <button 
               onClick={() => setActiveTab('ia')}
-              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🤖 Gerador de Copys IA
             </button>
             <button 
               onClick={() => setActiveTab('support')}
-              className={`px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+              className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             >
               🙋‍♀️ Suporte & Avaliação
             </button>
@@ -1142,10 +1142,10 @@ export default function Home() {
 
         {/* ==================== TAB 1: EXTRACTOR ==================== */}
         {activeTab === 'extractor' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-20">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20">
             {/* PAINEL DE BUSCA */}
             <div className="lg:col-span-1 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
                 
                 <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -1238,7 +1238,7 @@ export default function Home() {
 
             {/* PAINEL DE RESULTADOS */}
             <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl h-full min-h-[400px] flex flex-col shadow-2xl">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl h-full min-h-[400px] flex flex-col shadow-2xl">
                 
                 {/* Header dos resultados */}
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -1259,18 +1259,18 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="app-action-row w-full sm:w-auto">
                     <button 
                       onClick={handleAddAllToCRM}
                       disabled={leads.length === 0}
-                      className="flex items-center gap-2 text-sm text-gray-200 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/10 cursor-pointer"
+                      className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-gray-200 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/10 cursor-pointer"
                     >
                       📁 Salvar no CRM
                     </button>
                     <button 
                       onClick={exportToCSV}
                       disabled={leads.length === 0}
-                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 cursor-pointer"
+                      className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-blue-500/10 px-4 py-2 rounded-lg border border-blue-500/20 cursor-pointer"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1395,7 +1395,7 @@ export default function Home() {
                     </table>
 
                     {/* Mobile Card List */}
-                    <div className="md:hidden space-y-3 p-4">
+                    <div className="mobile-card-list md:hidden p-3 sm:p-4">
                       {displayLeads.map((lead: any, i: number) => (
                         <div 
                           key={i} 
@@ -1411,10 +1411,10 @@ export default function Home() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-xs border-t border-white/5 pt-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs border-t border-white/5 pt-3">
                             <div>
                               <span className="text-gray-500 block mb-0.5">Contato</span>
-                              <span className="font-mono text-gray-300 block">{lead.telefone}</span>
+                              <span className="font-mono text-gray-300 block break-words">{lead.telefone}</span>
                               {lead.telefone && lead.telefone !== 'Não informado' && (
                                 <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 text-[9px] w-fit">
                                   ✓ Válido
@@ -1424,7 +1424,7 @@ export default function Home() {
                             <div>
                               <span className="text-gray-500 block mb-0.5">E-mail</span>
                               {lead.email ? (
-                                <a href={`mailto:${lead.email}`} className="text-purple-400 hover:underline font-mono block truncate">{lead.email}</a>
+                                <a href={`mailto:${lead.email}`} className="text-purple-400 hover:underline font-mono block break-all">{lead.email}</a>
                               ) : (
                                 <span className="text-gray-600 block">—</span>
                               )}
@@ -1432,7 +1432,7 @@ export default function Home() {
                           </div>
 
                           <div className="flex justify-between items-center border-t border-white/5 pt-3 gap-2 flex-wrap">
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                               {lead.instagram && (
                                 <a href={lead.instagram} target="_blank" className="text-pink-400 text-xs hover:underline bg-pink-500/5 px-2 py-1 rounded border border-pink-500/10">📷 Insta</a>
                               )}
@@ -1441,17 +1441,17 @@ export default function Home() {
                               )}
                             </div>
 
-                            <div className="flex gap-2 w-full xs:w-auto mt-2 xs:mt-0">
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                               <button 
                                 onClick={() => handleAddToCRM(lead)}
-                                className="flex-1 xs:flex-initial px-3 py-2 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs cursor-pointer flex items-center justify-center gap-1"
+                                className="w-full sm:w-auto px-3 py-2 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs cursor-pointer flex items-center justify-center gap-1"
                               >
                                 📁 Salvar
                               </button>
                               {lead.telefone && lead.telefone !== 'Não informado' && (
                                 <button 
                                   onClick={() => openWhatsApp(lead)}
-                                  className="flex-1 xs:flex-initial px-3 py-2 rounded bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 text-xs cursor-pointer flex items-center justify-center gap-1"
+                                  className="w-full sm:w-auto px-3 py-2 rounded bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 text-xs cursor-pointer flex items-center justify-center gap-1"
                                 >
                                   💬 WhatsApp
                                 </button>
@@ -1492,7 +1492,7 @@ export default function Home() {
 
         {/* ==================== TAB 2: CRM ==================== */}
         {activeTab === 'crm' && (
-          <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden animate-slide-up">
+          <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden animate-slide-up">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1514,7 +1514,7 @@ export default function Home() {
               </div>
 
               {/* SEARCH & STAGE FILTER */}
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
                 {filteredCrmLeads.length > 0 && (
                   <label className="flex items-center gap-2 text-xs text-gray-400 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer hover:bg-white/10">
                     <input 
@@ -1537,7 +1537,7 @@ export default function Home() {
                 <input 
                   type="text" 
                   placeholder="Buscar no CRM..."
-                  className="bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                  className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
                   value={crmSearch}
                   onChange={(e) => setCrmSearch(e.target.value)}
                 />
@@ -1545,7 +1545,7 @@ export default function Home() {
                   value={crmFilterStage}
                   onChange={(e) => setCrmFilterStage(e.target.value)}
                   style={{ colorScheme: 'dark' }}
-                  className="bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                  className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
                 >
                   <option value="all">Todas as Etapas</option>
                   <option value="Novo">Novo Lead</option>
@@ -1671,7 +1671,7 @@ export default function Home() {
               </table>
 
               {/* Mobile Card List CRM */}
-              <div className="md:hidden space-y-4 p-4">
+              <div className="mobile-card-list md:hidden p-3 sm:p-4">
                 {filteredCrmLeads.map((lead, i) => (
                   <div 
                     key={i} 
@@ -1688,7 +1688,7 @@ export default function Home() {
                         onChange={() => handleToggleSelectCrmLead(lead.nome)}
                         className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-4 w-4 mt-0.5"
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
                         <div className="text-xs text-gray-500 mt-1">{lead.nicho} · {lead.cidade}</div>
                         {lead.site && lead.site !== 'Sem site' && (
@@ -1704,7 +1704,7 @@ export default function Home() {
                         </div>
                       )}
                       {lead.email && (
-                        <div className="text-xs text-purple-400 flex items-center gap-2 font-mono truncate">
+                        <div className="text-xs text-purple-400 flex items-center gap-2 font-mono break-all">
                           <span className="opacity-60">✉️</span> {lead.email}
                         </div>
                       )}
@@ -1747,7 +1747,7 @@ export default function Home() {
                       />
                     </div>
 
-                    <div className="flex gap-2 border-t border-white/5 pt-3">
+                    <div className="flex flex-col sm:flex-row gap-2 border-t border-white/5 pt-3">
                       {lead.telefone && lead.telefone !== 'Não informado' && (
                         <button
                           onClick={() => openWhatsApp(lead)}
@@ -1779,12 +1779,12 @@ export default function Home() {
 
         {/* ==================== TAB 3: WHATSAPP BULK ==================== */}
         {activeTab === 'whatsapp' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-20 animate-slide-up">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
             
             {/* CONFIGURAÇÃO DO DISPARO */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-1 space-y-5">
               {/* MODELO DE MENSAGEM */}
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
                 <div className="mb-5">
                   <h3 className="text-xl font-semibold flex items-center gap-2">
@@ -1938,7 +1938,7 @@ export default function Home() {
               </div>
 
               {/* PAINEL DE DISPARO EM MASSA E ANTIBAN */}
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500" />
                 <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                   🚀 Fila Assistida WhatsApp
@@ -2014,13 +2014,13 @@ export default function Home() {
 
             {/* LISTA DE DISPARO */}
             <div className="lg:col-span-2">
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl h-full flex flex-col">
-                <div className="mb-6 flex justify-between items-center">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl h-full flex flex-col">
+                <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                   <div>
                     <h3 className="text-xl font-semibold">Leads Prontos para Abordagem</h3>
                     <p className="text-xs text-gray-500 mt-1">Lista com telefones extraídos do seu CRM.</p>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                  <div className="flex flex-wrap gap-2 sm:items-center">
                     <div className="text-xs px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold">
                       Selecionados: {selectedWaCount}
                     </div>
@@ -2044,7 +2044,7 @@ export default function Home() {
                         <span className="block text-green-300 mt-1">Envie a mensagem no WhatsApp, volte aqui e avance para o próximo contato.</span>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="app-action-row w-full sm:w-auto">
                       <button
                         onClick={handleConfirmSentAndNext}
                         className="px-3.5 py-1.5 rounded-lg bg-green-500 text-black hover:bg-green-400 border border-green-400 text-xs font-extrabold cursor-pointer"
@@ -2160,9 +2160,9 @@ export default function Home() {
                   </table>
 
                   {/* Mobile Card List WhatsApp */}
-                  <div className="md:hidden space-y-4 p-4">
+                  <div className="mobile-card-list md:hidden p-3 sm:p-4">
                     {dispatchableWaLeads.length > 0 && (
-                      <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 rounded-xl p-3.5">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 bg-white/[0.02] border border-white/5 rounded-xl p-3.5">
                         <span className="text-xs text-gray-400">Selecionados: {selectedWaCount} de {dispatchableWaLeads.length}</span>
                         <button
                           type="button"
@@ -2191,8 +2191,8 @@ export default function Home() {
                                 : 'bg-white/[0.02] border-white/5'
                             } flex flex-col gap-3`}
                           >
-                            <div className="flex justify-between items-start">
-                              <div className="flex items-start gap-3">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                              <div className="flex items-start gap-3 min-w-0">
                                 <input
                                   type="checkbox"
                                   className="rounded border-white/20 bg-black/40 text-green-500 focus:ring-0 cursor-pointer h-4 w-4 mt-0.5"
@@ -2200,12 +2200,12 @@ export default function Home() {
                                   disabled={isSendingBulk}
                                   onChange={() => handleToggleSelectWaLead(leadKey)}
                                 />
-                                <div>
+                                <div className="min-w-0">
                                   <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
                                   <div className="text-xs text-gray-500 mt-0.5">{lead.nicho} · {lead.cidade}</div>
                                 </div>
                               </div>
-                              <span className="text-xs font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">{lead.telefone}</span>
+                              <span className="w-fit max-w-full break-all text-xs font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">{lead.telefone}</span>
                             </div>
 
                             <div className="bg-black/50 border border-white/5 rounded-xl p-3 text-xs text-gray-400 font-sans italic leading-relaxed">
@@ -2252,9 +2252,9 @@ export default function Home() {
 
         {/* ==================== TAB 4: WHATSAPP CHATBOT ==================== */}
         {activeTab === 'chatbot' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-20 animate-slide-up">
-            <div className="lg:col-span-1 space-y-6">
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
+            <div className="lg:col-span-1 space-y-5">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-cyan-500" />
                 <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">🤖 Chatbot WhatsApp</h3>
                 <p className="text-xs text-gray-400 leading-relaxed mb-5">
@@ -2389,8 +2389,8 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="lg:col-span-2 space-y-6">
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
+            <div className="lg:col-span-2 space-y-5">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                   <div>
                     <h3 className="text-xl font-semibold">Configuração do Atendimento</h3>
@@ -2448,8 +2448,8 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
-                <div className="flex items-center justify-between gap-4 mb-6">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <div>
                     <h3 className="text-xl font-semibold">Fluxos de Resposta</h3>
                     <p className="text-xs text-gray-500 mt-1">Quando a mensagem recebida contiver a palavra-chave, o bot envia a resposta.</p>
@@ -2457,7 +2457,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={addChatbotRule}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold cursor-pointer"
+                    className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold cursor-pointer"
                   >
                     + Nova Regra
                   </button>
@@ -2466,9 +2466,9 @@ export default function Home() {
                 <div className="space-y-4">
                   {chatbotRules.map((rule, index) => (
                     <div key={rule.id} className="p-4 rounded-2xl bg-black/30 border border-white/10">
-                      <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                         <span className="text-xs font-bold text-gray-300">Regra {index + 1}</span>
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                           <label className="flex items-center gap-2 text-[11px] text-gray-400 cursor-pointer">
                             <input
                               type="checkbox"
@@ -2517,11 +2517,11 @@ export default function Home() {
 
         {/* ==================== TAB 5: AI MESSAGE GENERATOR ==================== */}
         {activeTab === 'ia' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-20 animate-slide-up">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
             
             {/* PAINEL DE ENTRADAS */}
             <div className="lg:col-span-1">
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
                 
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -2577,21 +2577,21 @@ export default function Home() {
 
             {/* RESULTADO DAS COPYS */}
             <div className="lg:col-span-2">
-              <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl h-full flex flex-col shadow-2xl">
+              <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 backdrop-blur-xl h-full flex flex-col shadow-2xl">
                 <h3 className="text-xl font-semibold mb-6">Modelos Prontos para Uso</h3>
 
                 {generatedCopies ? (
-                  <div className="space-y-6 overflow-y-auto max-h-[550px] pr-2">
+                  <div className="app-copy-block space-y-5 pr-1 sm:pr-2">
                     {generatedCopies.map((copy, index) => (
-                      <div key={index} className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 relative group hover:border-purple-500/30 transition-all">
+                      <div key={index} className="p-4 sm:p-6 rounded-2xl bg-white/[0.02] border border-white/5 relative group hover:border-purple-500/30 transition-all">
                         <h4 className="text-sm font-bold text-purple-400 mb-1">{copy.title}</h4>
                         <p className="text-[11px] text-gray-500 mb-4">{copy.desc}</p>
                         
-                        <pre className="text-xs bg-black/50 border border-white/5 rounded-xl p-4 font-sans text-gray-300 leading-relaxed whitespace-pre-wrap select-all">
+                        <pre className="text-xs bg-black/50 border border-white/5 rounded-xl p-3 sm:p-4 font-sans text-gray-300 leading-relaxed whitespace-pre-wrap select-all">
                           {copy.text}
                         </pre>
 
-                        <div className="w-full sm:w-auto mt-3 sm:mt-0 sm:absolute sm:top-6 sm:right-6 flex flex-col sm:flex-row gap-2">
+                        <div className="mt-3 flex flex-col sm:flex-row gap-2">
                           <button
                             onClick={() => {
                               setWaTemplate(copy.text);
@@ -2628,9 +2628,9 @@ export default function Home() {
 
         {/* ==================== TAB 5: SUPPORT & RATING ==================== */}
         {activeTab === 'support' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-20 animate-slide-up">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 relative z-20 animate-slide-up">
             {/* CARD 1: CONTATO E SUPORTE */}
-            <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
+            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
               
               <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -2641,17 +2641,17 @@ export default function Home() {
               </p>
 
               <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
                     <span className="text-[10px] text-gray-500 uppercase block font-bold tracking-wider">E-mail de Suporte</span>
-                    <span className="text-sm text-gray-200 font-medium font-mono">pixel010dev@gmail.com</span>
+                    <span className="text-sm text-gray-200 font-medium font-mono break-all">pixel010dev@gmail.com</span>
                   </div>
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText('pixel010dev@gmail.com');
                       alert('E-mail copiado com sucesso!');
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-300 cursor-pointer transition-colors"
+                    className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-300 cursor-pointer transition-colors"
                   >
                     📋 Copiar
                   </button>
@@ -2667,7 +2667,7 @@ export default function Home() {
             </div>
 
             {/* CARD 2: AVALIAÇÃO DE DESEMPENHO */}
-            <div className="p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-purple-500/30 transition-all duration-500">
+            <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden group hover:border-purple-500/30 transition-all duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
               
               <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -2756,7 +2756,7 @@ export default function Home() {
 
       {/* Widget de Prova Social */}
       <div 
-        className={`fixed bottom-6 right-6 px-4 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
+        className={`hidden 2xl:flex fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm px-4 py-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
           proofVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
         }`}
       >
@@ -2766,7 +2766,7 @@ export default function Home() {
           socialProofMsgs[proofIndex].type === 'export' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' :
           'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]'
         }`} />
-        <p className="text-xs text-gray-300 font-medium">
+        <p className="text-xs text-gray-300 font-medium leading-snug">
           <span className="text-white font-bold">{socialProofMsgs[proofIndex].name}</span>{' '}
           {socialProofMsgs[proofIndex].action}{' '}
           <span className={`font-bold ${

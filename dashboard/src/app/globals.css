@@ -23,6 +23,175 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  background: #0a0a0a;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  text-wrap: balance;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+span,
+label,
+button,
+a,
+td,
+th {
+  overflow-wrap: anywhere;
+}
+
+pre,
+code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.18), transparent 34rem),
+    radial-gradient(circle at 10% 35%, rgba(20, 184, 166, 0.08), transparent 28rem),
+    #0a0a0a;
+}
+
+.app-container {
+  width: min(100%, 80rem);
+  margin-inline: auto;
+  padding-inline: clamp(0.875rem, 2.4vw, 1.5rem);
+}
+
+.app-card {
+  border-radius: clamp(1rem, 2.2vw, 1.5rem);
+  padding: clamp(1rem, 2.5vw, 1.75rem);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.42));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  width: 100%;
+}
+
+.app-panel {
+  border-radius: clamp(0.875rem, 2vw, 1.25rem);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+}
+
+.app-card :where(input, select, textarea, button, a) {
+  max-width: 100%;
+}
+
+.app-tabs {
+  gap: clamp(0.375rem, 0.8vw, 0.5rem);
+  scrollbar-width: none;
+  mask-image: linear-gradient(90deg, transparent 0, #000 0.8rem, #000 calc(100% - 1.5rem), transparent 100%);
+}
+
+.app-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.app-tab {
+  flex: 0 0 auto;
+  min-height: 2.55rem;
+  padding-inline: clamp(0.75rem, 0.9vw, 1rem);
+}
+
+.app-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.app-action-row > * {
+  flex: 1 1 11rem;
+}
+
+.app-copy-block {
+  max-height: min(32rem, 70vh);
+  overflow: auto;
+}
+
+.mobile-card-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.mobile-card-list > * {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 15px;
+  }
+
+  .app-container {
+    padding-inline: 0.875rem;
+  }
+
+  .app-card {
+    padding: 1rem;
+  }
+
+  .app-panel {
+    border-radius: 0.9rem;
+  }
+
+  .app-tabs {
+    margin-inline: -0.875rem;
+    padding-inline: 0.875rem;
+  }
+
+  .app-action-row > * {
+    flex-basis: 100%;
+  }
+
+  .app-copy-block {
+    max-height: none;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-tabs {
+    mask-image: none;
+  }
 }
 
 @keyframes spinGlobe {
@@ -80,4 +249,3 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-

@@ -27,11 +27,11 @@ export default function Pricing() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white py-8 px-4 sm:px-6 relative overflow-hidden">
+    <div className="app-shell min-h-screen text-white py-6 sm:py-8 relative overflow-hidden">
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(800px,95vw)] h-[360px] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="app-container relative z-10">
         {/* Nav de volta */}
         <a href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 group">
           <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,22 +40,22 @@ export default function Pricing() {
           Voltar ao Motor
         </a>
 
-        <div className="text-center mb-16">
+        <div className="text-center mb-10 sm:mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-6">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
             Sem assinatura — compre quando precisar
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
             Escolha o poder do seu <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Motor</span>
           </h1>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+          <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
             Cada token vale 1 lead qualificado. Quanto mais tokens, mais barato fica por lead.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-y-10 gap-x-5 md:gap-8 max-w-5xl mx-auto">
           {/* Plano Iniciante */}
-          <div className="p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-blue-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
+          <div className="app-card p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-blue-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
             <div className="text-3xl mb-4">🔍</div>
             <h3 className="text-2xl font-bold mb-1">Iniciante</h3>
             <p className="text-gray-400 text-sm mb-6">Ideal para testar o motor e ver resultados reais.</p>
@@ -78,8 +78,8 @@ export default function Pricing() {
           </div>
 
           {/* Plano Profissional */}
-          <div className="p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-indigo-900/40 to-purple-900/20 border border-indigo-500/50 relative flex flex-col transform md:-translate-y-4 shadow-2xl shadow-indigo-500/10 backdrop-blur-xl group">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-5 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-indigo-500/30">
+          <div className="app-card p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-indigo-900/40 to-purple-900/20 border border-indigo-500/50 relative flex flex-col transform md:-translate-y-4 shadow-2xl shadow-indigo-500/10 backdrop-blur-xl group">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-5 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-indigo-500/30 whitespace-nowrap">
               ⭐ MAIS VENDIDO
             </div>
             <div className="text-3xl mb-4">⚡</div>
@@ -107,7 +107,7 @@ export default function Pricing() {
           </div>
 
           {/* Plano Agência */}
-          <div className="p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-purple-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
+          <div className="app-card p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-b from-white/[0.04] to-black/40 border border-white/10 hover:border-purple-500/40 transition-all duration-300 flex flex-col backdrop-blur-xl group">
             <div className="text-3xl mb-4">🚀</div>
             <h3 className="text-2xl font-bold mb-1">Agência</h3>
             <p className="text-gray-400 text-sm mb-6">Para empresas e agências de marketing digital.</p>
@@ -132,7 +132,7 @@ export default function Pricing() {
         </div>
 
         {/* Rodapé de confiança */}
-        <div className="mt-16 text-center">
+        <div className="mt-10 sm:mt-16 text-center">
           <p className="text-gray-500 text-sm">Pagamento 100% seguro via <span className="text-white font-semibold">Mercado Pago</span> · PIX, Cartão e Boleto · Acesso imediato</p>
         </div>
       </div>
