@@ -43,12 +43,9 @@ export function buildCheckoutPreferenceBody({
     binary_mode: false,
     notification_url: mercadoPagoWebhookUrl,
     payment_methods: {
+      default_payment_method_id: 'pix',
       installments: 12,
-      default_installments: 1,
-      excluded_payment_types: [
-        { id: 'atm' },
-        { id: 'prepaid_card' }
-      ]
+      default_installments: 1
     },
     statement_descriptor: 'GEOLEADS'
   };
