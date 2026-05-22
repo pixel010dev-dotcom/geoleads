@@ -530,6 +530,15 @@ export async function POST(request: Request) {
                 telefone = telMatch[0];
               }
             }
+
+            // 4. Fallback: botão de telefone no card (internacional)
+            if (telefone === 'Não informado') {
+              const phoneEl = container.querySelector('button[data-value][data-tooltip*="telefone"], button[data-value][data-tooltip*="phone"]');
+              if (phoneEl) {
+                const v = phoneEl.getAttribute('data-value');
+                if (v) telefone = v.trim();
+              }
+            }
             
             // Avaliação
             const ratingMatch = text.match(/(\d[.,]\d)\s/);
@@ -545,8 +554,11 @@ export async function POST(request: Request) {
                 break;
               }
             }
+
+            // Place URL
+            const placeUrl = (anchor as HTMLAnchorElement).href || '';
             
-            chunk.push({ nome, telefone, avaliacao, site });
+            chunk.push({ nome, telefone, avaliacao, site, placeUrl });
           } catch(e) {}
         }
         return chunk;
@@ -590,6 +602,34 @@ export async function POST(request: Request) {
         await page.waitForTimeout(1500);
       }
       scrollAttempts++;
+    }
+
+    // Segunda passada: extrair telefone de leads que ficaram sem (info panel do Maps)
+    const leadsSemTelefone = validLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
+    for (let i = 0; i < Math.min(leadsSemTelefone.length, 15); i++) {
+      try {
+        await page.goto(leadsSemTelefone[i].placeUrl, { waitUntil: 'domcontentloaded', timeout: 8000 });
+        await page.waitForTimeout(1500);
+        const phone = await page.evaluate(() => {
+          const btn = document.querySelector('button[data-item-id*="phone"]');
+          if (btn) {
+            const label = btn.getAttribute('aria-label');
+            if (label) {
+              const m = label.match(/\+?\d[\d\s\-\(\)]{8,18}\d/);
+              if (m) return m[0].trim();
+            }
+          }
+          const text = document.body?.innerText || '';
+          const m = text.match(/(?:Telefone|Tel|Phone|Fone|WhatsApp)[:\s]*([\+\d][\d\s\-\(\)]{8,18}\d)/i);
+          if (m) return m[1].trim();
+          const m2 = text.match(/\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/);
+          if (m2) return m2[0];
+          return '';
+        });
+        if (phone) leadsSemTelefone[i].telefone = phone;
+      } catch (e) {
+        // Falha ao navegar - continua
+      }
     }
 
     await browser.close();
