@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature, plans, type FeatureKey, type PlanId } from '@/lib/plans';
 import Globe from '@/components/Globe';
 import HackerRadar from '@/components/HackerRadar';
+import Toast, { showToast } from '@/components/Toast';
 
 type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
 
@@ -179,6 +180,8 @@ export default function Home() {
   const [waTemplate, setWaTemplate] = useState('Olá {Nome}! Vi seu perfil comercial em {Cidade} e gostaria de saber se vocês têm interesse em receber mais clientes de {Nicho}. Podemos conversar?');
   const [waSentStatus, setWaSentStatus] = useState<Record<string, boolean>>({});
   const [isSendingBulk, setIsSendingBulk] = useState(false);
+  const [isAutoSending, setIsAutoSending] = useState(false);
+  const autoSendCancelled = useRef(false);
   const [bulkDelay, setBulkDelay] = useState('20');
   const [bulkSimulateHuman, setBulkSimulateHuman] = useState(true);
   const [bulkIndex, setBulkIndex] = useState(-1);
@@ -205,6 +208,7 @@ export default function Home() {
   const [chatbotSession, setChatbotSession] = useState<any>({ status: 'idle', repliedCount: 0 });
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [chatbotMessage, setChatbotMessage] = useState('');
+  const [chatbotPhoneNumber, setChatbotPhoneNumber] = useState('');
 
   // AI Copywriter States
   const [aiProduct, setAiProduct] = useState('');
@@ -265,7 +269,7 @@ export default function Home() {
 
   const showLockedFeature = (feature: FeatureKey) => {
     const requiredPlan = getUpgradePlan(feature);
-    alert(`Recurso do plano ${requiredPlan.name}. Faça upgrade para liberar.`);
+    showToast(`Recurso do plano ${requiredPlan.name}. Faça upgrade para liberar.`, 'warning');
   };
 
   const getAuthedJsonHeaders = async () => {
@@ -594,6 +598,51 @@ export default function Home() {
     }
   };
 
+  const handlePairChatbot = async () => {
+    if (!requireFeature('chatbot')) {
+      setActiveTab('chatbot');
+      return;
+    }
+
+    const number = chatbotPhoneNumber.replace(/\D/g, '');
+    if (number.length < 10 || number.length > 15) {
+      setChatbotMessage('Digite um número válido com código do país (ex: 5511999999999)');
+      return;
+    }
+
+    setChatbotLoading(true);
+    setChatbotMessage('');
+    setChatbotSession((prev: any) => ({ ...prev, pairingCode: '' }));
+
+    try {
+      await saveChatbotConfig(true);
+
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+
+      const res = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'pair', phoneNumber: number, config: getChatbotConfig() })
+      });
+
+      const result = await res.json();
+      if (result.success && result.session) {
+        setChatbotSession((prev: any) => ({ ...prev, ...result.session }));
+        if (result.session.pairingCode) {
+          setChatbotMessage(`Código de pareamento: ${result.session.pairingCode}`);
+        }
+      } else {
+        setChatbotMessage(result.error || 'Erro ao parear.');
+      }
+    } catch (error: any) {
+      setChatbotMessage(error.message);
+    } finally {
+      setChatbotLoading(false);
+    }
+  };
+
   const updateChatbotRule = (id: string, field: 'keyword' | 'response' | 'enabled', value: string | boolean) => {
     setChatbotRules(prev => prev.map(rule => rule.id === id ? { ...rule, [field]: value } : rule));
   };
@@ -799,7 +848,7 @@ export default function Home() {
 
     const exists = crmLeads.some(l => l.nome === lead.nome);
     if (exists) {
-      alert(`O lead "${lead.nome}" já está cadastrado no seu CRM.`);
+      showToast(`"${lead.nome}" já está no CRM.`, 'info');
       return;
     }
 
@@ -818,7 +867,7 @@ export default function Home() {
       const newKey = getLeadKey(newCrmLead);
       setSelectedWaLeads(prev => prev.includes(newKey) ? prev : [newKey, ...prev]);
     }
-    alert(`"${lead.nome}" foi salvo com sucesso no CRM!`);
+    showToast(`"${lead.nome}" salvo no CRM!`, 'success');
   };
 
   // Save all current leads to CRM
@@ -858,9 +907,9 @@ export default function Home() {
       if (newDispatchableKeys.length > 0) {
         setSelectedWaLeads(prev => Array.from(new Set([...newDispatchableKeys, ...prev])));
       }
-      alert(`${addedCount} novos leads foram adicionados ao seu CRM!`);
-    } else {
-      alert('Todos esses leads já existem no CRM.');
+showToast(`${addedCount} leads adicionados ao CRM!`, 'success');
+      } else {
+        showToast('Todos esses leads já existem no CRM.', 'info');
     }
   };
 
@@ -941,44 +990,22 @@ export default function Home() {
 
   const finishBulkQueue = () => {
     setIsSendingBulk(false);
+    setIsAutoSending(false);
+    autoSendCancelled.current = false;
     setBulkIndex(-1);
     setBulkTimer(0);
     setBulkQueue([]);
   };
 
-  // WhatsApp Guided Queue Effect. It can open the next chat, but cannot press
-  // WhatsApp's send button from another domain/app.
-  useEffect(() => {
-    if (!isSendingBulk || !bulkAutoNext) return;
-    
-    if (bulkTimer > 0) {
-      const timer = setTimeout(() => {
-        setBulkTimer(prev => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-    
-    if (bulkTimer === 0 && bulkIndex >= 0) {
-      const nextIndex = bulkIndex + 1;
-      
-      if (nextIndex < bulkQueue.length) {
-        if (bulkAutoNext) {
-          handleTriggerBulkSendLead(nextIndex);
-        } else {
-          setIsSendingBulk(false);
-        }
-      } else {
-        alert('Fila concluída! Todos os contatos selecionados foram abertos.');
-        finishBulkQueue();
-      }
-    }
-    // Dependency handles change of tick cleanly without state feedback loops
-  }, [isSendingBulk, bulkTimer, bulkIndex, bulkAutoNext, bulkQueue]);
+  const handleStopBulkSending = () => {
+    autoSendCancelled.current = true;
+    finishBulkQueue();
+  };
 
   const handleStartBulkSending = () => {
     const queue = selectedWaDispatchableLeads;
     if (queue.length === 0) {
-      alert('Nenhum lead selecionado com telefone disponível para disparo.');
+      showToast('Nenhum lead com telefone selecionado.', 'warning');
       return;
     }
     setBulkQueue(queue);
@@ -986,23 +1013,16 @@ export default function Home() {
     handleTriggerBulkSendLead(0, queue);
   };
 
-  const getSafeBulkDelay = () => {
-    if (bulkDelay.trim() === '') return 20;
-    const value = Number(bulkDelay);
-    if (!Number.isFinite(value)) return 20;
-    return Math.min(120, Math.max(10, value));
-  };
-
   const handleTriggerBulkSendLead = (index: number, queueOverride?: any[]) => {
     const queue = queueOverride || bulkQueue;
     if (index < 0 || index >= queue.length) return;
-    
+
     const lead = queue[index];
     setBulkIndex(index);
-    
+
     let delay = getSafeBulkDelay();
     if (bulkSimulateHuman) {
-      const variance = Math.floor(Math.random() * 9) - 4; // -4 a +4 segundos de variação humana
+      const variance = Math.floor(Math.random() * 9) - 4;
       delay = Math.max(10, delay + variance);
     }
     setBulkTimer(bulkAutoNext ? delay : 0);
@@ -1023,13 +1043,77 @@ export default function Home() {
     if (nextIndex < bulkQueue.length) {
       handleTriggerBulkSendLead(nextIndex);
     } else {
-      alert('Fila concluída! Todos os contatos selecionados foram marcados como enviados.');
+      showToast('Fila concluída! Todos os contatos enviados.', 'success');
       finishBulkQueue();
     }
   };
 
-  const handleStopBulkSending = () => {
+  const getSafeBulkDelay = () => {
+    if (bulkDelay.trim() === '') return 20;
+    const value = Number(bulkDelay);
+    if (!Number.isFinite(value)) return 20;
+    return Math.min(120, Math.max(10, value));
+  };
+
+  const handleStartAutoBulkSend = async () => {
+    const queue = selectedWaDispatchableLeads;
+    if (queue.length === 0) {
+      showToast('Nenhum lead com telefone selecionado.', 'warning');
+      return;
+    }
+    if (chatbotSession.status !== 'connected') {
+      showToast('Conecte o WhatsApp no Chatbot primeiro!', 'warning');
+      setActiveTab('chatbot');
+      return;
+    }
+    setBulkQueue(queue);
+    setIsSendingBulk(true);
+    setIsAutoSending(true);
+    setBulkAutoNext(true);
+
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+
+    for (let i = 0; i < queue.length; i++) {
+      if (autoSendCancelled.current) break;
+
+      const lead = queue[i];
+      setBulkIndex(i);
+      const delay = getSafeBulkDelay();
+      const variance = Math.floor(Math.random() * 9) - 4;
+      const finalDelay = Math.max(5, delay + variance);
+
+      const message = renderWhatsAppMessage(lead);
+      try {
+        const res = await fetch('/api/chatbot/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ leadName: lead.nome, leadPhone: lead.telefone, message, leadId: lead.id })
+        });
+        if (res.ok) {
+          setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
+          showToast(`Enviado para ${lead.nome}`, 'success');
+        } else {
+          const err = await res.json();
+          showToast(`Falha ao enviar para ${lead.nome}: ${err.error || 'erro'}`, 'error');
+        }
+      } catch {
+        showToast(`Erro ao enviar para ${lead.nome}`, 'error');
+      }
+
+      if (i < queue.length - 1) {
+        const waitSteps = Math.ceil(finalDelay / 0.5);
+        for (let w = 0; w < waitSteps; w++) {
+          if (autoSendCancelled.current) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (autoSendCancelled.current) break;
+      }
+    }
+    showToast(`Disparo automático concluído! ${queue.length} mensagens enviadas.`, 'success');
     finishBulkQueue();
+    handleLoadSentMessages();
   };
 
   const handleSendViaBot = async (lead: any) => {
@@ -1058,10 +1142,10 @@ export default function Home() {
         handleLoadSentMessages();
       } else {
         const err = await res.json();
-        alert(err.error || 'Falha ao enviar via bot.');
+        showToast(err.error || 'Falha ao enviar via bot.', 'error');
       }
     } catch (err: any) {
-      alert('Erro ao enviar: ' + (err.message || 'desconhecido'));
+      showToast('Erro ao enviar: ' + (err.message || 'desconhecido'), 'error');
     } finally {
       setWaSendingViaBot(prev => ({ ...prev, [leadKey]: false }));
     }
@@ -1111,7 +1195,7 @@ export default function Home() {
     }
 
     if (tokens !== null && Number(limit) > tokens) {
-      alert(`Saldo insuficiente! Você pediu ${limit} leads mas tem ${tokens} tokens. Reduza a quantidade ou compre mais tokens.`);
+      showToast(`Saldo insuficiente! Pediu ${limit} leads mas tem ${tokens} tokens.`, 'error');
       return;
     }
 
@@ -1150,12 +1234,13 @@ export default function Home() {
           setTokens(Math.max(0, tokens - data.leads.length));
         }
       } else if (data.error) {
-        alert("Erro do Motor: " + data.error);
+showToast("Erro: " + data.error, 'error');
+      } else {
+        throw new Error(data.error || 'Erro desconhecido');
       }
-    } catch(error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : 'Erro de conexão com o motor.';
-      alert("Erro do Motor: " + message);
+    } catch (err: any) {
+      const message = err.message || 'Erro inesperado ao extrair leads';
+      showToast("Erro: " + message, 'error');
     } finally {
       setIsExtracting(false);
       setHasSearched(true);
@@ -1276,12 +1361,12 @@ export default function Home() {
     }
 
     if (!lead.telefone || lead.telefone === 'Não informado') {
-      alert('Este lead não possui número de telefone válido.');
+      showToast('Lead sem telefone válido.', 'warning');
       return;
     }
     const number = lead.telefone.replace(/\D/g, ''); 
     if (number.length < 10) {
-      alert('Número de telefone inválido para WhatsApp.');
+      showToast('Número de telefone inválido.', 'warning');
       return;
     }
 
@@ -1313,7 +1398,7 @@ export default function Home() {
     }
 
     if (!aiProduct || !aiValue) {
-      alert('Preencha os campos para gerar copys.');
+      showToast('Preencha os campos para gerar copys.', 'warning');
       return;
     }
 
@@ -1333,11 +1418,11 @@ export default function Home() {
       if (data.success && data.copies) {
         setGeneratedCopies(data.copies);
       } else {
-        alert('Erro ao gerar roteiros: ' + (data.error || 'Erro inesperado.'));
+        showToast('Erro ao gerar roteiros: ' + (data.error || 'Erro inesperado.'), 'error');
       }
     } catch (err: any) {
       console.error(err);
-      alert('Erro de conexão ao gerar roteiros. Verifique seu servidor.');
+      showToast('Erro de conexão ao gerar roteiros.', 'error');
     } finally {
       setIsGeneratingCopies(false);
     }
@@ -1380,6 +1465,7 @@ export default function Home() {
 
   return (
     <div className="app-shell min-h-screen text-white font-sans selection:bg-blue-500/30 relative pb-12 sm:pb-16 overflow-x-hidden">
+      <Toast />
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(720px,92vw)] h-[260px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
 
@@ -2452,13 +2538,27 @@ export default function Home() {
                       ⏹ Parar Fila
                     </button>
                   ) : (
-                    <button 
-                      type="button"
-                      onClick={handleStartBulkSending}
-                      className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer flex items-center justify-center gap-2 transition-all"
-                    >
-                      🚀 Iniciar Fila Assistida
-                    </button>
+                    <div className="flex flex-col gap-2">
+                      <button 
+                        type="button"
+                        onClick={handleStartBulkSending}
+                        className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                      >
+                        🚀 Iniciar Fila Assistida
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={handleStartAutoBulkSend}
+                        className={`w-full py-3 rounded-xl font-bold text-white cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                          chatbotSession?.status === 'connected'
+                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                            : 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                        }`}
+                        disabled={chatbotSession?.status !== 'connected'}
+                      >
+                        {chatbotSession?.status === 'connected' ? '🤖 Enviar Automático (Bot)' : '🔌 Conecte o Chatbot primeiro'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2484,31 +2584,35 @@ export default function Home() {
 
                 {/* BANNER DE FILA ATIVA */}
                 {isSendingBulk && bulkIndex >= 0 && (
-                  <div className="mb-6 p-5 rounded-2xl bg-green-500/10 border border-green-500/20 text-sm text-green-400 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className={`mb-6 p-5 rounded-2xl text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                    isAutoSending
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                      : 'bg-green-500/10 border border-green-500/20 text-green-400'
+                  }`}>
                     <div>
-                      <span className="font-bold block">Fila Assistida Ativa!</span>
-                      Processando lead {bulkIndex + 1} de {bulkQueue.length}.
-                      {bulkAutoNext ? (
-                        <>
-                          Próximo chat abre em <span className="font-mono font-bold text-white bg-green-500 px-2 py-0.5 rounded text-xs ml-1">{bulkTimer}s</span>.
-                        </>
+                      <span className="font-bold block">{isAutoSending ? '🤖 Disparo Automático Ativo!' : '🚀 Fila Assistida Ativa!'}</span>
+                      {isAutoSending ? (
+                        <span>Enviando {bulkIndex + 1} de {bulkQueue.length}... (aguarde)</span>
                       ) : (
-                        <span className="block text-green-300 mt-1">Envie a mensagem no WhatsApp, volte aqui e avance para o próximo contato.</span>
+                        <>
+                          Processando lead {bulkIndex + 1} de {bulkQueue.length}.
+                          {bulkAutoNext ? (
+                            <> Próximo chat abre em <span className="font-mono font-bold text-white bg-green-500 px-2 py-0.5 rounded text-xs ml-1">{bulkTimer}s</span>.</>
+                          ) : (
+                            <span className="block text-green-300 mt-1">Envie a mensagem no WhatsApp, volte aqui e avance.</span>
+                          )}
+                        </>
                       )}
                     </div>
                     <div className="app-action-row w-full sm:w-auto">
-                      <button
-                        onClick={handleConfirmSentAndNext}
-                        className="px-3.5 py-1.5 rounded-lg bg-green-500 text-black hover:bg-green-400 border border-green-400 text-xs font-extrabold cursor-pointer"
-                      >
-                        ✓ Já enviei / Próximo
-                      </button>
-                      <button
-                        onClick={() => handleTriggerBulkSendLead(bulkIndex)}
-                        className="px-3.5 py-1.5 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30 text-xs font-semibold cursor-pointer"
-                      >
-                        ⚡ Reabrir Chat
-                      </button>
+                      {!isAutoSending && (
+                        <button
+                          onClick={handleConfirmSentAndNext}
+                          className="px-3.5 py-1.5 rounded-lg bg-green-500 text-black hover:bg-green-400 border border-green-400 text-xs font-extrabold cursor-pointer"
+                        >
+                          ✓ Já enviei / Próximo
+                        </button>
+                      )}
                       <button
                         onClick={handleStopBulkSending}
                         className="px-3.5 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-semibold cursor-pointer"
@@ -2859,9 +2963,15 @@ export default function Home() {
                     <img src={chatbotSession.qrDataUrl} alt="QR Code do WhatsApp" className="w-full max-w-[260px] mx-auto" />
                     <p className="text-center text-xs text-black/70 font-semibold mt-3">Escaneie com o WhatsApp do usuário</p>
                   </div>
+                ) : chatbotSession.pairingCode ? (
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-5 text-center">
+                    <p className="text-xs text-emerald-300 font-semibold mb-1">Código de Pareamento</p>
+                    <p className="text-2xl font-mono font-bold text-white tracking-widest select-all">{chatbotSession.pairingCode}</p>
+                    <p className="text-[10px] text-emerald-400/70 mt-2">WhatsApp {'>'} Dispositivos Conectados {'>'} Conectar um dispositivo</p>
+                  </div>
                 ) : (
                   <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 leading-relaxed mb-5">
-                    Ao conectar, o GeoLeads gera um QR Code. Depois que o WhatsApp parear, o bot responde apenas conversas recebidas.
+                    Ao conectar, o GeoLeads gera um QR Code ou código de pareamento. Depois que o WhatsApp parear, o bot responde apenas conversas recebidas.
                   </div>
                 )}
 
@@ -2872,7 +2982,7 @@ export default function Home() {
                 )}
 
                 <div className="grid grid-cols-1 gap-3">
-                  {chatbotSession.status === 'connected' || chatbotSession.status === 'qr' || chatbotSession.status === 'connecting' ? (
+                  {chatbotSession.status === 'connected' || chatbotSession.status === 'qr' || chatbotSession.status === 'connecting' || chatbotSession.status === 'pairing' ? (
                     <button
                       type="button"
                       disabled={chatbotLoading}
@@ -2882,14 +2992,41 @@ export default function Home() {
                       Desconectar Bot
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={chatbotLoading || !user}
-                      onClick={handleConnectChatbot}
-                      className="w-full py-3 rounded-xl font-bold text-black bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 cursor-pointer disabled:opacity-60"
-                    >
-                      {user ? 'Conectar via QR Code' : 'Faça login para conectar'}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        disabled={chatbotLoading || !user}
+                        onClick={handleConnectChatbot}
+                        className="w-full py-3 rounded-xl font-bold text-black bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 cursor-pointer disabled:opacity-60"
+                      >
+                        {user ? '📱 Conectar via QR Code' : 'Faça login para conectar'}
+                      </button>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-white/10" />
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                          <span className="bg-[#050507] px-3 text-gray-500">ou</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="55 11 99999-9999"
+                          value={chatbotPhoneNumber}
+                          onChange={(e) => setChatbotPhoneNumber(e.target.value)}
+                          className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          disabled={chatbotLoading || !user}
+                          onClick={handlePairChatbot}
+                          className="px-4 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 cursor-pointer disabled:opacity-60 text-sm whitespace-nowrap"
+                        >
+                          {user ? '🔗 Parear' : '...'}
+                        </button>
+                      </div>
+                    </>
                   )}
                   <button
                     type="button"
@@ -3123,7 +3260,7 @@ export default function Home() {
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(copy.text);
-                              alert('Copiado para a área de transferência!');
+                              showToast('Copiado!', 'success');
                             }}
                             className="px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
                           >
@@ -3168,7 +3305,7 @@ export default function Home() {
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText('pixel010dev@gmail.com');
-                      alert('E-mail copiado com sucesso!');
+                      showToast('E-mail copiado!', 'success');
                     }}
                     className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-300 cursor-pointer transition-colors"
                   >
@@ -3217,7 +3354,7 @@ export default function Home() {
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (supportRating === 0) {
-                      alert('Por favor, selecione uma nota de 1 a 5 estrelas.');
+                      showToast('Selecione uma nota de 1 a 5 estrelas.', 'warning');
                       return;
                     }
                     setSupportSubmitted(true);

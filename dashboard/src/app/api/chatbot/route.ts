@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import pino from 'pino';
 import QRCode from 'qrcode';
-import { getAuthUser, requireFeature } from '@/lib/server-auth';
+import { getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 import { makeSupabaseAuthState } from '@/lib/baileys-auth-supabase';
 
 export const runtime = 'nodejs';
@@ -25,11 +25,13 @@ type ChatbotConfig = {
 type BotSession = {
   userId: string;
   socket?: any;
-  status: 'idle' | 'connecting' | 'qr' | 'connected' | 'disconnected' | 'error';
+  status: 'idle' | 'connecting' | 'qr' | 'connected' | 'disconnected' | 'error' | 'pairing';
   qr?: string;
   qrDataUrl?: string;
+  pairingCode?: string;
   lastError?: string;
   lastDisconnectCode?: string;
+  lastIgnoredReason?: string;
   connectedAt?: string;
   lastMessageAt?: string;
   lastIncomingAt?: string;
@@ -38,7 +40,6 @@ type BotSession = {
   lastReplyAt?: string;
   lastReplyText?: string;
   lastEventType?: string;
-  lastIgnoredReason?: string;
   repliedCount: number;
   reconnectAttempts: number;
   startedAtMs?: number;
@@ -69,6 +70,7 @@ const getSessionStore = () => {
 const getPublicSession = (session?: BotSession) => ({
   status: session?.status || 'idle',
   qrDataUrl: session?.qrDataUrl || '',
+  pairingCode: session?.pairingCode || '',
   lastError: session?.lastError || '',
   lastDisconnectCode: session?.lastDisconnectCode || '',
   connectedAt: session?.connectedAt || '',
@@ -277,11 +279,15 @@ const startBotSession = async (session: BotSession) => {
     }
 
     if (connection === 'close') {
-      const statusCode = lastDisconnect?.error?.output?.statusCode;
-      session.lastDisconnectCode = statusCode ? String(statusCode) : 'unknown';
-      const loggedOut = statusCode === DisconnectReason.loggedOut;
+      const rawCode = lastDisconnect?.error?.output?.statusCode;
+      const statusCode = rawCode !== undefined && rawCode !== null ? Number(rawCode) : undefined;
+      session.lastDisconnectCode = statusCode !== undefined ? String(statusCode) : 'unknown';
 
-      if (loggedOut) {
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      const isBadSession = statusCode === DisconnectReason.badSession;
+      const isRestartRequired = statusCode === DisconnectReason.restartRequired;
+
+      if (isLoggedOut) {
         session.status = 'disconnected';
         session.lastError = 'Sessão encerrada. Conecte novamente.';
         session.qr = '';
@@ -290,17 +296,29 @@ const startBotSession = async (session: BotSession) => {
         return;
       }
 
-      if (session.reconnectAttempts < 5) {
+      if (isBadSession) {
+        session.status = 'error';
+        session.lastError = 'Sessão inválida (badSession). Remova o dispositivo no WhatsApp e tente novamente.';
+        session.qr = '';
+        session.qrDataUrl = '';
+        session.reconnectAttempts = 0;
+        return;
+      }
+
+      const maxRetries = isRestartRequired ? 10 : 8;
+      const retryDelay = isRestartRequired ? 4000 : 2000;
+
+      if (session.reconnectAttempts < maxRetries) {
         session.reconnectAttempts += 1;
         session.status = 'connecting';
-        session.lastError = `Reconectando WhatsApp (${session.reconnectAttempts}/5). Código: ${session.lastDisconnectCode}`;
+        session.lastError = `Reconectando WhatsApp (${session.reconnectAttempts}/${maxRetries}). Código: ${session.lastDisconnectCode}`;
 
         setTimeout(() => {
           startBotSession(session).catch((error) => {
             session.status = 'error';
             session.lastError = `Falha ao reconectar: ${error?.message || 'erro desconhecido'}`;
           });
-        }, 1500);
+        }, retryDelay);
         return;
       }
 
@@ -447,6 +465,99 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, session: getPublicSession(session) });
   }
 
+  if (action === 'pair') {
+    const phoneNumber = String(body.phoneNumber || '').replace(/\D/g, '');
+    if (phoneNumber.length < 10 || phoneNumber.length > 15) {
+      return NextResponse.json({ error: 'Número inválido. Use código do país + DDD + número (ex: 5511999999999).' }, { status: 400 });
+    }
+    try {
+      session.socket?.end?.();
+    } catch {}
+    session.pairingCode = '';
+    session.qrDataUrl = '';
+    session.qr = '';
+    session.status = 'pairing';
+    session.startedAtMs = Date.now();
+
+    const baileys = await import('@whiskeysockets/baileys');
+    const makeWASocket = baileys.default;
+    const { Browsers, DisconnectReason } = baileys;
+    const { state, saveCreds } = await makeSupabaseAuthState(session.userId);
+
+    const socket = makeWASocket({
+      auth: state,
+      browser: Browsers.ubuntu('GeoLeads Chatbot'),
+      logger: pino({ level: 'silent' }),
+      markOnlineOnConnect: false,
+      printQRInTerminal: false,
+      syncFullHistory: false
+    });
+
+    session.socket = socket;
+    socket.ev.on('creds.update', saveCreds);
+
+    socket.ev.on('connection.update', async (update: any) => {
+      const { connection, lastDisconnect } = update;
+
+      if (connection === 'open') {
+        session.status = 'connected';
+        session.pairingCode = '';
+        session.connectedAt = new Date().toISOString();
+        session.lastError = '';
+        session.lastDisconnectCode = '';
+        session.reconnectAttempts = 0;
+      }
+
+      if (connection === 'close') {
+        const rawCode = lastDisconnect?.error?.output?.statusCode;
+        const statusCode = rawCode !== undefined && rawCode !== null ? Number(rawCode) : undefined;
+        session.lastDisconnectCode = statusCode !== undefined ? String(statusCode) : 'unknown';
+
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+        const isBadSession = statusCode === DisconnectReason.badSession;
+        const isRestartRequired = statusCode === DisconnectReason.restartRequired;
+
+        if (isLoggedOut) {
+          session.status = 'disconnected';
+          session.lastError = 'Sessão encerrada. Conecte novamente.';
+          session.reconnectAttempts = 0;
+          return;
+        }
+
+        if (isBadSession) {
+          session.status = 'disconnected';
+          session.lastError = 'Sessão inválida. Remova o dispositivo no WhatsApp e tente novamente.';
+          session.reconnectAttempts = 0;
+          return;
+        }
+
+        const maxRetries = isRestartRequired ? 10 : 8;
+        const retryDelay = isRestartRequired ? 4000 : 2000;
+
+        if (session.reconnectAttempts < maxRetries) {
+          session.reconnectAttempts += 1;
+          session.status = 'connecting';
+          session.lastError = `Reconectando WhatsApp (${session.reconnectAttempts}/${maxRetries}). Código: ${session.lastDisconnectCode}`;
+
+          setTimeout(async () => {
+            try {
+              await startBotSession(session);
+            } catch {}
+          }, retryDelay);
+        } else {
+          session.status = 'disconnected';
+          session.lastError = `Conexão caiu após várias tentativas. Código: ${session.lastDisconnectCode}`;
+        }
+      }
+    });
+
+    // Request pairing code
+    const code = await socket.requestPairingCode(phoneNumber);
+    session.pairingCode = code;
+
+    return NextResponse.json({ success: true, session: getPublicSession(session) });
+  }
+
   if (action === 'disconnect') {
     try {
       await session.socket?.logout?.();
@@ -460,6 +571,27 @@ export async function POST(request: Request) {
     session.status = 'disconnected';
     session.qr = '';
     session.qrDataUrl = '';
+    return NextResponse.json({ success: true, session: getPublicSession(session) });
+  }
+
+  if (action === 'reset_session') {
+    try {
+      session.socket?.end?.();
+    } catch {}
+    session.socket = undefined;
+
+    const supabase = createAdminSupabaseClient();
+    await supabase.from('whatsapp_sessions').delete().eq('user_id', auth.user.id);
+
+    session.status = 'idle';
+    session.qr = '';
+    session.qrDataUrl = '';
+    session.pairingCode = '';
+    session.lastError = '';
+    session.lastDisconnectCode = '';
+    session.reconnectAttempts = 0;
+    session.connectedAt = '';
+
     return NextResponse.json({ success: true, session: getPublicSession(session) });
   }
 

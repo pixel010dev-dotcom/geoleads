@@ -1,0 +1,48 @@
+
+> dashboard@0.1.0 dev
+> next dev -p 3000
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.151:3000
+- Environments: .env.local
+✓ Ready in 405ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\Admin\.gemini\antigravity\scratch\lead_extractor_saas\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\Admin\.gemini\antigravity\scratch\lead_extractor_saas\dashboard\package-lock.json
+
+
+ GET / 200 in 391ms (next.js: 165ms, application-code: 226ms)
+ GET /pricing 200 in 97ms (next.js: 27ms, application-code: 70ms)
+ GET / 200 in 36ms (next.js: 3ms, application-code: 33ms)
+ GET /pricing 200 in 33ms (next.js: 3ms, application-code: 30ms)
+ GET / 200 in 41ms (next.js: 4ms, application-code: 37ms)
+ GET /pricing 200 in 37ms (next.js: 4ms, application-code: 33ms)
+ GET / 200 in 31ms (next.js: 2ms, application-code: 29ms)
+ GET /pricing 200 in 32ms (next.js: 2ms, application-code: 30ms)
+ GET / 200 in 45ms (next.js: 3ms, application-code: 42ms)
+ GET /pricing 200 in 38ms (next.js: 3ms, application-code: 35ms)
+ GET / 200 in 42ms (next.js: 4ms, application-code: 38ms)
+ GET /pricing 200 in 35ms (next.js: 3ms, application-code: 32ms)
+ GET / 200 in 38ms (next.js: 3ms, application-code: 35ms)
+ GET /pricing 200 in 34ms (next.js: 2ms, application-code: 32ms)
+ GET / 200 in 32ms (next.js: 3ms, application-code: 29ms)
+ GET /pricing 200 in 31ms (next.js: 3ms, application-code: 28ms)
+✓ Compiled in 259ms
+ GET /pricing 200 in 171ms (next.js: 81ms, application-code: 90ms)
+ GET /pricing 200 in 24ms (next.js: 3ms, application-code: 21ms)
+ GET /pricing 200 in 104ms (next.js: 44ms, application-code: 60ms)
+ GET /pricing 200 in 114ms (next.js: 48ms, application-code: 66ms)
+✓ Compiled in 94ms
+✓ Compiled in 84ms
+ GET /pricing 200 in 126ms (next.js: 53ms, application-code: 73ms)
+✓ Compiled in 69ms
+ GET /pricing 200 in 146ms (next.js: 77ms, application-code: 69ms)
+✓ Compiled in 91ms
+ GET /pricing 200 in 124ms (next.js: 47ms, application-code: 77ms)
+ GET /pricing 200 in 35ms (next.js: 3ms, application-code: 32ms)
+  Reload env: .env.local
+[?25h
