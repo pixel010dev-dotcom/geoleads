@@ -1261,58 +1261,83 @@ async function runExtraction({
         try {
           tab = await context.newPage();
           await tab.goto(lead.placeUrl, {
-            waitUntil: 'networkidle',
-            timeout: 12000,
+            waitUntil: 'domcontentloaded',
+            timeout: 10000,
             referer: 'https://www.google.com/maps'
-          });
-          await tab.waitForTimeout(3000);
-          await tab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-          await tab.waitForTimeout(500);
+          }).catch(() => {});
+          await tab.waitForTimeout(2000);
           const extraData = await tab.evaluate(() => {
             const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
             const text = document.body?.innerText || '';
             const html = document.body?.innerHTML || '';
 
-            const phoneSelectors = [
-              'button[data-item-id*="phone"]', 'a[data-item-id*="phone"]', 'a[href^="tel:"]',
-              '[data-phone-number]', 'button[aria-label*="telefone"]', 'button[aria-label*="phone"]',
-              '[data-tooltip*="telefone"]', '[data-tooltip*="phone"]',
-              'button[aria-label*="Ligar"]', 'a[aria-label*="Ligar"]',
-              '[data-item-id*="phone"]',
-            ];
-            for (const sel of phoneSelectors) {
-              const el = document.querySelector(sel);
-              if (!el) continue;
-              const v = el.getAttribute('aria-label') || el.getAttribute('data-phone-number') ||
-                        el.getAttribute('href')?.replace('tel:', '') || el.getAttribute('data-value') ||
-                        (el as HTMLElement).innerText;
-              if (v) { const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/); if (m) { result.telefone = m[1].trim(); break; } }
+            // 1. Tenta extrair de LD+JSON (structured data) — mais confiável
+            const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+            for (const script of scripts) {
+              try {
+                const data = JSON.parse(script.textContent || '{}');
+                const items = Array.isArray(data) ? data : [data];
+                for (const item of items) {
+                  if (item.telephone && !result.telefone) result.telefone = item.telephone;
+                  if (item.url && !result.site && !item.url.includes('google.com')) result.site = item.url;
+                  if (item.sameAs && Array.isArray(item.sameAs)) {
+                    for (const url of item.sameAs) {
+                      if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
+                      if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
+                      if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+                    }
+                  }
+                  if (item.address?.streetAddress && !result.endereco) {
+                    result.endereco = item.address.streetAddress;
+                    if (item.address.addressLocality) result.endereco += ', ' + item.address.addressLocality;
+                    if (item.address.addressRegion) result.endereco += ' - ' + item.address.addressRegion;
+                    if (item.address.postalCode) result.endereco += ', ' + item.address.postalCode;
+                  }
+                }
+              } catch {}
+            }
+
+            // 2. Fallback: selectors DOM tradicionais
+            if (!result.telefone) {
+              const phoneSel = [
+                'button[data-item-id*="phone"]', 'a[data-item-id*="phone"]', 'a[href^="tel:"]',
+                '[data-phone-number]', 'button[aria-label*="telefone"]', 'button[aria-label*="phone"]',
+                '[data-tooltip*="telefone"]', '[data-tooltip*="phone"]', 'button[aria-label*="Ligar"]',
+              ];
+              for (const sel of phoneSel) {
+                const el = document.querySelector(sel);
+                if (!el) continue;
+                const v = el.getAttribute('aria-label') || el.getAttribute('data-phone-number') ||
+                          el.getAttribute('href')?.replace('tel:', '') || el.getAttribute('data-value') ||
+                          (el as HTMLElement).innerText;
+                if (v) { const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/); if (m) { result.telefone = m[1].trim(); break; } }
+              }
             }
             if (!result.telefone) {
-              const phonePatterns = [
-                /(\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/g,
-                /\+?\d{2}[\s-]?\d{2}[\s-]?\d{4,5}[\s-]?\d{4}/g,
-                /\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/g,
-              ];
-              for (const pat of phonePatterns) {
+              for (const pat of [/(\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/g, /\+?\d{2}[\s-]?\d{2}[\s-]?\d{4,5}[\s-]?\d{4}/g, /\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/g]) {
                 const ms = text.match(pat);
                 if (ms && ms.length > 0) { result.telefone = ms[0].trim(); break; }
               }
             }
 
-            const siteEl = document.querySelector('a[data-item-id*="authority"], a[href^="http"]:not([href*="google"]):not([href*="maps"]), [data-item-id*="authority"] a');
-            if (siteEl) { const h = siteEl.getAttribute('href') || ''; if (h && !h.includes('google.com')) result.site = h; }
-
-            const socialRegex = /https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi;
-            for (const m of html.matchAll(socialRegex)) {
-              const url = m[0].replace(/["'<>].*$/, '');
-              if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
-              if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
-              if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+            if (!result.site) {
+              const siteEl = document.querySelector('a[data-item-id*="authority"], a[href^="http"]:not([href*="google"]):not([href*="maps"])');
+              if (siteEl) { const h = siteEl.getAttribute('href') || ''; if (h && !h.includes('google.com')) result.site = h; }
             }
 
-            const addrEl = document.querySelector('[data-item-id*="address"]');
-            if (addrEl) result.endereco = (addrEl as HTMLElement).innerText?.trim() || '';
+            if (!result.instagram && !result.facebook && !result.tiktok) {
+              for (const m of html.matchAll(/https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi)) {
+                const url = m[0].replace(/["'<>].*$/, '');
+                if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
+                if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
+                if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+              }
+            }
+
+            if (!result.endereco) {
+              const addrEl = document.querySelector('[data-item-id*="address"]');
+              if (addrEl) result.endereco = (addrEl as HTMLElement).innerText?.trim() || '';
+            }
 
             const hMatch = text.match(/(Aberto|Fechado)(?:\s*⋅\s*)(.+?)(?:\.|$)/i);
             if (hMatch) result.horarios = hMatch[0].trim();
