@@ -1226,8 +1226,8 @@ async function runExtraction({
         try {
           tab = await context.newPage();
           await tab.goto(lead.placeUrl, {
-            waitUntil: 'domcontentloaded',
-            timeout: 8000,
+            waitUntil: 'load',
+            timeout: 10000,
             referer: 'https://www.google.com/maps'
           });
           await tab.waitForSelector('button[data-item-id*="phone"], a[href^="tel:"], [data-phone-number]', {
