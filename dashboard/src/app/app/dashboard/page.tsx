@@ -3071,7 +3071,10 @@ showToast("Erro: " + data.error, 'error');
                   >
                     Salvar Configuração
                   </button>
-                  <p className="text-[11px] text-gray-600 text-center mt-2">⚠ As config. só valem após salvar</p>
+                  <div className="mt-3 p-3 rounded-xl bg-amber-500/15 border border-amber-500/25">
+                    <p className="text-xs text-amber-300 font-bold text-center">⚠ Salve as configurações primeiro!</p>
+                    <p className="text-[11px] text-amber-400/70 text-center mt-1">O QR Code só aparece depois de salvar</p>
+                  </div>
                 </div>
               </div>
 
