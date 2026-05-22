@@ -21,8 +21,12 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      console.error('[FEEDBACK] Insert error:', error);
-      return NextResponse.json({ error: 'Erro ao salvar feedback' }, { status: 500 });
+      if (error.message?.includes('does not exist')) {
+        console.error('[FEEDBACK] Tabela testimonials não existe. Execute a SQL migration.');
+      } else {
+        console.error('[FEEDBACK] Insert error:', error);
+      }
+      return NextResponse.json({ error: 'Tabela não configurada. Execute a migration SQL.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

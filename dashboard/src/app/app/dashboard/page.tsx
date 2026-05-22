@@ -2583,15 +2583,21 @@ showToast("Erro: " + data.error, 'error');
                       </button>
                       <button 
                         type="button"
-                        onClick={handleStartAutoBulkSend}
+                        onClick={() => {
+                          if (chatbotSession?.status === 'connected') {
+                            handleStartAutoBulkSend();
+                          } else {
+                            setActiveTab('chatbot');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                        }}
                         className={`w-full py-3 rounded-xl font-bold text-white cursor-pointer flex items-center justify-center gap-2 transition-all ${
                           chatbotSession?.status === 'connected'
                             ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                            : 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                            : 'bg-amber-600/30 text-amber-300 hover:bg-amber-600/50 border border-amber-500/30'
                         }`}
-                        disabled={chatbotSession?.status !== 'connected'}
                       >
-                        {chatbotSession?.status === 'connected' ? '🤖 Enviar Automático (Bot)' : '🔌 Conecte o Chatbot primeiro'}
+                        {chatbotSession?.status === 'connected' ? '🤖 Enviar Automático (Bot)' : '🔌 Conecte o Chatbot primeiro →'}
                       </button>
                     </div>
                   )}
