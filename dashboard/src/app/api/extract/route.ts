@@ -1276,11 +1276,16 @@ async function runExtraction({
         let tab: any = null;
         try {
           tab = await context.newPage();
-          await tab.goto(lead.placeUrl, {
-            waitUntil: 'domcontentloaded',
-            timeout: 10000,
-            referer: 'https://www.google.com/maps'
-          }).catch(() => {});
+          try {
+            await tab.goto(lead.placeUrl, {
+              waitUntil: 'networkidle',
+              timeout: 12000,
+              referer: 'https://www.google.com/maps'
+            });
+          } catch {
+            // goto timeout — skip, keep whatever card data we have
+            return;
+          }
           await tab.waitForTimeout(2000);
           const extraData = await tab.evaluate(() => {
             const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
