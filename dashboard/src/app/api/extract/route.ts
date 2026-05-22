@@ -124,6 +124,12 @@ const LOCATION_DICTIONARY: Record<string, string> = {
   'vitoria': 'Vitória'
 };
 
+// Regiões amplas — quando detectadas, busca sem localização específica
+const BROAD_REGIONS = [
+  'brasil', 'brazil', 'todo brasil', 'todo o brasil', 'brasil inteiro',
+  'todos os estados', 'nacional', 'país inteiro', 'todo país',
+];
+
 function smartNormalizeQuery(keyword: string, location: string) {
   // 1. Limpa espaços e coloca tudo em minúsculas para análise
   let cleanKw = keyword.trim().toLowerCase();
@@ -559,7 +565,7 @@ export async function POST(request: Request) {
     }
     activeExtractions.set(auth.user.id, concurrent + 1);
 
-    const { keyword: rawKeyword, location: rawLocation, limit, filterRule } = await request.json();
+    const { keyword: rawKeyword, location: rawLocation, limit, filterRule, existingLeadKeys } = await request.json();
     const requestSupabase = createRequestSupabaseClient(request);
 
     if (!rawKeyword || !rawLocation) {
@@ -593,6 +599,9 @@ export async function POST(request: Request) {
     const { correctedKeyword, correctedLocation } = smartNormalizeQuery(rawKeyword, rawLocation);
     const keyword = correctedKeyword;
     const location = correctedLocation;
+
+    // Detecta região ampla (ex: "Brasil") — busca sem localização específica
+    const isBroadRegion = BROAD_REGIONS.some(r => rawLocation.trim().toLowerCase() === r || correctedLocation.toLowerCase() === r);
 
     const requestedLimit = Math.max(1, Number(limit) || 10);
     const targetLimit = Math.min(requestedLimit, 500, auth.tokens);
@@ -628,7 +637,7 @@ export async function POST(request: Request) {
       { name: 'SOCS', value: 'CAISHAgENhB0Dcm9sZQ==', domain: '.google.com', path: '/' },
     ]);
 
-    const query = encodeURIComponent(`${keyword} em ${location}`);
+    const query = encodeURIComponent(isBroadRegion ? `${keyword} Brasil` : `${keyword} em ${location}`);
     await page.goto(`https://www.google.com/maps/search/${query}`, { 
       waitUntil: 'domcontentloaded',
       timeout: 15000 
@@ -672,6 +681,14 @@ export async function POST(request: Request) {
     const allEnrichedLeads: any[] = [];
     const scrapedNames = new Set<string>();
     const scrapedPhones = new Set<string>();
+
+    // Pré-popula com leads já existentes no CRM para evitar duplicatas
+    if (Array.isArray(existingLeadKeys)) {
+      for (const key of existingLeadKeys) {
+        scrapedNames.add(key);
+      }
+    }
+
     let scrollAttempts = 0;
     let emptyScrolls = 0;
 
@@ -1018,7 +1035,8 @@ export async function POST(request: Request) {
         correctedKeyword,
         correctedLocation,
         tokensSpent: gastos,
-        tokensRemaining: auth ? Math.max(0, auth.tokens - gastos) : 0
+        tokensRemaining: auth ? Math.max(0, auth.tokens - gastos) : 0,
+        broadRegion: isBroadRegion || undefined,
       }
     });
 

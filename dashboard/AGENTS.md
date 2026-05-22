@@ -152,7 +152,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - supabase/migration_whatsapp_persist.sql ✓
 - supabase/migration_testimonials.sql ✓
 
-## Últimas alterações (22/05/2026) — quarta leva: Deep Bug Fix + Motor v3 + Features
+## Últimas alterações (22/05/2026) — quinta leva: Admin Panel + Filter Fix + Broad Region + CRM Dedup
 
 ### Motor de Extração v3 (route.ts)
 - Anti-bot detection: user agent realístico, viewport 1920x1080, locale pt-BR, timezone America/Sao_Paulo, geolocation SP, navigator.webdriver=false
@@ -202,7 +202,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Chatbot route: handlers connection.update e messages.upsert com try-catch externo (evita unhandled promise rejections)
 - @types/nodemailer instalado (TS build fix)
 
-## Últimas alterações (22/05/2026) — quinta leva: Admin Panel + Filter Fix
+## Últimas alterações (22/05/2026) — quinta leva: Admin + Filter Fix + Broad Region + CRM Dedup
 
 ### Painel Admin (Testimonials)
 - Nova rota: `GET /api/admin/testimonials` — lista todos os depoimentos (admin client, auth guard por email)
@@ -214,7 +214,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Problema**: `preFilter` eliminava leads sem telefone/site do card ANTES da segunda passagem (place pages), que poderia recuperá-los
 - **Fix**: `phone` e `site` removidos do `preFilter` e movidos para o `postFilter` — agora a segunda passagem roda primeiro, depois o filtro verifica
 - Leads sem telefone/site no card agora recebem a segunda passagem (abre página individual do Maps) antes de serem filtrados
-- Código em `src/app/api/extract/route.ts` — funções `preFilter` e `postFilter`
+
+### Busca por região ampla (ex: "Brasil")
+- Se o usuário digitar "Brasil", "Brazil", "todo Brasil" etc. na região, o motor busca apenas `"Academia Brasil"` no Maps (sem localização específica)
+- Google Maps retorna resultados de várias cidades do país
+- Flag `broadRegion` no response stats
+
+### Deduplicação com CRM
+- Leads já salvos no CRM não aparecem mais nas buscas
+- Frontend envia `existingLeadKeys` (nomes dos leads do CRM) no body da request
+- Extractor pré-popula `scrapedNames` com esses nomes ANTES da extração
+- Usuário não gasta tokens com leads que já possui
 
 ## Próximos passos sugeridos
 1. ~~Melhorar SEO da landing page~~ (feito)

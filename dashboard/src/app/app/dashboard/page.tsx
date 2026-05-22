@@ -691,12 +691,13 @@ export default function Home() {
     }
     if (tokens !== null && Number(limit) > tokens) { showToast(`Saldo insuficiente! Pediu ${limit} leads mas tem ${tokens} tokens.`, 'error'); return; }
     setIsExtracting(true); setHasSearched(false); setLeads([]); setExtractStats(null);
+    const existingLeadKeys = crmLeads.map(l => l.nome).filter(Boolean);
     try {
       const headers = await getAuthedJsonHeaders();
       if (!headers) return;
       const res = await fetch('/api/extract', {
         method: 'POST', headers,
-        body: JSON.stringify({ keyword, location, limit: Number(limit), filterRule })
+        body: JSON.stringify({ keyword, location, limit: Number(limit), filterRule, existingLeadKeys })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao extrair leads.');
