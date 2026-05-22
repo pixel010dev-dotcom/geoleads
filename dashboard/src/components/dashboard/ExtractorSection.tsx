@@ -251,7 +251,7 @@ export default function ExtractorSection({
                   disabled={leads.length === 0}
                   className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20 cursor-pointer"
                 >
-                  📊 XLSX
+                  📊 Excel
                 </button>
                 <button 
                   onClick={fetchHistory}
