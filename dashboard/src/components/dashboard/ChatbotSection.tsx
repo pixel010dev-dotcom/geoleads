@@ -21,7 +21,7 @@ export interface ChatbotSectionProps {
   handleDisconnectChatbot: () => Promise<void>;
   handlePairChatbot: () => Promise<void>;
   saveChatbotConfig: (silent?: boolean) => Promise<void>;
-  updateChatbotRule: (id: string, field: string, value: any) => void;
+  updateChatbotRule: (id: string, field: 'keyword' | 'response' | 'enabled', value: string | boolean) => void;
   addChatbotRule: () => void;
   removeChatbotRule: (id: string) => void;
 }

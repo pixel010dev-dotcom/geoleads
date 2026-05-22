@@ -12,8 +12,8 @@ import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap
 import { LockedFeaturePanel, LeadGuideWidget } from '@/components/dashboard/DashboardWidgets';
 import ExtractorSection from '@/components/dashboard/ExtractorSection';
 import CRMSection from '@/components/dashboard/CRMSection';
-import WhatsAppSection from '@/components/dashboard/WhatsAppSection';
-import ChatbotSection from '@/components/dashboard/ChatbotSection';
+import { WhatsAppSection } from '@/components/dashboard/WhatsAppSection';
+import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
 import AICopySection from '@/components/dashboard/AICopySection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import SocialProofWidget from '@/components/dashboard/SocialProofWidget';

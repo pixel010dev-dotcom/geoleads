@@ -1,6 +1,6 @@
 'use client';
 
-import { showToast } from '@/components/Toast';
+import { showToast, type ToastType } from '@/components/Toast';
 
 export interface SupportSectionProps {
   supportRating: number;
@@ -12,7 +12,7 @@ export interface SupportSectionProps {
   hoveredStar: number | null;
   setHoveredStar: (v: number | null) => void;
   user: any;
-  showToast: (msg: string, type?: string) => void;
+  showToast: (msg: string, type?: ToastType) => void;
 }
 
 export default function SupportSection({

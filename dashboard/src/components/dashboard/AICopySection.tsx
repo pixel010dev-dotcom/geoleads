@@ -1,6 +1,7 @@
 'use client';
 
-import { showToast } from '@/components/Toast';
+import { showToast, type ToastType } from '@/components/Toast';
+import type { DashboardTab } from './dashboard-constants';
 
 export interface AICopySectionProps {
   aiProduct: string;
@@ -13,8 +14,8 @@ export interface AICopySectionProps {
   isGeneratingCopies: boolean;
   generateAICopies: (e: React.FormEvent) => Promise<void>;
   setWaTemplate: (v: string) => void;
-  setActiveTab: (tab: string) => void;
-  showToast: (msg: string, type?: string) => void;
+  setActiveTab: (tab: DashboardTab) => void;
+  showToast: (msg: string, type?: ToastType) => void;
 }
 
 export default function AICopySection({

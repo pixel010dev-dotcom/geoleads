@@ -1,5 +1,7 @@
 'use client';
 
+import type { FeatureKey } from '@/lib/plans';
+import type { DashboardTab } from './dashboard-constants';
 import { waMessagePresets, waTemplateTags } from './dashboard-constants';
 
 export interface WhatsAppSectionProps {
@@ -34,8 +36,8 @@ export interface WhatsAppSectionProps {
   waSentMessagesLoading: boolean;
   chatbotSession: any;
   user: any;
-  requireFeature: (feature: string) => boolean;
-  setActiveTab: (tab: string) => void;
+  requireFeature: (feature: FeatureKey) => boolean;
+  setActiveTab: (tab: DashboardTab) => void;
   openWhatsApp: (lead: any, customText?: string, options?: any) => void;
   handleStartBulkSending: () => void;
   handleStopBulkSending: () => void;

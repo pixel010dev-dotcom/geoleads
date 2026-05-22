@@ -430,14 +430,14 @@ export default function CRMSection({
           </span>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCrmPage(p => Math.max(0, p - 1))}
+              onClick={() => setCrmPage(Math.max(0, safeCrmPage - 1))}
               disabled={safeCrmPage === 0}
               className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 disabled:opacity-30 hover:bg-white/10 transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
               ← Anterior
             </button>
             <button
-              onClick={() => setCrmPage(p => p + 1)}
+              onClick={() => setCrmPage(Math.min(crmTotalPages - 1, safeCrmPage + 1))}
               disabled={safeCrmPage >= crmTotalPages - 1}
               className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 disabled:opacity-30 hover:bg-white/10 transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
