@@ -125,10 +125,15 @@ const LOCATION_DICTIONARY: Record<string, string> = {
 };
 
 // Regiões amplas — quando detectadas, busca sem localização específica
-const BROAD_REGIONS = [
-  'brasil', 'brazil', 'todo brasil', 'todo o brasil', 'brasil inteiro',
-  'todos os estados', 'nacional', 'país inteiro', 'todo país',
-];
+function isBroadLocation(location: string): boolean {
+  const loc = location.trim().toLowerCase();
+  if (!loc) return false;
+  // Qualquer variação de "brasil" na localização ativa busca nacional
+  if (/\bbrasil\b|\bbrazil\b/.test(loc)) return true;
+  const exact = ['todos os estados', 'nacional', 'país inteiro', 'todo país', 'pais inteiro', 'todo estado'];
+  if (exact.includes(loc)) return true;
+  return false;
+}
 
 function smartNormalizeQuery(keyword: string, location: string) {
   // 1. Limpa espaços e coloca tudo em minúsculas para análise
@@ -601,7 +606,7 @@ export async function POST(request: Request) {
     const location = correctedLocation;
 
     // Detecta região ampla (ex: "Brasil") — busca sem localização específica
-    const isBroadRegion = BROAD_REGIONS.some(r => rawLocation.trim().toLowerCase() === r || correctedLocation.toLowerCase() === r);
+    const isBroadRegion = isBroadLocation(rawLocation) || isBroadLocation(correctedLocation);
 
     const requestedLimit = Math.max(1, Number(limit) || 10);
     const targetLimit = Math.min(requestedLimit, 500, auth.tokens);
