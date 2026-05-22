@@ -1219,14 +1219,15 @@ async function runExtraction({
     const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 20);
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
       if (await checkCancelled()) break;
+      if ((Date.now() - startTime) >= MAX_TIME) break;
       const batch = leadsSemTelefone.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(async (lead) => {
         let tab: any = null;
         try {
           tab = await context.newPage();
           await tab.goto(lead.placeUrl, {
-            waitUntil: 'networkidle',
-            timeout: 12000,
+            waitUntil: 'domcontentloaded',
+            timeout: 8000,
             referer: 'https://www.google.com/maps'
           });
           await tab.waitForSelector('button[data-item-id*="phone"], a[href^="tel:"], [data-phone-number]', {
