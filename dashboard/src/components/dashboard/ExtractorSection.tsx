@@ -183,6 +183,25 @@ export default function ExtractorSection({
                 </div>
                 <p className="text-[11px] text-gray-500 mt-2">Você só consome tokens pelos leads que possuírem o item escolhido.</p>
               </div>
+
+              {/* Estimated time */}
+              {(() => {
+                const l = Number(limit) || 0;
+                if (l <= 0) return null;
+                const isBroad = /brasil|brazil|todos os estados|nacional|pa[ií]s inteiro|mundo/i.test(location);
+                if (isBroad) {
+                  const leadsPerCity = 3.5;
+                  const cities = Math.min(Math.ceil(l / leadsPerCity), 140);
+                  const sec = 5 + l * 1.8;
+                  if (sec > 120) {
+                    return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ Tempo estimado: ~{Math.ceil(sec / 60)} minuto{Math.ceil(sec / 60) > 1 ? 's' : ''} (~{cities} cidades em {Math.min(27, Math.ceil(cities / 4))} estados)</p>;
+                  }
+                  return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ Tempo estimado: ~{Math.ceil(sec)} segundos (~{cities} cidades)</p>;
+                } else {
+                  const sec = 5 + l * 3.5;
+                  return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ Tempo estimado: ~{Math.ceil(sec)} segundos</p>;
+                }
+              })()}
               
               <button 
                 type="submit"

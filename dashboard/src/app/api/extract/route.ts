@@ -708,7 +708,57 @@ const MAJOR_CITIES = [
   'Praia Grande, SP', 'Suzano, SP', 'Hortolândia, SP', 'Itu, SP',
   'Jacareí, SP', 'Pindamonhangaba, SP', 'Botucatu, SP',
   'Bragança Paulista, SP', 'Ferraz de Vasconcelos, SP', 'Itapevi, SP',
-  'Itapecerica da Serra, SP', 'Votuporanga, SP', 'Ourinhos, SP',
+  'Itapecerica da Serra, SP', 'Votuporanga, SP',   'Ourinhos, SP',
+  // AC
+  'Rio Branco, AC',
+  // AP
+  'Macapá, AP',
+  // RO
+  'Porto Velho, RO', 'Ji-Paraná, RO',
+  // RR
+  'Boa Vista, RR',
+  // TO
+  'Palmas, TO', 'Araguaína, TO',
+  // AL
+  'Arapiraca, AL',
+  // BA
+  'Vitória da Conquista, BA', 'Ilhéus, BA', 'Porto Seguro, BA', 'Juazeiro, BA',
+  // CE
+  'Juazeiro do Norte, CE', 'Sobral, CE', 'Caucaia, CE',
+  // ES
+  'Serra, ES', 'Vitória, ES', 'Cariacica, ES',
+  // GO
+  'Anápolis, GO', 'Aparecida de Goiânia, GO', 'Rio Verde, GO',
+  // MA
+  'Imperatriz, MA',
+  // MG
+  'Contagem, MG', 'Uberaba, MG', 'Montes Claros, MG', 'Governador Valadares, MG', 'Ipatinga, MG', 'Divinópolis, MG',
+  // MS
+  'Dourados, MS', 'Três Lagoas, MS',
+  // MT
+  'Várzea Grande, MT', 'Rondonópolis, MT', 'Sinop, MT',
+  // PA
+  'Santarém, PA', 'Ananindeua, PA', 'Marabá, PA',
+  // PB
+  'Campina Grande, PB', 'Patos, PB',
+  // PE
+  'Jaboatão dos Guararapes, PE', 'Paulista, PE', 'Garanhuns, PE',
+  // PI
+  'Parnaíba, PI', 'Picos, PI',
+  // PR
+  'Foz do Iguaçu, PR', 'Guarapuava, PR', 'Toledo, PR',
+  // RJ
+  'Niterói, RJ', 'Duque de Caxias, RJ', 'Campos dos Goytacazes, RJ', 'Volta Redonda, RJ', 'Angra dos Reis, RJ',
+  // RN
+  'Mossoró, RN', 'Parnamirim, RN',
+  // RS
+  'Pelotas, RS', 'Santa Maria, RS', 'Passo Fundo, RS', 'Novo Hamburgo, RS',
+  // SC
+  'Itajaí, SC', 'Chapecó, SC', 'Criciúma, SC', 'Balneário Camboriú, SC',
+  // SE
+  'Nossa Senhora do Socorro, SE', 'Lagarto, SE',
+  // SP
+  'Atibaia, SP', 'Itapetininga, SP', 'Registro, SP',
 ];
 
 export async function POST(request: Request) {
@@ -792,7 +842,7 @@ export async function POST(request: Request) {
       }, { status: 402 });
     }
 
-    const MAX_TIME = isBroadRegion ? 120000 : 50000;
+    const MAX_TIME = isBroadRegion ? Math.min(600000, 5000 + targetLimit * 2000) : 50000;
     const startTime = Date.now();
 
     browser = await chromium.launch({ headless: true });
@@ -829,8 +879,8 @@ export async function POST(request: Request) {
     }
 
     const MAX_SCROLL = isBroadRegion ? 100 : 30;
-    const searchLocations = isBroadRegion ? shuffleArray([...MAJOR_CITIES]).slice(0, 40) : [location];
-    const maxScrollPerCity = isBroadRegion ? 8 : MAX_SCROLL;
+    const searchLocations = isBroadRegion ? shuffleArray([...MAJOR_CITIES]) : [location];
+    const maxScrollPerCity = isBroadRegion ? 12 : MAX_SCROLL;
 
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
