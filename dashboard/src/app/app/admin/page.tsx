@@ -38,7 +38,7 @@ export default function AdminPage() {
     }
     setUser(session.user);
 
-    const adminEmail = 'pixel010dv@gmail.com';
+    const adminEmail = 'pixel010dev@gmail.com';
     if (session.user.email !== adminEmail) {
       setIsAdmin(false);
       setLoading(false);
