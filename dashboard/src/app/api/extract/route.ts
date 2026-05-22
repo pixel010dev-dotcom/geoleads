@@ -362,9 +362,19 @@ function normalizePhone(raw: string): string {
   if (digits.length >= 13 && !digits.startsWith('55')) {
     return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
   }
-  // Só DDD + número (assume Brasil)
+  // Só DDD + número — verifica se é DDD brasileiro válido
   if (digits.length >= 10 && digits.length <= 11) {
-    return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+    const ddd = parseInt(digits.slice(0, 2), 10);
+    const isValidBR = (ddd >= 11 && ddd <= 19) || (ddd >= 21 && ddd <= 28) ||
+      (ddd >= 31 && ddd <= 38) || (ddd >= 41 && ddd <= 49) ||
+      (ddd >= 51 && ddd <= 59) || (ddd >= 61 && ddd <= 69) ||
+      (ddd >= 71 && ddd <= 79) || (ddd >= 81 && ddd <= 89) ||
+      (ddd >= 91 && ddd <= 99);
+    if (isValidBR) {
+      return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+    }
+    // DDD não brasileiro — formata como número internacional genérico
+    return `+${digits.slice(0, 2)} ${digits.slice(2)}`;
   }
   // Fallback: formata o que tem
   return digits;
