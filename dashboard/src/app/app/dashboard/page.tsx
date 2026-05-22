@@ -667,14 +667,19 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
     const interval = setInterval(() => {
       setProofVisible(false);
-      setTimeout(() => {
+      const id = setTimeout(() => {
         setProofIndex((prev) => (prev + 1) % socialProofMsgs.length);
         setProofVisible(true);
       }, 500);
+      timeoutIds.push(id);
     }, 7000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      timeoutIds.forEach(clearTimeout);
+    };
   }, [socialProofMsgs.length]);
 
   const refreshProfile = async (userId: string) => {
@@ -1098,7 +1103,6 @@ showToast(`${addedCount} leads adicionados ao CRM!`, 'success');
         });
         if (res.ok) {
           setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
-          showToast(`Enviado para ${lead.nome}`, 'success');
         } else {
           const err = await res.json();
           showToast(`Falha ao enviar para ${lead.nome}: ${err.error || 'erro'}`, 'error');
@@ -3410,14 +3414,16 @@ showToast("Erro: " + data.error, 'error');
                           rating: supportRating,
                           feedback: supportFeedback,
                           name: user?.email || 'Usuário',
-                          userId: user?.id,
+                          userId: user?.id || null,
                         }),
                       });
                       if (!res.ok) throw new Error('Erro ao enviar');
+                      setSupportSubmitted(true);
+                      showToast('Avaliação enviada com sucesso!', 'success');
                     } catch (err) {
                       console.error('Feedback error:', err);
+                      showToast('Erro ao enviar avaliação. Tente novamente.', 'error');
                     }
-                    setSupportSubmitted(true);
                   }}
                   className="space-y-5"
                 >

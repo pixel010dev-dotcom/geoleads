@@ -118,13 +118,47 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Landing page busca testimonials aprovados, fallback pros 3 hardcoded
 
 ### Agendado
-- Usuário precisa rodar migration_testimonials.sql no SQL Editor do Supabase
+- ~~Usuário precisa rodar migration_testimonials.sql no SQL Editor do Supabase~~ (rodado via CLI com PAT)
+
+## Últimas alterações (22/05/2026) — terceira leva
+
+### Motor de Extração — Telefones
+- Nova 4ª estratégia de telefone: `button[data-value][data-tooltip*="telefone"]` nos cards do Maps
+- Segunda passada PÓS-scroll: abre até 15 place pages individuais (`page.goto(placeUrl)`) para leads sem telefone
+- Extrai telefone do painel de detalhes do Maps (botão `data-item-id*="phone"` + aria-label + regex fallback)
+- Place URL extraída junto com nome/telefone/site no evaluate()
+
+### HackerRadar v2 (components/HackerRadar.tsx)
+- Radar com DUAS camadas de varredura (verde + azul) girando em direções opostas
+- Blips agora tem ciclo de vida (`life`): surgem, brilham e desaparecem suavemente (opacity + scale)
+- 14 templates de log (antes 9), intervalo reduzido de 2000ms → 800ms
+- Fade-in nos logs, status bar com indicador pulsante, mais cores de blip
+
+### ScrollReveal (components/ScrollReveal.tsx)
+- Novo componente client-side que anima seções ao entrar no viewport (IntersectionObserver)
+- Landing page: hero, steps (staggered 100ms), features (staggered 60ms), testimonials (staggered 120ms), CTA — todos com fade+slide up
+
+### Mobile / Responsivo
+- globals.css: fonte 16px mínima em inputs/buttons (evita zoom automático no iOS)
+- Padding reduzido no container mobile (2rem → 1rem)
+- Orbs flutuantes desligados no mobile (display:none)
+- Cards com padding/border-radius reduzidos
+
+### Botão "Conecte o Chatbot"
+- Agora redireciona pra aba chatbot (`setActiveTab('chatbot')`) em vez de ficar disabled
+- Cor: âmbar quando desconectado, verde quando conectado
+
+### Migrations rodadas
+- supabase/migration_whatsapp_persist.sql ✓
+- supabase/migration_testimonials.sql ✓
 
 ## Próximos passos sugeridos
 1. ~~Melhorar SEO da landing page~~ (feito)
-2. ~~Recolher testimonials reais dos usuários~~ (feito — precisa rodar migration)
+2. ~~Recolher testimonials reais dos usuários~~ (feito)
 3. Comprar domínio próprio (geoleads.com.br) + configurar DNS/SSL
 4. Painel admin para aprovar testimonials
 5. Paginação no CRM (feito)
 6. Gráficos no dashboard (feito)
+7. ~~Melhorar extração de telefones~~ (feito)
+8. ~~HackerRadar + animações~~ (feito)
 <!-- END:geoleads-changelog -->

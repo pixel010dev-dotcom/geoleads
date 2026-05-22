@@ -11,38 +11,45 @@ export default function Account() {
   const [planId, setPlanId] = useState<PlanId>('free');
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     document.title = 'GeoLeads - Minha Conta';
     const loadData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        window.location.href = '/login';
-        return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          window.location.href = '/login';
+          return;
+        }
+
+        setUser(session.user);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tokens, plan_id')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (profile) {
+          setTokens(profile.tokens);
+          setPlanId((profile.plan_id as PlanId) || 'free');
+        }
+
+        const { data: history } = await supabase
+          .from('payment_history')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        setPayments(history || []);
+      } catch (err) {
+        console.error('Account load error:', err);
+        setLoadError('Erro ao carregar dados. Tente novamente.');
+      } finally {
+        setLoading(false);
       }
-
-      setUser(session.user);
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tokens, plan_id')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (profile) {
-        setTokens(profile.tokens);
-        setPlanId((profile.plan_id as PlanId) || 'free');
-      }
-
-      const { data: history } = await supabase
-        .from('payment_history')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      setPayments(history || []);
-      setLoading(false);
     };
     loadData();
   }, []);
@@ -53,6 +60,19 @@ export default function Account() {
         <div className="text-center">
           <Globe size={48} className="mx-auto mb-4 animate-pulse" />
           <p className="text-gray-400">Carregando sua conta...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="app-shell min-h-screen text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{loadError}</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer">
+            Tentar Novamente
+          </button>
         </div>
       </div>
     );

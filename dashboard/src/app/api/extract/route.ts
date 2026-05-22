@@ -3,6 +3,8 @@ import { chromium } from 'playwright';
 import { createRequestSupabaseClient, getAuthUser, requireFeature } from '@/lib/server-auth';
 import { type FeatureKey } from '@/lib/plans';
 
+export const runtime = 'nodejs';
+
 // Algoritmo de Distância de Levenshtein para medir similaridade entre palavras
 function getLevenshteinDistance(a: string, b: string): number {
   const tmp = [];
@@ -671,8 +673,9 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error("ERRO NO MOTOR:", error.message);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("ERRO NO MOTOR:", msg);
     if (browser) await browser.close();
-    return NextResponse.json({ error: 'Erro ao extrair: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao extrair: ' + msg }, { status: 500 });
   }
 }
