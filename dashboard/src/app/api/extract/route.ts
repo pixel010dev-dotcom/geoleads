@@ -1234,12 +1234,17 @@ async function runExtraction({
       cityScrolls++;
     }
     citiesDone++;
-    // Salva leads incrementalmente no Supabase (entrega em tempo real)
-    if (validLeads.length > 0) {
+    // Salva ALL enriched leads incrementalmente (entrega em tempo real)
+    // O usuário já vê os leads aparecendo enquanto a extração continua rodando
+    if (allEnrichedLeads.length > 0) {
       try {
         await updateJob(jobId, {
-          leads: validLeads,
-          leads_count: validLeads.length,
+          leads: allEnrichedLeads,
+          leads_count: allEnrichedLeads.length,
+          scanned: scrapedNames.size,
+          cities_scanned: citiesDone,
+          message: `${allEnrichedLeads.length} leads brutos em ${citiesDone} cidades (enriquecendo...)`,
+          search_time_seconds: Math.round((Date.now() - startTime) / 1000),
         });
       } catch {}
     }
@@ -1356,6 +1361,20 @@ async function runExtraction({
           if (tab) try { await tab.close(); } catch {}
         }
       }));
+    }
+
+    // Salva leads já enriquecidos pela segunda passagem (atualiza telefone/site na tela)
+    if (allEnrichedLeads.length > 0) {
+      try {
+        await updateJob(jobId, {
+          leads: allEnrichedLeads,
+          leads_count: allEnrichedLeads.length,
+          scanned: scrapedNames.size,
+          cities_scanned: citiesDone,
+          message: `${allEnrichedLeads.length} leads enriquecidos em ${citiesDone} cidades`,
+          search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+        });
+      } catch {}
     }
 
     // Agora aplica o PÓS-FILTRO em todos os leads enriquecidos + segunda passada
