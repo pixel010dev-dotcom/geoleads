@@ -202,11 +202,25 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Chatbot route: handlers connection.update e messages.upsert com try-catch externo (evita unhandled promise rejections)
 - @types/nodemailer instalado (TS build fix)
 
+## Últimas alterações (22/05/2026) — quinta leva: Admin Panel + Filter Fix
+
+### Painel Admin (Testimonials)
+- Nova rota: `GET /api/admin/testimonials` — lista todos os depoimentos (admin client, auth guard por email)
+- Nova rota: `PATCH /api/admin/testimonials/[id]` — aprova/rejeita depoimento por ID
+- Nova página: `src/app/app/admin/page.tsx` — painel admin com lista de depoimentos pendentes e aprovados, botões de aprovar/rejeitar, guard de acesso para `diogopfeifer0@gmail.com`
+- Acessível em `/app/admin` com link "← Dashboard" para voltar
+
+### Fix: Filtro do Extrator eliminando leads antes da segunda passagem
+- **Problema**: `preFilter` eliminava leads sem telefone/site do card ANTES da segunda passagem (place pages), que poderia recuperá-los
+- **Fix**: `phone` e `site` removidos do `preFilter` e movidos para o `postFilter` — agora a segunda passagem roda primeiro, depois o filtro verifica
+- Leads sem telefone/site no card agora recebem a segunda passagem (abre página individual do Maps) antes de serem filtrados
+- Código em `src/app/api/extract/route.ts` — funções `preFilter` e `postFilter`
+
 ## Próximos passos sugeridos
 1. ~~Melhorar SEO da landing page~~ (feito)
 2. ~~Recolher testimonials reais dos usuários~~ (feito)
-3. Comprar domínio próprio (geoleads.com.br) + configurar DNS/SSL
-4. Painel admin para aprovar testimonials
+3. ~~Painel admin para aprovar testimonials~~ (feito)
+4. Comprar domínio próprio (geoleads.com.br) + configurar DNS/SSL
 5. Paginação no CRM (feito)
 6. Gráficos no dashboard (feito)
 7. ~~Melhorar extração de telefones~~ (feito)

@@ -81,3 +81,6 @@
 ✓ Compiled in 104ms
 ✓ Compiled in 102ms
 ✓ Compiled in 42ms
+  Reload env: .env.local
+✓ Compiled in 327ms
+✓ Compiled in 425ms

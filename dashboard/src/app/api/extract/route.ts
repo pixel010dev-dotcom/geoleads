@@ -498,26 +498,23 @@ function parseFilterRules(filterRule: string): string[] {
 }
 
 // Pré-filtro rápido ANTES de enriquecer (aplicado na extração do Maps)
+// phone e site NÃO são filtrados aqui — a segunda passagem (place pages) pode recuperá-los
 function preFilter(lead: any, filterRule: string): boolean {
   const rules = parseFilterRules(filterRule);
   if (rules.length === 0) return true;
-  // Todos os filtros devem passar (AND)
   return rules.every(rule => {
-    if (rule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
-    if (rule === 'site') return lead.site && lead.site !== 'Sem site';
-    // Os demais (email, insta, face) precisam de enriquecimento, então passam aqui
+    if (['phone', 'site'].includes(rule)) return true;
     return true;
   });
 }
 
-// Pós-filtro DEPOIS de enriquecer (para email, insta, face)
+// Pós-filtro DEPOIS de enriquecer + segunda passagem (para todos os filtros)
 function postFilter(lead: any, filterRule: string): boolean {
   const rules = parseFilterRules(filterRule);
   if (rules.length === 0) return true;
-  const postRules = rules.filter(r => !['phone', 'site', 'none'].includes(r));
-  if (postRules.length === 0) return true;
-  // Todos os filtros pós-enriquecimento devem passar (AND)
-  return postRules.every(rule => {
+  return rules.every(rule => {
+    if (rule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
+    if (rule === 'site') return lead.site && lead.site !== 'Sem site';
     if (rule === 'email') return !!lead.email;
     if (rule === 'insta') return !!lead.instagram;
     if (rule === 'face') return !!lead.facebook;
