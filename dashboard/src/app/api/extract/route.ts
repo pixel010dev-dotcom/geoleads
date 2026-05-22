@@ -541,13 +541,18 @@ function cleanMapsUrlCandidate(rawUrl: string) {
   return candidate;
 }
 
+function isGoogleOwnedHost(host: string): boolean {
+  return host.includes('google.') || host.includes('googleapis.') || host.includes('gstatic.') ||
+    host.includes('googleusercontent.') || host.includes('ggpht.') || host.includes('googlevideo.') ||
+    host.includes('withgoogle.') || host.includes('schema.org') || host.includes('w3.org');
+}
+
 function isBusinessWebsiteCandidate(rawUrl: string) {
   try {
     const url = new URL(rawUrl);
     const host = url.hostname.replace(/^www\./, '').toLowerCase();
     if (!/^https?:$/.test(url.protocol)) return false;
-    if (host.includes('google.') || host.includes('gstatic.') || host.includes('googleusercontent.')) return false;
-    if (host.includes('ggpht.') || host.includes('schema.org') || host.includes('w3.org')) return false;
+    if (isGoogleOwnedHost(host)) return false;
     if (host.includes('youtube.') || host.includes('youtu.be') || host.includes('maps.app.goo.gl')) return false;
     if (host.includes('instagram.com') || host.includes('facebook.com') || host.includes('fb.com')) return false;
     if (host.includes('tiktok.com') || host.includes('whatsapp.com') || host.includes('wa.me')) return false;
@@ -569,18 +574,18 @@ function pickWebsiteFromMapsText(text: string) {
 function extractMapsPlaceDataFromText(raw: string): MapsPlaceExtraData {
   const result = emptyMapsPlaceExtraData();
   const decoded = decodeMapsPayloadText(raw);
-  const strings: string[] = [];
-  const jsonText = raw.replace(/^\)\]\}'\s*/, '').trim();
 
-  try {
-    collectStringLeaves(JSON.parse(jsonText), strings);
-  } catch {}
+  // IMPORTANTE: NÃO extrai telefone de raw text/XHR response.
+  // As respostas internas do Google Maps contêm números falsos (de assets, coordenadas, etc.)
+  // que passam na validação de telefone brasileiro. Telefone só vem do DOM visível.
+  // Site: só aceita se passar no filtro de negócio (não Google, não rede social)
+  const siteFromText = pickWebsiteFromMapsText(decoded);
+  if (siteFromText && isBusinessWebsiteCandidate(siteFromText)) {
+    result.site = siteFromText;
+  }
 
-  const text = [decoded, ...strings.map(decodeMapsPayloadText)].join('\n');
-  result.telefone = pickPhoneFromMapsText(text);
-  result.site = pickWebsiteFromMapsText(text);
-
-  for (const match of text.matchAll(ABSOLUTE_SOCIAL_REGEX)) {
+  // Redes sociais
+  for (const match of decoded.matchAll(ABSOLUTE_SOCIAL_REGEX)) {
     const url = cleanMapsUrlCandidate(match[0]);
     if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
     if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
@@ -968,15 +973,7 @@ function applySignalsToLead(lead: any, html: string, baseUrl: string) {
 }
 
 // Enriquecimento: visita o site da empresa e caca contatos, CNPJ e redes.
-const EMAIL_FALLBACK_PATTERNS = [
-  (domain: string) => `contato@${domain}`,
-  (domain: string) => `comercial@${domain}`,
-  (domain: string) => `sac@${domain}`,
-  (domain: string) => `admin@${domain}`,
-  (domain: string) => `vendas@${domain}`,
-  (domain: string) => `adm@${domain}`,
-  (domain: string) => `contato@www.${domain}`,
-];
+// IMPORTANTE: NÃO inventar email por fallback. Melhor vir vazio do que enviar lead com email falso.
 
 // Cache de enriquecimento por domínio (evita refetch do mesmo site)
 const enrichCache = new Map<string, { email: string; cnpj: string; instagram: string; facebook: string; tiktok: string }>();
@@ -989,6 +986,20 @@ async function enrichLead(lead: any) {
   lead.cnpj = '';
 
   if (!lead.site || lead.site === 'Sem site') return lead;
+
+  // Se o site é do Google/Google APIs (falso positivo), zera e retorna
+  try {
+    const siteHost = new URL(lead.site).hostname.replace(/^www\./, '').toLowerCase();
+    if (isGoogleOwnedHost(siteHost)) {
+      lead.site = 'Sem site';
+      lead.email = '';
+      return lead;
+    }
+  } catch {
+    // URL inválida — não tenta enriquecer
+    lead.site = 'Sem site';
+    return lead;
+  }
 
   try {
     const domain = extractDomain(lead.site);
@@ -1005,8 +1016,7 @@ async function enrichLead(lead: any) {
 
     const homeHtml = await fetchHtml(lead.site);
     if (!homeHtml) {
-      // Se o site não respondeu, tenta fallback de email por padrões comuns
-      if (domain) applyEmailFallback(lead, domain);
+      // Site não respondeu — não inventa email falso
       return lead;
     }
 
@@ -1020,12 +1030,7 @@ async function enrichLead(lead: any) {
       });
     }
 
-    // 2. Fallback de email se ainda não encontrou
-    if (!lead.email && domain) {
-      applyEmailFallback(lead, domain);
-    }
-
-    // 3. Salva no cache
+    // 2. Salva no cache
     if (domain) {
       enrichCache.set(domain, {
         email: lead.email,
@@ -1045,16 +1050,6 @@ function extractDomain(url: string): string | null {
     const u = new URL(url);
     return u.hostname.replace(/^www\./, '').toLowerCase();
   } catch { return null; }
-}
-
-function applyEmailFallback(lead: any, domain: string) {
-  for (const fn of EMAIL_FALLBACK_PATTERNS) {
-    const email = fn(domain);
-    if (!BAD_EMAIL_REGEX.test(email)) {
-      lead.email = email;
-      return;
-    }
-  }
 }
 
 // Converte filterRule string única ou lista para array de regras
@@ -1096,6 +1091,63 @@ function shuffleArray<T>(arr: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+// Bairros para cidades grandes — usado para expandir busca quando targetLimit é alto.
+// O Google Maps limita a ~100-120 resultados por URL. Variar por bairro permite
+// extrair muito mais leads em uma única cidade.
+function getCityBairros(location: string): string[] {
+  const loc = location.trim();
+  // Rio de Janeiro — 90+ bairros oficiais (zonas Sul, Norte, Oeste, Centro)
+  if (/rio\s+de\s+janeiro/i.test(loc)) {
+    return [
+      'Copacabana', 'Ipanema', 'Leblon', 'Botafogo', 'Flamengo',
+      'Laranjeiras', 'Catete', 'Glória', 'Santa Teresa', 'Lapa',
+      'Tijuca', 'Vila Isabel', 'Maracanã', 'Grajaú', 'Méier',
+      'Engenho Novo', 'Cachambi', 'Del Castilho', 'Bonsucesso', 'Ramos',
+      'Penha', 'Olaria', 'Madureira', 'Cascadura', 'Piedade',
+      'Campo Grande', 'Bangu', 'Realengo', 'Santa Cruz', 'Guaratiba',
+      'Jacarepaguá', 'Barra da Tijuca', 'Recreio', 'Taquara', 'Curicica',
+      'São Cristóvão', 'Benfica', 'Mangueira', 'Vila Kennedy',
+    ];
+  }
+  // São Paulo — 96 distritos
+  if (/s[aã]o\s+paulo/i.test(loc) && !/josé|bernardo|caetano|vicente|and[dr]é/i.test(loc)) {
+    return [
+      'Pinheiros', 'Vila Madalena', 'Jardins', 'Itaim Bibi', 'Moema',
+      'Vila Mariana', 'Perdizes', 'Pompeia', 'Lapa', 'Barra Funda',
+      'Consolação', 'Bela Vista', 'Liberdade', 'Aclimação', 'Higienópolis',
+      'Brooklin', 'Morumbi', 'Butantã', 'Vila Olímpia', 'Berrini',
+      'Tatuapé', 'Mooca', 'Brás', 'Belenzinho', 'Anália Franco',
+      'Santana', 'Tucuruvi', 'Jaçanã', 'Vila Guilherme', 'Vila Maria',
+      'São Miguel', 'Itaquera', 'Guaianases', 'São Mateus', 'Sapopemba',
+      'Santo Amaro', 'Campo Limpo', 'Capão Redondo', 'Jardim Ângela',
+    ];
+  }
+  // Belo Horizonte
+  if (/belo\s+horizonte/i.test(loc)) {
+    return [
+      'Savassi', 'Lourdes', 'Funcionários', 'Mangabeiras', 'Serra',
+      'Pampulha', 'Cidade Nova', 'Santa Tereza', 'Floresta', 'Santa Efigênia',
+      'Buritis', 'Estoril', 'Castelo', 'Barreiro', 'Betânia',
+    ];
+  }
+  // Brasília
+  if (/bras[ií]lia/i.test(loc)) {
+    return [
+      'Asa Sul', 'Asa Norte', 'Sudoeste', 'Octogonal', 'Lago Sul', 'Lago Norte',
+      'Águas Claras', 'Taguatinga', 'Ceilândia', 'Guará', 'Samambaia',
+    ];
+  }
+  // Curitiba
+  if (/curitiba/i.test(loc)) {
+    return [
+      'Batel', 'Água Verde', 'Centro Cívico', 'Juvevê', 'Cabral',
+      'Bigorrilho', 'Champagnat', 'Mossunguê', 'Portão', 'Santa Felicidade',
+      'Boqueirão', 'Sítio Cercado', 'Bairro Alto', 'Jardim Social',
+    ];
+  }
+  return [];
 }
 
 const MAJOR_CITIES = [
@@ -1329,8 +1381,11 @@ async function runExtraction({
     } catch {}
   }
 
-  const startTime = Date.now();
-    const MAX_TIME = isBroadRegion ? Math.min(600000, 15000 + targetLimit * 3000) : 60000;
+const startTime = Date.now();
+    // Tempo proporcional ao targetLimit: ~3s por lead + margem. Mínimo 120s, máximo 30min.
+    const MAX_TIME = isBroadRegion
+      ? Math.min(1800000, 15000 + targetLimit * 3000)
+      : Math.min(1800000, Math.max(120000, targetLimit * 3000));
   const validLeads: any[] = [];
   const scrapedNames = new Set<string>(existingLeadKeys);
   const scrapedPhones = new Set<string>();
@@ -1373,10 +1428,26 @@ async function runExtraction({
       { name: 'SOCS', value: 'CAISHAgENhB0Dcm9sZQ==', domain: '.google.com', path: '/' },
     ]);
 
-    const allEnrichedLeads: any[] = [];
-    const MAX_SCROLL = isBroadRegion ? 100 : 30;
-    const searchLocations = isBroadRegion ? shuffleArray([...MAJOR_CITIES]) : [location];
-    const maxScrollPerCity = isBroadRegion ? 8 : MAX_SCROLL;
+const allEnrichedLeads: any[] = [];
+
+    // Para buscas em cidades grandes com targetLimit alto, expande por bairros
+    // O Google Maps limita resultados por busca a ~100-120 itens.
+    // Para chegar a 500 leads em uma cidade, precisamos variar a busca por sub-regiões.
+    let searchLocations: string[];
+    if (isBroadRegion) {
+      searchLocations = shuffleArray([...MAJOR_CITIES]);
+    } else if (targetLimit >= 150) {
+      const cityBairros = getCityBairros(location);
+      if (cityBairros.length > 1) {
+        searchLocations = [location, ...shuffleArray(cityBairros)];
+      } else {
+        searchLocations = [location];
+      }
+    } else {
+      searchLocations = [location];
+    }
+    // Scroll por cidade/bairro baseado na demanda e tempo disponível
+    const maxScrollPerCity = isBroadRegion ? 10 : Math.max(15, Math.min(80, targetLimit));
 
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
@@ -1609,7 +1680,7 @@ async function runExtraction({
 
       if (newLeads.length === 0) {
         emptyScrolls++;
-        if (emptyScrolls >= 5) break; // Sem mais resultados
+        if (emptyScrolls >= 8) break; // Sem mais resultados
       } else {
         emptyScrolls = 0;
       }
