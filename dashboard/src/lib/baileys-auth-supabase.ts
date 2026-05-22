@@ -1,5 +1,21 @@
 import { createAdminSupabaseClient } from './server-auth';
 
+const reviveBuffers = (obj: any): any => {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(reviveBuffers);
+  if (obj.type === 'Buffer' && Array.isArray(obj.data)) {
+    return Buffer.from(obj.data);
+  }
+  if (typeof obj === 'object') {
+    const result: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = reviveBuffers(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+};
+
 export const makeSupabaseAuthState = async (userId: string) => {
   const supabase = createAdminSupabaseClient();
   const baileys = await import('@whiskeysockets/baileys');
@@ -11,8 +27,13 @@ export const makeSupabaseAuthState = async (userId: string) => {
     .eq('user_id', userId)
     .maybeSingle();
 
-  let creds: any = existing?.creds || initAuthCreds();
-  let keysData: Record<string, any> = existing?.keys_json || {};
+  let creds: any = existing?.creds ? reviveBuffers(existing.creds) : initAuthCreds();
+  let keysData: Record<string, any> = {};
+  if (existing?.keys_json) {
+    for (const [k, v] of Object.entries(existing.keys_json)) {
+      keysData[k] = reviveBuffers(v);
+    }
+  }
 
   let pendingWrite: ReturnType<typeof setTimeout> | null = null;
   const schedulePersist = () => {
