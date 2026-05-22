@@ -1220,6 +1220,17 @@ async function runExtraction({
             allEnrichedLeads.push(lead);
             if (allEnrichedLeads.length >= targetLimit * 2) break;
           }
+          // Salva leads recém-enriquecidos no Supabase (entrega em tempo real — cada lote aparece na tela)
+          try {
+            await updateJob(jobId, {
+              leads: allEnrichedLeads,
+              leads_count: allEnrichedLeads.length,
+              scanned: scrapedNames.size,
+              cities_scanned: citiesDone,
+              message: `${allEnrichedLeads.length} leads encontrados...`,
+              search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+            });
+          } catch {}
         }
       }
 
