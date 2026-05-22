@@ -750,7 +750,7 @@ export async function POST(request: Request) {
       }, { status: 402 });
     }
 
-    const MAX_TIME = isBroadRegion ? 80000 : 50000;
+    const MAX_TIME = isBroadRegion ? 120000 : 50000;
     const startTime = Date.now();
 
     browser = await chromium.launch({ headless: true });
@@ -776,7 +776,8 @@ export async function POST(request: Request) {
       { name: 'SOCS', value: 'CAISHAgENhB0Dcm9sZQ==', domain: '.google.com', path: '/' },
     ]);
 
-    const query = encodeURIComponent(isBroadRegion ? keyword : `${keyword} em ${location}`);
+    const searchQuery = isBroadRegion ? `${keyword} Brasil` : `${keyword} em ${location}`;
+    const query = encodeURIComponent(searchQuery);
     await page.goto(`https://www.google.com/maps/search/${query}`, { 
       waitUntil: 'domcontentloaded',
       timeout: 15000 
@@ -831,7 +832,7 @@ export async function POST(request: Request) {
     let scrollAttempts = 0;
     let emptyScrolls = 0;
 
-    const MAX_SCROLL = isBroadRegion ? 60 : 30;
+    const MAX_SCROLL = isBroadRegion ? 100 : 30;
     while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && scrollAttempts < MAX_SCROLL) {
       
       // 1. Extrai todos os cards visíveis da tela
