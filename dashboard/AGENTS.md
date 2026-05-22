@@ -51,3 +51,61 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Cria tabelas: whatsapp_sessions, whatsapp_messages
 - URL SQL Editor: https://supabase.com/dashboard/project/mwnpwrzwgwrqqlomqhux/sql/new
 <!-- END:geoleads-credentials -->
+
+<!-- BEGIN:geoleads-changelog -->
+# GeoLeads Changelog
+
+## Últimas alterações (22/05/2026)
+
+### Landing Page (src/app/page.tsx)
+- Hero reescrito: "Extraia 500+ Leads Qualificados em 3 Minutos"
+- CTA principal: "Extraia 10 Leads Grátis Agora"
+- Seção de depoimentos (3 cards) com rating stars
+- Textos de features melhorados com benefícios explícitos
+
+### Pricing (src/app/pricing/page.tsx)
+- Plano Free agora aparece no grid (antes só pagos)
+- Tabela de comparação com todas as features lado a lado
+- Import de `allFeatureKeys` e `featureLabels` do plans.ts
+
+### Dashboard Charts (src/components/DashboardCharts.tsx)
+- Gráficos: saldo de tokens, leads/mês (área), leads por estágio (pizza)
+- Usa Recharts (instalado: npm install recharts)
+- Estado vazio com mensagem quando sem leads
+- Importado em dashboard/page.tsx, renderizado acima das tabs
+
+### CRM Paginação (dashboard/page.tsx)
+- Paginação com 25 leads por página
+- Estado: crmPage, CRM_PAGE_SIZE
+- Botões "Anterior / Próximo" com contagem
+- Reseta página quando filtro de busca ou estágio muda
+
+### WhatsApp Connection Fixes
+- Buffer serialization fix: reviveBuffers() em baileys-auth-supabase.ts
+- Converte objetos `{type:"Buffer",data:[...]}` do Supabase de volta pra Buffer nativo
+- Error handling: badSession (500) para reconexão, restartRequired (515) com backoff maior
+- Nova action `reset_session` pra limpar creds corrompidas
+- Debug logging: console.log [WAP-DEBUG] no close handler
+
+### Toast Notifications
+- src/components/Toast.tsx: showToast() global
+- 22 alert() substituídos no dashboard
+
+### WhatsApp Pairing Code
+- Backend: action 'pair' com requestPairingCode()
+- Frontend: input de telefone + botão "Parear"
+- Exibe código na tela para usuário digitar no WhatsApp
+
+## Build & Deploy
+- Build: npx next build (ou npx tsc --noEmit pra TS check)
+- Deploy: git push → Railway auto-deploy
+- Local: npm run dev (porta 3001)
+- .env.local: NEXT_PUBLIC_APP_URL=http://localhost:3001 (local) ou https://geoleads-production.up.railway.app (produção)
+
+## Próximos passos sugeridos
+1. Comprar domínio próprio (geoleads.com.br) + configurar DNS/SSL
+2. Recolher testimonials reais dos usuários (já tem formulário no dashboard)
+3. Melhorar SEO da landing page
+4. Paginação no CRM (feito)
+5. Gráficos no dashboard (feito)
+<!-- END:geoleads-changelog -->

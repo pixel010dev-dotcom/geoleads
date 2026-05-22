@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { getCostPerLeadLabel, paidPlanIds, plans, formatPlanPrice, type PlanId } from '@/lib/plans';
+import { getCostPerLeadLabel, paidPlanIds, plans, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
 
 const planIcons: Record<PlanId, string> = {
   free: '🔎',
@@ -315,8 +315,8 @@ export default function Pricing() {
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-5 lg:gap-7 items-start max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
-            {paidPlanIds.map((planId) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {(['free', ...paidPlanIds] as PlanId[]).map((planId) => {
               const plan = plans[planId];
               const isSelected = selectedPlanId === plan.id;
 
@@ -437,6 +437,67 @@ export default function Pricing() {
             </p>
           </aside>
         </div>
+
+        {/* COMPARISON TABLE */}
+        <section className="mt-12 sm:mt-16 max-w-5xl mx-auto">
+          <div className="text-center mb-8">
+            <span className="badge-blue mb-3">Comparação completa</span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-3">Veja o que cada plano oferece</h2>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.03]">
+                  <th className="text-left px-4 py-3.5 text-gray-400 font-semibold">Funcionalidade</th>
+                  {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
+                    const p = plans[pid];
+                    return (
+                      <th key={pid} className={`px-4 py-3.5 text-center font-bold ${p.highlight ? 'text-blue-400' : 'text-gray-300'}`}>
+                        {p.name}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {allFeatureKeys.map((fk) => {
+                  const label = featureLabels[fk];
+                  return (
+                    <tr key={fk} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3 text-gray-300 font-medium">{label}</td>
+                      {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
+                        const included = plans[pid].featureKeys.includes(fk);
+                        return (
+                          <td key={pid} className="px-4 py-3 text-center">
+                            {included ? (
+                              <span className="text-green-400 text-lg">✓</span>
+                            ) : (
+                              <span className="text-gray-600">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+                <tr className="border-t border-white/10 bg-white/[0.02]">
+                  <td className="px-4 py-3 text-gray-300 font-medium">Tokens de extração</td>
+                  {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
+                    const p = plans[pid];
+                    return (
+                      <td key={pid} className="px-4 py-3 text-center font-bold text-white">
+                        {p.tokens.toLocaleString('pt-BR')}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-gray-500 text-center mt-4">
+            Todos os planos incluem acesso ao Motor Extrator e suporte padrão. Upgrade a qualquer momento.
+          </p>
+        </section>
       </div>
     </div>
   );

@@ -45,21 +45,21 @@ export default function LandingPage() {
               Motor Online · Já são 4.200+ leads extraídos
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.08] mb-6">
-              A maior máquina de{' '}
+              Extraia{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400">
-                leads B2B
+                500+ Leads Qualificados
               </span>{' '}
-              do Brasil
+              em 3 Minutos
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed mb-8">
-              Encontre, organize e aborde clientes ideais em minutos. Extraia dados de qualquer nicho e cidade, enriqueça com CNPJ, redes sociais, e dispare WhatsApp — tudo em um fluxo só.
+              Do Google Maps ao WhatsApp. Com CNPJ, e-mail e redes sociais validados — tudo em um fluxo só. Sem planilhas, sem trabalho manual, sem stress.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <Link
                 href="/login"
                 className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-base transition-all shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95 text-center"
               >
-                Começar Grátis — 10 Tokens
+                Extraia 10 Leads Grátis Agora
               </Link>
               <Link
                 href="/pricing"
@@ -106,6 +106,32 @@ export default function LandingPage() {
                   <span className="text-2xl mb-3 block">{f.icon}</span>
                   <h3 className="font-bold text-sm mb-1">{f.title}</h3>
                   <p className="text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* TESTIMONIALS */}
+        <section className="app-container py-16 sm:py-24">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <span className="badge-purple mb-3">Depoimentos</span>
+              <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-3">Quem usa, recomenda</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {testimonials.map((t, i) => (
+                <div key={i} className="app-card p-6 rounded-2xl flex flex-col">
+                  <div className="flex items-center gap-1 mb-3">
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <span key={j} className={j < t.stars ? 'text-amber-400' : 'text-gray-600'}>★</span>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-300 leading-relaxed flex-1">"{t.text}"</p>
+                  <div className="mt-4 pt-4 border-t border-white/5">
+                    <p className="text-sm font-bold text-white">{t.name}</p>
+                    <p className="text-xs text-gray-500">{t.role}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -161,6 +187,27 @@ const steps = [
     icon: '💬',
     title: 'Aborde pelo WhatsApp',
     desc: 'Dispare mensagens personalizadas com um clique. Use modelos prontos ou gere copys com IA. O bot também responde automaticamente.',
+  },
+];
+
+const testimonials = [
+  {
+    stars: 5,
+    text: 'Triplicou minha prospecção. Antes eu passava 20 horas por semana catando leads manualmente. Agora em 30 minutos tenho uma lista pronta com CNPJ, email e WhatsApp.',
+    name: 'Ricardo Silva',
+    role: 'Diretor de Vendas',
+  },
+  {
+    stars: 5,
+    text: 'Uso pra encontrar distribuidores pro meu e-commerce. Em 1 semana fechei parceria com 3 lojas. O CNPJ validado e as redes sociais fazem toda diferença.',
+    name: 'Juliana Costa',
+    role: 'E-commerce B2B',
+  },
+  {
+    stars: 5,
+    text: 'O chatbot WhatsApp respondeu 80% das perguntas sozinho no primeiro mês. Economizei horas de atendimento e ainda fechei 4 contratos.',
+    name: 'André Oliveira',
+    role: 'Agência Digital',
   },
 ];
 

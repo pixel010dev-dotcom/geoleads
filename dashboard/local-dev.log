@@ -67,3 +67,6 @@
  GET /api/chatbot 200 in 770ms (next.js: 2ms, application-code: 768ms)
  GET /api/chatbot 200 in 519ms (next.js: 2ms, application-code: 516ms)
 ✓ Compiled in 119ms
+✓ Compiled in 77ms
+✓ Compiled in 68ms
+✓ Compiled in 62ms
