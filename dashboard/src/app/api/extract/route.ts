@@ -758,6 +758,79 @@ async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promise<Maps
   return result;
 }
 
+function leadNeedsMapsPlaceDetails(lead: any) {
+  return !!lead.placeUrl && (lead.telefone === 'Não informado' || !lead.site || lead.site === 'Sem site');
+}
+
+function applyMapsPlaceExtraDataToLead(lead: any, extraData: MapsPlaceExtraData) {
+  let changed = false;
+
+  if (extraData.telefone && lead.telefone === 'Não informado') {
+    lead.telefone = normalizePhone(extraData.telefone);
+    changed = true;
+  }
+  if (extraData.site && (!lead.site || lead.site === 'Sem site')) {
+    lead.site = extraData.site;
+    changed = true;
+  }
+  if (extraData.instagram && !lead.instagram) {
+    lead.instagram = extraData.instagram;
+    changed = true;
+  }
+  if (extraData.facebook && !lead.facebook) {
+    lead.facebook = extraData.facebook;
+    changed = true;
+  }
+  if (extraData.tiktok && !lead.tiktok) {
+    lead.tiktok = extraData.tiktok;
+    changed = true;
+  }
+  if (extraData.endereco && !lead.endereco) {
+    lead.endereco = extraData.endereco;
+    changed = true;
+  }
+  if (extraData.horarios && !lead.horarios) {
+    lead.horarios = extraData.horarios;
+    changed = true;
+  }
+
+  return changed;
+}
+
+async function enrichLeadWithMapsPlaceDetails(context: any, lead: any) {
+  if (!leadNeedsMapsPlaceDetails(lead)) return false;
+
+  let tab: any = null;
+  try {
+    tab = await context.newPage();
+    const extraData = await extractMapsPlaceDetails(tab, lead.placeUrl);
+    return applyMapsPlaceExtraDataToLead(lead, extraData);
+  } catch {
+    return false;
+  } finally {
+    if (tab) try { await tab.close(); } catch {}
+  }
+}
+
+async function enrichLeadsWithMapsPlaceDetails(
+  context: any,
+  leads: any[],
+  shouldStop: () => Promise<boolean>,
+  batchSize = 2
+) {
+  const candidates = leads.filter(leadNeedsMapsPlaceDetails);
+  let changed = 0;
+
+  for (let i = 0; i < candidates.length; i += batchSize) {
+    if (await shouldStop()) break;
+    const batch = candidates.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(lead => enrichLeadWithMapsPlaceDetails(context, lead)));
+    changed += results.filter(Boolean).length;
+  }
+
+  return changed;
+}
+
 async function fetchHtml(url: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3500);
@@ -1292,7 +1365,7 @@ async function runExtraction({
     });
 
     // Bloqueia recursos não essenciais de forma stealth (204 em vez de abort)
-    await page.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2}', route => route.fulfill({ status: 204, body: '' }));
+    await context.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2}', route => route.fulfill({ status: 204, body: '' }));
 
     // Cookies de consentimento proativos (evita popup de cookies)
     await page.context().addCookies([
@@ -1546,7 +1619,12 @@ async function runExtraction({
         const preFiltered = newLeads.filter(l => preFilter(l, filterRule));
         
         if (preFiltered.length > 0) {
-          // 4. Enriquece APENAS os que passaram no pré-filtro (economiza tempo!)
+          // 4. Completa telefone/site no Maps antes de entregar o lote em tempo real.
+          await enrichLeadsWithMapsPlaceDetails(context, preFiltered, async () =>
+            await checkCancelled() || (Date.now() - startTime) >= MAX_TIME
+          );
+
+          // 5. Enriquece APENAS os que passaram no pré-filtro (economiza tempo!)
           const enriched = await Promise.all(preFiltered.map(lead => {
             // Normaliza telefone antes de enriquecer
             if (lead.telefone && lead.telefone !== 'Não informado') lead.telefone = normalizePhone(lead.telefone);
@@ -1592,7 +1670,7 @@ async function runExtraction({
           leads_count: allEnrichedLeads.length,
           scanned: scrapedNames.size,
           cities_scanned: citiesDone,
-          message: `${allEnrichedLeads.length} leads brutos em ${citiesDone} cidades (enriquecendo...)`,
+          message: `${allEnrichedLeads.length} leads enriquecidos em ${citiesDone} cidades`,
           search_time_seconds: Math.round((Date.now() - startTime) / 1000),
         });
       } catch {}
@@ -1604,8 +1682,8 @@ async function runExtraction({
   const leadsParaSegundaPassagem = allEnrichedLeads.filter(l =>
     (l.telefone === 'Não informado' || !l.site || l.site === 'Sem site') && l.placeUrl
   );
-    const BATCH_SIZE = 5;
-    const MAX_SECOND_PASS = Math.min(leadsParaSegundaPassagem.length, 25);
+    const BATCH_SIZE = 2;
+    const MAX_SECOND_PASS = leadsParaSegundaPassagem.length;
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
       if (await checkCancelled()) break;
       if ((Date.now() - startTime) >= MAX_TIME) break;
