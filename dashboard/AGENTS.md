@@ -49,6 +49,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## SQL aplicado
 - supabase/migration_whatsapp_persist.sql ✓
 - supabase/migration_testimonials.sql ✓
+- supabase/migration_extraction_jobs.sql ✓ (rodado via supabase db push)
 <!-- END:geoleads-credentials -->
 
 <!-- BEGIN:geoleads-changelog -->
@@ -240,4 +241,66 @@ This version has breaking changes — APIs, conventions, and file structure may 
 6. Gráficos no dashboard (feito)
 7. ~~Melhorar extração de telefones~~ (feito)
 8. ~~HackerRadar + animações~~ (feito)
+
+## Últimas alterações (22/05/2026) — sexta leva: Background Jobs + Extração Assíncrona + Otimizações
+
+### Background Job System (Extração Assíncrona)
+- `POST /api/extract` agora cria um `extraction_jobs` no Supabase e retorna `{ jobId }` imediatamente
+- `runExtraction()` executa em background (fire-and-forget) com todo o motor de extração
+- `GET /api/extract/job/[jobId]` — polling de status (running, completed, failed, cancelled)
+- `PATCH /api/extract/job/[jobId]` — cancelamento da extração
+- Frontend: `startPolling(jobId)` a cada 3s, recupera job pendente do localStorage ao recarregar
+- `checkCancelled()` consulta Supabase a cada cidade e para se job foi cancelado
+- Migration: `supabase/migration_extraction_jobs.sql` (tabela + RLS policies)
+- Rodado via `supabase db push`
+
+### Otimizações de Velocidade
+- `maxScrollPerCity`: 12 → 8 (broad region)
+- Delay entre scrolls: 1200-2000ms → 800-1400ms
+- Delay pós-load: 1500-2500ms → 1000-1500ms
+- Timeout waitForSelector feed: 8s → 5s
+- Limite 2ª passagem: 30 → 20
+
+### Correção de Fórmula de Tempo Estimado
+- Frontend: `sec = 10 + cidades × 2 + leads × 1.5 + 15` (antes era `5 + leads × 1.8`)
+- Capado em 600s (limite do backend)
+- Conta navegação por cidade + overhead da 2ª passagem
+
+### Correção do Gargalo da Segunda Passagem
+- `waitUntil: 'networkidle'` (antes `load`) — espera XHR de dados do Maps finalizar
+- `waitForTimeout(3000)` para JS renderizar (antes 2000ms)
+- `waitForTimeout(500)` pós-scroll (antes 300ms)
+- Selector `waitForSelector` removido (silent catch desperdiçava tempo)
+- Regex de telefone expandido: 3 padrões (`+55 (11)...`, `5511...`, `(11)...`)
+- Agora busca leads sem telefone **OU sem site** na 2ª passagem (antes só sem telefone)
+- Limite 2ª passagem: 25 leads (antes 20)
+- MAX_TIME guard adicionado no loop da 2ª passagem
+- Novas estratégias de telefone nos cards: `[data-item-id*="phone"]` + regex com suporte a +55
+
+### MAX_TIME Ajustado (Qualidade > Velocidade)
+- Broad: `15s + leads × 3s` (antes `5s + leads × 2s`). Ex: 10 leads → 45s (antes 25s)
+- Specific city: 60s (antes 50s)
+
+### Entrega Incremental de Leads
+- Leads salvos no Supabase (`extraction_jobs.leads`) a cada cidade concluída
+- Frontend: status `running` já atualiza a tabela de leads (entrega em tempo real)
+- Status `cancelled` tratado no polling (não mostra toast de erro)
+
+### Fix: Response POST sem success:true
+- Frontend verificava `data.success && data.jobId` mas o POST retornava só `{ jobId }`
+- Causava "Erro desconhecido" no frontend
+
+## Próximos passos sugeridos
+1. ~~Melhorar SEO da landing page~~ (feito)
+2. ~~Recolher testimonials reais dos usuários~~ (feito)
+3. ~~Painel admin para aprovar testimonials~~ (feito)
+4. Comprar domínio próprio (geoleads.com.br) + configurar DNS/SSL
+5. ~~Paginação no CRM~~ (feito)
+6. ~~Gráficos no dashboard~~ (feito)
+7. ~~Melhorar extração de telefones~~ (feito)
+8. ~~HackerRadar + animações~~ (feito)
+9. Background job system + polling (feito)
+10. Otimizações de velocidade + qualidade extração (feito)
+11. **PENDENTE: Qualidade da extração de telefone/site nas place pages do Maps ainda não está capturando dados reais** — testar com 10 leads "Academias"/"Brasil" e verificar se telefones e sites estão sendo extraídos
+12. **PENDENTE: Verificar se o frontend exibe leads incrementalmente durante extração** (status running)
 <!-- END:geoleads-changelog -->
