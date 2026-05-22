@@ -597,8 +597,23 @@ export async function POST(request: Request) {
 
     const gastos = validLeads.length;
     if (auth && gastos > 0) {
-      const novoSaldo = Math.max(0, auth.tokens - gastos);
-      await requestSupabase.from('profiles').update({ tokens: novoSaldo }).eq('id', auth.user.id);
+      const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
+        p_user_id: auth.user.id,
+        p_amount: gastos
+      });
+      if (deductError && !deductError.message?.includes('does not exist')) {
+        console.warn('RPC deduct_tokens falhou, usando fallback:', deductError.message);
+      }
+      if (deductError) {
+        const { error: fallbackError } = await requestSupabase
+          .from('profiles')
+          .update({ tokens: Math.max(0, auth.tokens - gastos) })
+          .eq('id', auth.user.id)
+          .gte('tokens', gastos);
+        if (fallbackError) {
+          console.error('Falha ao deduzir tokens (fallback):', fallbackError.message);
+        }
+      }
     }
 
     return NextResponse.json({ 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Globe from '@/components/Globe';
 
 export default function Login() {
+  useEffect(() => { document.title = 'GeoLeads - Entrar'; }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
@@ -13,7 +14,7 @@ export default function Login() {
 
   const getRedirectPath = () => {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get('next') || '/';
+    const next = params.get('next') || '/app/dashboard';
     const plan = params.get('plan');
     return plan ? `${next}?plan=${encodeURIComponent(plan)}` : next;
   };
@@ -27,13 +28,19 @@ export default function Login() {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          // Se der erro de login inválido, a gente joga o usuário pra tela de criação
           if (error.message.includes('Invalid login credentials')) {
-            setMessage('Parece que você é novo por aqui! Criando sua conta...');
-            setTimeout(() => {
-              setIsLogin(false);
-              setMessage('');
-            }, 1500);
+            setMessage(
+              'Email ou senha incorretos. Se você já criou uma conta, '
+              + 'verifique se confirmou o e-mail (olhe no spam). '
+              + 'Caso contrário, crie uma nova conta abaixo.'
+            );
+            return;
+          }
+          if (error.message.includes('Email not confirmed')) {
+            setMessage(
+              'Seu e-mail ainda não foi confirmado. '
+              + 'Verifique sua caixa de entrada e spam, ou peça um novo link.'
+            );
             return;
           }
           throw error;
@@ -42,9 +49,13 @@ export default function Login() {
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // Na vida real, o Supabase envia um e-mail com link de confirmação aqui!
-        setMessage('Falta pouco! Verifique seu e-mail para validar a conta e ganhar 10 Tokens.');
-        setIsLogin(true);
+        setMessage(
+          'Conta criada! Verifique seu e-mail para confirmar o cadastro. '
+          + 'Depois de confirmar, volte e faça login para ganhar 10 Tokens grátis. '
+          + '(Se não encontrar o e-mail, olhe no spam)'
+        );
+        setEmail('');
+        setPassword('');
       }
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Erro inesperado ao autenticar.');

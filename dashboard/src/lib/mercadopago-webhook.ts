@@ -89,9 +89,13 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
   }
 
   if (!profile && payerEmail) {
-    const { data: users } = await supabase.auth.admin.listUsers({ perPage: 100 });
-    const matchedUser = users?.users?.find(u => u.email === payerEmail);
-    targetUserId = matchedUser?.id || targetUserId;
+    try {
+      const { data: users } = await supabase.auth.admin.listUsers({ perPage: 100 });
+      const matchedUser = users?.users?.find(u => u.email === payerEmail);
+      targetUserId = matchedUser?.id || targetUserId;
+    } catch (e: any) {
+      console.warn('Webhook: admin.listUsers nao disponivel, continuando sem lookup por email:', e.message);
+    }
   }
 
   if (!targetUserId) {

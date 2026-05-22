@@ -13,6 +13,7 @@ export default function Account() {
   const [payments, setPayments] = useState<any[]>([]);
 
   useEffect(() => {
+    document.title = 'GeoLeads - Minha Conta';
     const loadData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {

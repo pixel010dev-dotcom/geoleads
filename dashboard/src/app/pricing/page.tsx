@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { getCostPerLeadLabel, paidPlanIds, plans, type PlanId } from '@/lib/plans';
+import { getCostPerLeadLabel, paidPlanIds, plans, formatPlanPrice, type PlanId } from '@/lib/plans';
 
 const planIcons: Record<PlanId, string> = {
   free: '🔎',
@@ -45,6 +45,7 @@ export default function Pricing() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    document.title = 'GeoLeads - Planos e Preços';
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
     });
@@ -206,7 +207,7 @@ export default function Pricing() {
                 </div>
                 <h3 className="text-xl font-bold">{plans[pixSession.planId].name}</h3>
                 <p className="text-2xl font-extrabold mt-1 text-emerald-300">
-                  {pixSession.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  {formatPlanPrice(pixSession.amount)}
                 </p>
               </div>
               <button
@@ -281,7 +282,7 @@ export default function Pricing() {
 
       <div className="app-container relative z-10">
         <div className="flex items-center justify-between gap-3 mb-7">
-          <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+          <Link href="/app/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
             <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -354,7 +355,7 @@ export default function Pricing() {
                   <p className="text-gray-400 text-sm mb-5 min-h-[3rem]">{plan.description}</p>
 
                   <div className="mb-1 text-4xl font-extrabold tracking-tight">
-                    {plan.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/\s/g, ' ')}
+                    {formatPlanPrice(plan.price)}
                   </div>
                   <p className="text-xs text-green-400 mb-5">{getCostPerLeadLabel(plan)}</p>
 
@@ -390,7 +391,7 @@ export default function Pricing() {
               <div className="flex items-end justify-between gap-3">
                 <div>
                   <p className="text-xs text-gray-500">Total hoje</p>
-                  <p className="text-3xl font-extrabold">{selectedPlan.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/\s/g, ' ')}</p>
+                  <p className="text-3xl font-extrabold">{formatPlanPrice(selectedPlan.price)}</p>
                 </div>
                 <p className="text-xs text-green-400 font-bold text-right">{getCostPerLeadLabel(selectedPlan)}</p>
               </div>
@@ -406,11 +407,12 @@ export default function Pricing() {
 
             <button
               type="button"
-              onClick={() => buyWithCard(selectedPlan.id)}
-              disabled={loadingPlan !== null || !user}
+              onClick={() => !user ? window.location.href = `/login?next=/pricing&plan=${selectedPlanId}` : buyWithCard(selectedPlan.id)}
+              disabled={loadingPlan !== null && !!user}
               className="mt-3 w-full py-3 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-gray-200 disabled:opacity-50 cursor-pointer"
+              title={!user ? 'Faça login para pagar com cartão' : ''}
             >
-              Pagar com cartao / boleto (Mercado Pago)
+              {!user ? 'Faça login para pagar com cartão' : loadingPlan === selectedPlan.id ? 'Gerando...' : 'Pagar com cartão / boleto (Mercado Pago)'}
             </button>
 
             <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3">

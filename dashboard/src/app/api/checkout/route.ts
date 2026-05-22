@@ -5,8 +5,10 @@ import { buildCheckoutPreferenceBody } from '@/lib/mercadopago-checkout';
 import { createPixPayment } from '@/lib/mercadopago-pix';
 import { getAuthUser } from '@/lib/server-auth';
 
+const token = process.env.MERCADO_PAGO_ACCESS_TOKEN || '';
+const isSimulated = token.startsWith('SIMULATED_') || (!token || token.length < 10);
 const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || ''
+  accessToken: token || 'dummy'
 });
 
 export async function POST(request: Request) {
@@ -35,6 +37,18 @@ export async function POST(request: Request) {
     }
 
     if (method === 'card' || method === 'checkout') {
+      if (isSimulated) {
+        return NextResponse.json({
+          success: true,
+          method: 'checkout',
+          plan: { id: plan.id, tokens: plan.tokens, price: plan.price },
+          url: `https://geoleads-production.up.railway.app/?checkout=simulated&plan=${plan.id}`,
+          sandboxUrl: null,
+          currentPlan: currentPlanId,
+          currentTokens: profileTokens
+        });
+      }
+
       const preference = new Preference(client);
       const result = await preference.create({
         body: buildCheckoutPreferenceBody({
@@ -76,8 +90,12 @@ export async function POST(request: Request) {
       currentTokens: profileTokens
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erro interno';
+    let message = error instanceof Error ? error.message : 'Erro interno';
     console.error('ERRO MERCADO PAGO:', message);
+    if (message.includes('Unauthorized use of live credentials')) {
+      message = 'Token de PRODUÇÃO não autorizado. Use um token de TESTE (TEST-...) '
+        + 'em mercadopago.com.br > Credenciais > Teste';
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

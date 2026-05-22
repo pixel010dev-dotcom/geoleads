@@ -149,7 +149,7 @@ export const formatPlanPrice = (price: number) => (
   price.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL'
-  })
+  }).replace(/\s/g, ' ')
 );
 
 export const getCostPerLeadLabel = (plan: Plan) => {
