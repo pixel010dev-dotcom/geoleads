@@ -91,8 +91,6 @@ export default function DashboardCharts({ userId }: { userId: string }) {
     );
   }
 
-  if (totalLeads === 0) return null;
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       {/* Token Balance */}
@@ -119,17 +117,23 @@ export default function DashboardCharts({ userId }: { userId: string }) {
         </div>
         <div className="text-3xl font-extrabold text-white mb-2">{totalLeads}</div>
         <div className="h-24">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={leadsByMonth}>
-              <defs>
-                <linearGradient id="leadsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area type="monotone" dataKey="leads" stroke="#3b82f6" fill="url(#leadsGradient)" strokeWidth={2} dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
+          {totalLeads > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={leadsByMonth}>
+                <defs>
+                  <linearGradient id="leadsGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="leads" stroke="#3b82f6" fill="url(#leadsGradient)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500 text-xs text-center">
+              Nenhum lead ainda.<br />Extraia seus primeiros leads!
+            </div>
+          )}
         </div>
       </div>
 
@@ -139,30 +143,36 @@ export default function DashboardCharts({ userId }: { userId: string }) {
           <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Leads por Estágio</span>
           <span className="text-lg">🎯</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="w-24 h-24 flex-shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={leadsByStage} cx="50%" cy="50%" innerRadius={20} outerRadius={36} dataKey="value" stroke="none">
-                  {leadsByStage.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex-1 min-w-0 space-y-1">
-            {leadsByStage.map((item, i) => (
-              <div key={item.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i] }} />
-                  <span className="text-gray-400 truncate">{item.name}</span>
+        {leadsByStage.length > 0 ? (
+          <div className="flex items-center gap-4">
+            <div className="w-24 h-24 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={leadsByStage} cx="50%" cy="50%" innerRadius={20} outerRadius={36} dataKey="value" stroke="none">
+                    {leadsByStage.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              {leadsByStage.map((item, i) => (
+                <div key={item.name} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i] }} />
+                    <span className="text-gray-400 truncate">{item.name}</span>
+                  </div>
+                  <span className="text-white font-bold ml-2">{item.value}</span>
                 </div>
-                <span className="text-white font-bold ml-2">{item.value}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center justify-center h-24 text-gray-500 text-xs text-center">
+            Nenhum lead no CRM.<br />Salve leads para ver a distribuição.
+          </div>
+        )}
       </div>
     </div>
   );
