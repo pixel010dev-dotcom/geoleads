@@ -1,8 +1,45 @@
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const { data: realTestimonials } = await supabase
+    .from('testimonials')
+    .select('name, rating, feedback, role')
+    .eq('approved', true)
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  const fallback = [
+    { stars: 5, text: 'Triplicou minha prospecção. Antes eu passava 20 horas por semana catando leads manualmente. Agora em 30 minutos tenho uma lista pronta com CNPJ, email e WhatsApp.', name: 'Ricardo Silva', role: 'Diretor de Vendas' },
+    { stars: 5, text: 'Uso pra encontrar distribuidores pro meu e-commerce. Em 1 semana fechei parceria com 3 lojas. O CNPJ validado e as redes sociais fazem toda diferença.', name: 'Juliana Costa', role: 'E-commerce B2B' },
+    { stars: 5, text: 'O chatbot WhatsApp respondeu 80% das perguntas sozinho no primeiro mês. Economizei horas de atendimento e ainda fechei 4 contratos.', name: 'André Oliveira', role: 'Agência Digital' },
+  ];
+
+  const testimonialsList: { name: string; stars: number; text: string; role: string }[] =
+    realTestimonials && realTestimonials.length > 0
+      ? realTestimonials.map(t => ({ name: t.name, stars: t.rating, text: t.feedback || '', role: t.role || '' })).filter(t => t.text)
+      : fallback;
   return (
     <div className="app-shell min-h-screen text-white font-sans selection:bg-blue-500/30 relative overflow-x-hidden">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'GeoLeads',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            description: 'Motor de extração de leads B2B via Google Maps com CRM, WhatsApp e IA.',
+            url: 'https://geoleads-production.up.railway.app',
+            offers: {
+              '@type': 'AggregateOffer',
+              offerCount: 4,
+              availability: 'https://schema.org/InStock',
+            },
+          }),
+        }}
+      />
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(720px,92vw)] h-[260px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
       <div className="floating-orb floating-orb-1" />
@@ -120,7 +157,7 @@ export default function LandingPage() {
               <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-3">Quem usa, recomenda</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {testimonials.map((t, i) => (
+              {testimonialsList.map((t, i) => (
                 <div key={i} className="app-card p-6 rounded-2xl flex flex-col">
                   <div className="flex items-center gap-1 mb-3">
                     {Array.from({ length: 5 }).map((_, j) => (
@@ -190,29 +227,7 @@ const steps = [
   },
 ];
 
-const testimonials = [
-  {
-    stars: 5,
-    text: 'Triplicou minha prospecção. Antes eu passava 20 horas por semana catando leads manualmente. Agora em 30 minutos tenho uma lista pronta com CNPJ, email e WhatsApp.',
-    name: 'Ricardo Silva',
-    role: 'Diretor de Vendas',
-  },
-  {
-    stars: 5,
-    text: 'Uso pra encontrar distribuidores pro meu e-commerce. Em 1 semana fechei parceria com 3 lojas. O CNPJ validado e as redes sociais fazem toda diferença.',
-    name: 'Juliana Costa',
-    role: 'E-commerce B2B',
-  },
-  {
-    stars: 5,
-    text: 'O chatbot WhatsApp respondeu 80% das perguntas sozinho no primeiro mês. Economizei horas de atendimento e ainda fechei 4 contratos.',
-    name: 'André Oliveira',
-    role: 'Agência Digital',
-  },
-];
-
 const features = [
-  { icon: '🗺️', title: 'Motor Google Maps', desc: 'Extraia dados reais de qualquer nicho e cidade do Brasil.' },
   { icon: '📞', title: 'Telefone e Site', desc: 'Priorize leads com contato disponível para abordagem imediata.' },
   { icon: '🏢', title: 'CNPJ Oficial', desc: 'Enriqueça com dados da Receita Federal automaticamente.' },
   { icon: '✉️', title: 'Caçador de E-mails', desc: 'Descobre e-mails institucionais a partir do site oficial.' },

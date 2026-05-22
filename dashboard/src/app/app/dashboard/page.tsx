@@ -3390,11 +3390,26 @@ showToast("Erro: " + data.error, 'error');
                 </div>
               ) : (
                 <form 
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     if (supportRating === 0) {
                       showToast('Selecione uma nota de 1 a 5 estrelas.', 'warning');
                       return;
+                    }
+                    try {
+                      const res = await fetch('/api/feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          rating: supportRating,
+                          feedback: supportFeedback,
+                          name: user?.email || 'Usuário',
+                          userId: user?.id,
+                        }),
+                      });
+                      if (!res.ok) throw new Error('Erro ao enviar');
+                    } catch (err) {
+                      console.error('Feedback error:', err);
                     }
                     setSupportSubmitted(true);
                   }}

@@ -49,6 +49,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## SQL pendente
 - Rodar supabase/migration_whatsapp_persist.sql no SQL Editor do Supabase
 - Cria tabelas: whatsapp_sessions, whatsapp_messages
+- Rodar supabase/migration_testimonials.sql no SQL Editor do Supabase
+- Cria tabela: testimonials (para feedback/avaliações)
 - URL SQL Editor: https://supabase.com/dashboard/project/mwnpwrzwgwrqqlomqhux/sql/new
 <!-- END:geoleads-credentials -->
 
@@ -102,10 +104,30 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Local: npm run dev (porta 3001)
 - .env.local: NEXT_PUBLIC_APP_URL=http://localhost:3001 (local) ou https://geoleads-production.up.railway.app (produção)
 
+## Últimas alterações (22/05/2026) — segunda leva
+
+### SEO (landing page)
+- Metadata enriquecida no layout.tsx: title.template, alternates.canonical, twitter card, robots, googleBot, metadataBase
+- robots.ts criado (disallow /app/ /api/ /_next/)
+- sitemap.ts criado (/, /pricing, /login)
+- JSON-LD (SoftwareApplication) adicionado na landing page
+- Landing page virou async server component — busca testimonials reais do Supabase com fallback hardcoded
+
+### Depoimentos / Feedback
+- Migration SQL: supabase/migration_testimonials.sql (cria tabela `testimonials` com RLS)
+- API POST /api/feedback — salva avaliação do dashboard no Supabase (admin client)
+- API GET /api/testimonials — retorna apenas approved=true para landing page
+- Dashboard feedback form agora faz submit real para /api/feedback (antes só setava state local)
+- Landing page busca testimonials aprovados, fallback pros 3 hardcoded
+
+### Agendado
+- Usuário precisa rodar migration_testimonials.sql no SQL Editor do Supabase
+
 ## Próximos passos sugeridos
-1. Comprar domínio próprio (geoleads.com.br) + configurar DNS/SSL
-2. Recolher testimonials reais dos usuários (já tem formulário no dashboard)
-3. Melhorar SEO da landing page
-4. Paginação no CRM (feito)
-5. Gráficos no dashboard (feito)
+1. ~~Melhorar SEO da landing page~~ (feito)
+2. ~~Recolher testimonials reais dos usuários~~ (feito — precisa rodar migration)
+3. Comprar domínio próprio (geoleads.com.br) + configurar DNS/SSL
+4. Painel admin para aprovar testimonials
+5. Paginação no CRM (feito)
+6. Gráficos no dashboard (feito)
 <!-- END:geoleads-changelog -->

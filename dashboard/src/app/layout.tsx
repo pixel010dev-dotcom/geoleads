@@ -1,15 +1,45 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+
 export const metadata: Metadata = {
-  title: "GeoLeads - Motor de Extração de Leads B2B",
+  title: {
+    default: "GeoLeads - Motor de Extração de Leads B2B",
+    template: "%s | GeoLeads",
+  },
   description: "Encontre clientes potenciais em qualquer lugar do mundo. Extração inteligente de leads via Google Maps com CRM, WhatsApp e IA.",
-  keywords: ["leads", "B2B", "extração", "Google Maps", "CRM", "WhatsApp", "SaaS"],
+  keywords: ["leads", "B2B", "extração de leads", "Google Maps", "CRM", "WhatsApp marketing", "SaaS", "prospecção", "vendas B2B", "geração de leads"],
   authors: [{ name: "GeoLeads" }],
+  creator: "GeoLeads",
+  publisher: "GeoLeads",
+  metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     title: "GeoLeads - Motor de Extração de Leads B2B",
-    description: "A maior máquina de leads B2B do Brasil.",
+    description: "Extraia 500+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos. Do Google Maps ao CRM, tudo em um fluxo.",
+    url: '/',
+    siteName: "GeoLeads",
     type: "website",
+    locale: "pt_BR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GeoLeads - Motor de Extração de Leads B2B",
+    description: "Extraia 500+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
