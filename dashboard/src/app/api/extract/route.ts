@@ -787,8 +787,7 @@ export async function POST(request: Request) {
     ]);
 
     const query = encodeURIComponent(`${keyword} em ${location}`);
-    const mapCenter = isBroadRegion ? '/@-14.2350,-51.9253,4z' : '';
-    await page.goto(`https://www.google.com/maps/search/${query}${mapCenter}`, { 
+    await page.goto(`https://www.google.com/maps/search/${query}`, { 
       waitUntil: 'domcontentloaded',
       timeout: 15000 
     });
