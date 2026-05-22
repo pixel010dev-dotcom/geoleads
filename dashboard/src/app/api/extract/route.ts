@@ -885,6 +885,7 @@ export async function POST(request: Request) {
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
       if ((Date.now() - startTime) >= MAX_TIME) break;
+      if (request.signal.aborted) { break; }
 
       const cityQuery = encodeURIComponent(`${keyword} em ${searchLoc}`);
       await page.goto(`https://www.google.com/maps/search/${cityQuery}`, {
@@ -918,7 +919,7 @@ export async function POST(request: Request) {
       let cityScrolls = 0;
       let emptyScrolls = 0;
 
-      while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity) {
+      while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity && !request.signal.aborted) {
       
       // 1. Extrai todos os cards visíveis da tela
       const rawChunk = await page.evaluate(() => {
@@ -1130,6 +1131,7 @@ export async function POST(request: Request) {
     const BATCH_SIZE = 5;
     const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 30);
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
+      if (request.signal.aborted) break;
       const batch = leadsSemTelefone.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(async (lead) => {
         let tab: any = null;

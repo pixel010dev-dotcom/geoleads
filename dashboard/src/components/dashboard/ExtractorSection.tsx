@@ -34,6 +34,7 @@ export interface ExtractorSectionProps {
   setLocation: (v: string) => void;
   setLimit: (v: number | '') => void;
   setFilterRule: (v: string) => void;
+  onCancel?: () => void;
 }
 
 export default function ExtractorSection({
@@ -67,6 +68,7 @@ export default function ExtractorSection({
   setLocation,
   setLimit,
   setFilterRule,
+  onCancel,
 }: ExtractorSectionProps) {
   return (
     <>
@@ -203,23 +205,26 @@ export default function ExtractorSection({
                 }
               })()}
               
-              <button 
-                type="submit"
-                disabled={isExtracting}
-                className={`w-full py-3.5 rounded-xl font-bold text-white transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${isExtracting ? 'bg-blue-600/50 cursor-wait' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95'}`}
-              >
-                {isExtracting ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Motor Trabalhando...
-                  </>
-                ) : (
-                  user ? '🚀 Iniciar Extração' : '🔒 Criar Conta para Extrair'
-                )}
-              </button>
+              {isExtracting ? (
+                <button 
+                  type="button"
+                  onClick={() => onCancel?.()}
+                  className="w-full py-3.5 rounded-xl font-bold bg-red-600/80 hover:bg-red-600 text-white transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  ⏹ Parar Extração
+                </button>
+              ) : (
+                <button 
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {user ? '🚀 Iniciar Extração' : '🔒 Criar Conta para Extrair'}
+                </button>
+              )}
             </form>
           </div>
         </div>

@@ -681,6 +681,8 @@ export default function Home() {
     saveCrm(updated);
   };
 
+  const abortRef = useRef<AbortController | null>(null);
+
   const handleExtract = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) { router.push('/login'); return; }
@@ -692,11 +694,13 @@ export default function Home() {
     if (tokens !== null && Number(limit) > tokens) { showToast(`Saldo insuficiente! Pediu ${limit} leads mas tem ${tokens} tokens.`, 'error'); return; }
     setIsExtracting(true); setHasSearched(false); setLeads([]); setExtractStats(null);
     const existingLeadKeys = crmLeads.map(l => l.nome).filter(Boolean);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const headers = await getAuthedJsonHeaders();
       if (!headers) return;
       const res = await fetch('/api/extract', {
-        method: 'POST', headers,
+        method: 'POST', headers, signal: controller.signal,
         body: JSON.stringify({ keyword, location, limit: Number(limit), filterRule, existingLeadKeys })
       });
       const data = await res.json();
@@ -712,8 +716,18 @@ export default function Home() {
         else if (tokens !== null && data.leads.length > 0) setTokens(Math.max(0, tokens - data.leads.length));
       } else if (data.error) showToast("Erro: " + data.error, 'error');
       else throw new Error(data.error || 'Erro desconhecido');
-    } catch (err: any) { showToast("Erro: " + (err.message || 'Erro inesperado ao extrair leads'), 'error'); }
-    finally { setIsExtracting(false); setHasSearched(true); }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        showToast('Extração cancelada.', 'info');
+      } else {
+        showToast("Erro: " + (err.message || 'Erro inesperado ao extrair leads'), 'error');
+      }
+    }
+    finally { setIsExtracting(false); setHasSearched(true); abortRef.current = null; }
+  };
+
+  const cancelExtraction = () => {
+    abortRef.current?.abort();
   };
 
   const logout = async () => { await supabase.auth.signOut(); router.push('/login'); };
@@ -942,6 +956,7 @@ export default function Home() {
             historyLoading={historyLoading} historyData={historyData}
             requireFeature={requireFeature} showLockedFeature={showLockedFeature} getUpgradePlan={getUpgradePlan}
             setKeyword={setKeyword} setLocation={setLocation} setLimit={setLimit} setFilterRule={setFilterRule}
+            onCancel={cancelExtraction}
           />
         )}
 
