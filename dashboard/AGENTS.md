@@ -13,7 +13,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Service Role Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13bnB3cnp3Z3dycXFsb21xaHV4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzODgyNCwiZXhwIjoyMDk0ODE0ODI0fQ.YVZQ3cPMJaPjBnggkEV4SxNeh4Y-PVisP2ST5YF0rl8
 
 ## Users
-- Admin: diogopfeifer0@gmail.com / 04092008we (senha tbm pode ser 1.2.3.4.5.6.7.8.9.10)
+- Admin: pixel010dv@gmail.com / 04092008we (senha tbm pode ser 1.2.3.4.5.6.7.8.9.10)
 - Dev: pixel010dev@gmail.com / 04092008we (senha tbm pode ser 1.2.3.4.5.6.7.8.9.10)
 - Supabase user ID (admin): c3c7478e-e93e-499d-9742-de15ac37e2c0
 
