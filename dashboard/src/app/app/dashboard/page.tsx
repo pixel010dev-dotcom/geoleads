@@ -681,7 +681,47 @@ export default function Home() {
     saveCrm(updated);
   };
 
-  const abortRef = useRef<AbortController | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentJobIdRef = useRef<string | null>(null);
+
+  const startPolling = (jobId: string) => {
+    currentJobIdRef.current = jobId;
+    localStorage.setItem('lastJobId', jobId);
+    pollRef.current = setInterval(async () => {
+      try {
+        const headers = await getAuthedJsonHeaders();
+        if (!headers) return;
+        const res = await fetch(`/api/extract/job/${jobId}`, { headers });
+        const data = await res.json();
+        if (data.success && data.job) {
+          const j = data.job;
+          setExtractStats({
+            total: j.leads_count,
+            scanned: j.scanned,
+            cities_scanned: j.cities_scanned,
+            time: j.search_time_seconds,
+            correctedKeyword: j.keyword,
+            correctedLocation: j.location,
+            message: j.message,
+          });
+          if (j.status === 'completed') {
+            setLeads(j.leads || []);
+            setIsExtracting(false);
+            setHasSearched(true);
+            if (pollRef.current) clearInterval(pollRef.current);
+            localStorage.removeItem('lastJobId');
+            if (tokens !== null && j.leads_count > 0) setTokens(Math.max(0, tokens - j.leads_count));
+          } else if (j.status === 'failed') {
+            setIsExtracting(false);
+            setHasSearched(true);
+            if (pollRef.current) clearInterval(pollRef.current);
+            localStorage.removeItem('lastJobId');
+            showToast("Erro: " + (j.error || 'Falha na extração'), 'error');
+          }
+        }
+      } catch {}
+    }, 3000);
+  };
 
   const handleExtract = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -694,40 +734,65 @@ export default function Home() {
     if (tokens !== null && Number(limit) > tokens) { showToast(`Saldo insuficiente! Pediu ${limit} leads mas tem ${tokens} tokens.`, 'error'); return; }
     setIsExtracting(true); setHasSearched(false); setLeads([]); setExtractStats(null);
     const existingLeadKeys = crmLeads.map(l => l.nome).filter(Boolean);
-    const controller = new AbortController();
-    abortRef.current = controller;
     try {
       const headers = await getAuthedJsonHeaders();
       if (!headers) return;
       const res = await fetch('/api/extract', {
-        method: 'POST', headers, signal: controller.signal,
+        method: 'POST', headers,
         body: JSON.stringify({ keyword, location, limit: Number(limit), filterRule, existingLeadKeys })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao extrair leads.');
-      if (data.success && data.leads) {
-        setLeads(data.leads);
-        if (data.stats) {
-          setExtractStats(data.stats);
-          if (data.stats.correctedKeyword) setKeyword(data.stats.correctedKeyword);
-          if (data.stats.correctedLocation) setLocation(data.stats.correctedLocation);
-        }
-        if (typeof data.stats?.tokensRemaining === 'number') setTokens(data.stats.tokensRemaining);
-        else if (tokens !== null && data.leads.length > 0) setTokens(Math.max(0, tokens - data.leads.length));
-      } else if (data.error) showToast("Erro: " + data.error, 'error');
-      else throw new Error(data.error || 'Erro desconhecido');
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        showToast('Extração cancelada.', 'info');
+      if (data.success && data.jobId) {
+        startPolling(data.jobId);
       } else {
-        showToast("Erro: " + (err.message || 'Erro inesperado ao extrair leads'), 'error');
+        throw new Error(data.error || 'Erro desconhecido');
       }
+    } catch (err: any) {
+      showToast("Erro: " + (err.message || 'Erro inesperado ao extrair leads'), 'error');
+      setIsExtracting(false);
+      setHasSearched(true);
     }
-    finally { setIsExtracting(false); setHasSearched(true); abortRef.current = null; }
   };
 
-  const cancelExtraction = () => {
-    abortRef.current?.abort();
+  // Recuperar job pendente ao carregar a página
+  useEffect(() => {
+    const lastJobId = localStorage.getItem('lastJobId');
+    if (lastJobId && !isExtracting) {
+      (async () => {
+        try {
+          const headers = await getAuthedJsonHeaders();
+          if (!headers) return;
+          const res = await fetch(`/api/extract/job/${lastJobId}`, { headers });
+          const data = await res.json();
+          if (data.success && (data.job?.status === 'running' || data.job?.status === 'pending')) {
+            setIsExtracting(true);
+            setHasSearched(false);
+            setLeads([]);
+            setExtractStats(null);
+            startPolling(lastJobId);
+          } else {
+            localStorage.removeItem('lastJobId');
+          }
+        } catch { localStorage.removeItem('lastJobId'); }
+      })();
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  const cancelExtraction = async () => {
+    const jobId = currentJobIdRef.current;
+    if (!jobId) return;
+    try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+      await fetch(`/api/extract/job/${jobId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'cancelled' }) });
+    } catch {}
+    if (pollRef.current) clearInterval(pollRef.current);
+    setIsExtracting(false);
+    setHasSearched(true);
+    localStorage.removeItem('lastJobId');
+    showToast('Extração cancelada.', 'info');
   };
 
   const logout = async () => { await supabase.auth.signOut(); router.push('/login'); };

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
-import { createRequestSupabaseClient, getAuthUser, requireFeature } from '@/lib/server-auth';
+import { createRequestSupabaseClient, getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 import { type FeatureKey } from '@/lib/plans';
 
 export const runtime = 'nodejs';
@@ -762,7 +762,6 @@ const MAJOR_CITIES = [
 ];
 
 export async function POST(request: Request) {
-  let browser;
   let auth: Awaited<ReturnType<typeof getAuthUser>>;
   let extractionDone = false;
   function done() {
@@ -800,6 +799,7 @@ export async function POST(request: Request) {
     const requestSupabase = createRequestSupabaseClient(request);
 
     if (!rawKeyword || !rawLocation) {
+      done();
       return NextResponse.json({ error: 'Preencha o termo e a cidade.' }, { status: 400 });
     }
 
@@ -815,6 +815,7 @@ export async function POST(request: Request) {
       for (const rule of rules) {
         const requiredFeature = featureMap[rule];
         if (requiredFeature && !requireFeature(auth.planId, requiredFeature)) {
+          done();
           return NextResponse.json({
             error: `Filtro "${rule}" exige plano superior. Faca upgrade para usar.`
           }, { status: 403 });
@@ -823,28 +824,121 @@ export async function POST(request: Request) {
     }
 
     if (auth.tokens <= 0) {
+      done();
       return NextResponse.json({ error: 'Sem tokens disponiveis. Compre mais tokens para continuar extraindo.' }, { status: 402 });
     }
 
-    // Normalização Inteligente (Tolerância a erros de digitação e abreviações)
     const { correctedKeyword, correctedLocation } = smartNormalizeQuery(rawKeyword, rawLocation);
     const keyword = correctedKeyword;
     const location = correctedLocation;
-
-    // Detecta região ampla (ex: "Brasil") — busca sem localização específica
     const isBroadRegion = isBroadLocation(rawLocation) || isBroadLocation(correctedLocation);
-
     const requestedLimit = Math.max(1, Number(limit) || 10);
     const targetLimit = Math.min(requestedLimit, 500, auth.tokens);
     if (requestedLimit > auth.tokens) {
+      done();
       return NextResponse.json({
         error: `Saldo insuficiente. Você pediu ${requestedLimit} leads, mas tem ${auth.tokens} tokens.`
       }, { status: 402 });
     }
 
-    const MAX_TIME = isBroadRegion ? Math.min(600000, 5000 + targetLimit * 2000) : 50000;
-    const startTime = Date.now();
+    // Cria job no Supabase e dispara extração em background
+    const jobId = crypto.randomUUID();
+    const { error: jobError } = await requestSupabase.from('extraction_jobs').insert({
+      id: jobId, user_id: auth.user.id, status: 'running',
+      keyword, location, filter_rule: filterRule || '',
+      leads_count: 0, scanned: 0, cities_scanned: 0, search_time_seconds: 0,
+      started_at: new Date().toISOString(),
+    });
+    if (jobError) {
+      done();
+      console.error('Falha ao criar job:', jobError);
+      return NextResponse.json({ error: 'Falha ao iniciar extração. Tente novamente.' }, { status: 500 });
+    }
 
+    runExtraction({
+      jobId, auth, requestSupabase,
+      keyword, location, isBroadRegion,
+      targetLimit, filterRule: filterRule || '',
+      correctedKeyword, correctedLocation,
+      existingLeadKeys: existingLeadKeys || [],
+    }).finally(done);
+
+    return NextResponse.json({ jobId, message: 'Extração iniciada em segundo plano.' });
+
+  } catch (error: any) {
+    done();
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("ERRO AO CRIAR JOB:", msg);
+    return NextResponse.json({ error: 'Erro ao iniciar extração: ' + msg }, { status: 500 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Atualiza job no Supabase (usado por runExtraction e pelo timer de progresso)
+// ---------------------------------------------------------------------------
+async function updateJob(jobId: string, updates: Record<string, any>) {
+  const supabase = createAdminSupabaseClient();
+  await supabase.from('extraction_jobs').update(updates).eq('id', jobId);
+}
+
+// ---------------------------------------------------------------------------
+// Executa a extração em background (não-agendada, fire-and-forget)
+// ---------------------------------------------------------------------------
+async function runExtraction({
+  jobId, auth, requestSupabase,
+  keyword, location, isBroadRegion,
+  targetLimit, filterRule,
+  correctedKeyword, correctedLocation,
+  existingLeadKeys,
+}: {
+  jobId: string;
+  auth: NonNullable<Awaited<ReturnType<typeof getAuthUser>>>;
+  requestSupabase: ReturnType<typeof createRequestSupabaseClient>;
+  keyword: string;
+  location: string;
+  isBroadRegion: boolean;
+  targetLimit: number;
+  filterRule: string;
+  correctedKeyword: string;
+  correctedLocation: string;
+  existingLeadKeys: string[];
+}) {
+  let browser;
+  let updateTimer: ReturnType<typeof setInterval> | null = null;
+
+  async function updateProgress() {
+    try {
+      await updateJob(jobId, {
+        scanned: scrapedNames.size,
+        leads_count: validLeads.length,
+        cities_scanned: citiesDone,
+        message: `${validLeads.length} leads encontrados em ${citiesDone} cidades`,
+        search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+      });
+    } catch {}
+  }
+
+  const startTime = Date.now();
+  const MAX_TIME = isBroadRegion ? Math.min(600000, 5000 + targetLimit * 2000) : 50000;
+  const validLeads: any[] = [];
+  const scrapedNames = new Set<string>(existingLeadKeys);
+  const scrapedPhones = new Set<string>();
+  let citiesDone = 0;
+  let _cancelled = false;
+
+  async function checkCancelled(): Promise<boolean> {
+    if (_cancelled) return true;
+    try {
+      const supabase = createAdminSupabaseClient();
+      const { data } = await supabase.from('extraction_jobs').select('status').eq('id', jobId).single();
+      if (data?.status === 'cancelled') { _cancelled = true; return true; }
+    } catch {}
+    return false;
+  }
+
+  updateTimer = setInterval(updateProgress, 5000);
+
+  try {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -868,16 +962,7 @@ export async function POST(request: Request) {
       { name: 'SOCS', value: 'CAISHAgENhB0Dcm9sZQ==', domain: '.google.com', path: '/' },
     ]);
 
-    const validLeads: any[] = [];
     const allEnrichedLeads: any[] = [];
-    const scrapedNames = new Set<string>();
-    const scrapedPhones = new Set<string>();
-
-    // Pré-popula com leads já existentes no CRM para evitar duplicatas
-    if (Array.isArray(existingLeadKeys)) {
-      for (const key of existingLeadKeys) scrapedNames.add(key);
-    }
-
     const MAX_SCROLL = isBroadRegion ? 100 : 30;
     const searchLocations = isBroadRegion ? shuffleArray([...MAJOR_CITIES]) : [location];
     const maxScrollPerCity = isBroadRegion ? 12 : MAX_SCROLL;
@@ -885,7 +970,7 @@ export async function POST(request: Request) {
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
       if ((Date.now() - startTime) >= MAX_TIME) break;
-      if (request.signal.aborted) { break; }
+      if (await checkCancelled()) break;
 
       const cityQuery = encodeURIComponent(`${keyword} em ${searchLoc}`);
       await page.goto(`https://www.google.com/maps/search/${cityQuery}`, {
@@ -897,14 +982,15 @@ export async function POST(request: Request) {
       const pageTitle = await page.title().catch(() => '');
       const pageUrl = page.url();
       if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
-        await browser.close();
-        done();
-        return NextResponse.json({
-          success: true,
-          leads: [],
-          message: 'Google bloqueou a busca temporariamente. Tente novamente em alguns minutos.',
-          stats: { correctedKeyword, correctedLocation }
+        if (updateTimer) clearInterval(updateTimer);
+        await updateJob(jobId, {
+          status: 'failed',
+          error: 'Google bloqueou a busca. Tente novamente em alguns minutos.',
+          search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+          completed_at: new Date().toISOString(),
         });
+        await browser.close();
+        return;
       }
 
       // Verifica se o feed carregou
@@ -919,7 +1005,7 @@ export async function POST(request: Request) {
       let cityScrolls = 0;
       let emptyScrolls = 0;
 
-      while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity && !request.signal.aborted) {
+      while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity && !(await checkCancelled())) {
       
       // 1. Extrai todos os cards visíveis da tela
       const rawChunk = await page.evaluate(() => {
@@ -1123,6 +1209,7 @@ export async function POST(request: Request) {
       }
       cityScrolls++;
     }
+    citiesDone++;
   }
 
   // Segunda passada: extrair telefone de leads que ficaram sem (info panel do Maps)
@@ -1131,7 +1218,7 @@ export async function POST(request: Request) {
     const BATCH_SIZE = 5;
     const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 30);
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
-      if (request.signal.aborted) break;
+      if (await checkCancelled()) break;
       const batch = leadsSemTelefone.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(async (lead) => {
         let tab: any = null;
@@ -1208,9 +1295,12 @@ export async function POST(request: Request) {
       }
     }
 
+    if (updateTimer) clearInterval(updateTimer);
     await browser.close();
     browser = null;
-    done();
+
+    // Atualiza progresso final antes de concluir
+    await updateProgress();
 
     const gastos = validLeads.length;
     if (auth && gastos > 0) {
@@ -1249,30 +1339,31 @@ export async function POST(request: Request) {
         tokens_spent: gastos,
         search_time_seconds: Math.round((Date.now() - startTime) / 1000),
       });
-    } catch (histErr) {
-      // Falha ao salvar histórico não deve quebrar a extração
-    }
+    } catch {}
 
-    return NextResponse.json({ 
-      success: true, 
+    // Atualiza job como concluído
+    await updateJob(jobId, {
+      status: 'completed',
       leads: validLeads,
-      stats: {
-        total: validLeads.length,
-        scanned: scrapedNames.size,
-        time: Math.round((Date.now() - startTime) / 1000),
-        correctedKeyword,
-        correctedLocation,
-        tokensSpent: gastos,
-        tokensRemaining: auth ? Math.max(0, auth.tokens - gastos) : 0,
-        broadRegion: isBroadRegion || undefined,
-      }
+      leads_count: validLeads.length,
+      scanned: scrapedNames.size,
+      cities_scanned: citiesDone,
+      message: `Extração concluída: ${validLeads.length} leads em ${Math.round((Date.now() - startTime) / 1000)}s`,
+      search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+      completed_at: new Date().toISOString(),
     });
 
-  } catch (error: any) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("ERRO NO MOTOR:", msg);
-    if (browser) { try { await browser.close(); } catch {} }
-    done();
-    return NextResponse.json({ error: 'Erro ao extrair: ' + msg }, { status: 500 });
+  } catch (err: any) {
+    console.error('Extraction error:', err);
+    if (updateTimer) clearInterval(updateTimer);
+    try {
+      await updateJob(jobId, {
+        status: 'failed',
+        error: err.message || 'Erro inesperado',
+        search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+        completed_at: new Date().toISOString(),
+      });
+    } catch {}
+    if (browser) try { await browser.close(); } catch {}
   }
 }
