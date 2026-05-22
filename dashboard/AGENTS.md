@@ -46,12 +46,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Custom auth state: src/lib/baileys-auth-supabase.ts
 - Feature keys: whatsappSender (Pro+), chatbot (Max+)
 
-## SQL pendente
-- Rodar supabase/migration_whatsapp_persist.sql no SQL Editor do Supabase
-- Cria tabelas: whatsapp_sessions, whatsapp_messages
-- Rodar supabase/migration_testimonials.sql no SQL Editor do Supabase
-- Cria tabela: testimonials (para feedback/avaliações)
-- URL SQL Editor: https://supabase.com/dashboard/project/mwnpwrzwgwrqqlomqhux/sql/new
+## SQL aplicado
+- supabase/migration_whatsapp_persist.sql ✓
+- supabase/migration_testimonials.sql ✓
 <!-- END:geoleads-credentials -->
 
 <!-- BEGIN:geoleads-changelog -->
