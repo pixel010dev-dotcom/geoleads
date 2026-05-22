@@ -37,7 +37,7 @@ export async function GET(
         search_time_seconds: data.search_time_seconds,
         message: data.message,
         error: data.error,
-        leads: data.status === 'completed' ? data.leads : [],
+        leads: data.leads || [],
         started_at: data.started_at,
         completed_at: data.completed_at,
       }
