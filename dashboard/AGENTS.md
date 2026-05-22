@@ -242,6 +242,35 @@ This version has breaking changes — APIs, conventions, and file structure may 
 7. ~~Melhorar extração de telefones~~ (feito)
 8. ~~HackerRadar + animações~~ (feito)
 
+## 🔴 PROBLEMA CRÍTICO: Segunda passagem (place pages) não extrai telefone/site
+
+### O que acontece
+A segunda passagem navega para `google.com/maps/place/...` (URL individual de cada lead) para buscar telefone e site que não foram encontrados no card. Mas a extração desses dados está falhando — leads entregues sem contato.
+
+### O que já foi tentado
+1. `waitUntil: 'networkidle'` timeout 12-15s — lento, ads impedem networkidle, goto timeout
+2. `waitUntil: 'load'` + 2s wait — JS do Maps não renderiza dados a tempo
+3. `waitUntil: 'domcontentloaded'` + LD+JSON — extrai do structured data no HTML inicial, sem precisar de JS
+4. Selectors DOM (`[data-item-id*="phone"]`, `[aria-label*="telefone"]`, etc.) — falham se JS não renderizou
+5. Regex no innerText — falha se página não carregou dados
+
+### Abordagem atual (LD+JSON)
+O Google embute dados estruturados no HTML inicial das páginas via `<script type="application/ld+json">`. Esse JSON contém `telephone`, `url`, `sameAs` (redes sociais), `address`. Extrair desses scripts é a abordagem mais promissora porque:
+- Funciona com `domcontentloaded` (não espera JS)
+- Dados são estruturados (não precisa regex)
+- Inclui telefone, site, redes sociais
+
+Hipótese: o LD+JSON pode só existir em páginas de busca, não em place pages individuais. Se for o caso, alternativas:
+1. Em vez de navegar para place URL, extrair telefone/site clicando no card na página de busca para abrir o painel lateral
+2. Usar a API Places do Google (requer API key)
+3. Melhorar extração nos cards (primeira passagem)
+
+### Solução alternativa (já funciona)
+Botão "🔄 Re-enriquecer" no CRM: abre o SITE do lead e busca email, CNPJ, Instagram, Facebook, TikTok.
+- Requer que o lead tenha site
+- Funciona via `fetchHtml()` no servidor (não usa Playwright)
+- Fallback de email por padrões (contato@dominio, comercial@dominio, etc.)
+
 ## Últimas alterações (22/05/2026) — sexta leva: Background Jobs + Extração Assíncrona + Otimizações
 
 ### Background Job System (Extração Assíncrona)
