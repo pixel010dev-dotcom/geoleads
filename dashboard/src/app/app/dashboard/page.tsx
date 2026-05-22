@@ -176,6 +176,8 @@ export default function Home() {
   const [selectedCrmLeads, setSelectedCrmLeads] = useState<string[]>([]);
   const [crmSyncStatus, setCrmSyncStatus] = useState<'local' | 'syncing' | 'cloud' | 'error'>('local');
   const [crmSyncMessage, setCrmSyncMessage] = useState('CRM local');
+  const [crmPage, setCrmPage] = useState(0);
+  const CRM_PAGE_SIZE = 25;
 
   // WhatsApp Sender States
   const [waTemplate, setWaTemplate] = useState('Olá {Nome}! Vi seu perfil comercial em {Cidade} e gostaria de saber se vocês têm interesse em receber mais clientes de {Nicho}. Podemos conversar?');
@@ -832,6 +834,8 @@ export default function Home() {
     }
   }, [activeTab, user, planId]);
 
+  useEffect(() => { setCrmPage(0); }, [crmSearch, crmFilterStage]);
+
   // Save CRM to local cache and cloud when the user is authenticated.
   const saveCrm = (updatedCrm: any[]) => {
     const normalized = updatedCrm.map(normalizeCrmLead);
@@ -1462,6 +1466,10 @@ showToast("Erro: " + data.error, 'error');
     return matchesSearch && lead.stage === crmFilterStage;
   });
 
+  const crmTotalPages = Math.max(1, Math.ceil(filteredCrmLeads.length / CRM_PAGE_SIZE));
+  const safeCrmPage = Math.min(crmPage, crmTotalPages - 1);
+  const paginatedCrmLeads = filteredCrmLeads.slice(safeCrmPage * CRM_PAGE_SIZE, (safeCrmPage + 1) * CRM_PAGE_SIZE);
+
   const displayLeads = leads.length > 0 ? leads : [];
 
   return (
@@ -2082,7 +2090,7 @@ showToast("Erro: " + data.error, 'error');
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {filteredCrmLeads.map((lead, i) => (
+                  {paginatedCrmLeads.map((lead, i) => (
                     <tr key={i} className={`hover:bg-white/[0.03] transition-colors ${selectedCrmLeads.includes(lead.nome) ? 'bg-blue-500/5' : ''}`}>
                       <td className="px-4 py-4 text-center">
                         <input 
@@ -2184,7 +2192,7 @@ showToast("Erro: " + data.error, 'error');
 
               {/* Mobile Card List CRM */}
               <div className="mobile-card-list md:hidden p-3 sm:p-4">
-                {filteredCrmLeads.map((lead, i) => (
+                {paginatedCrmLeads.map((lead, i) => (
                   <div 
                     key={i} 
                     className={`p-4 rounded-xl border transition-all ${
@@ -2299,6 +2307,30 @@ showToast("Erro: " + data.error, 'error');
                 )}
               </div>
             </div>
+
+            {filteredCrmLeads.length > CRM_PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-4 text-xs text-gray-500">
+                <span>
+                  Mostrando {safeCrmPage * CRM_PAGE_SIZE + 1}–{Math.min((safeCrmPage + 1) * CRM_PAGE_SIZE, filteredCrmLeads.length)} de {filteredCrmLeads.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCrmPage(p => Math.max(0, p - 1))}
+                    disabled={safeCrmPage === 0}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 disabled:opacity-30 hover:bg-white/10 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    ← Anterior
+                  </button>
+                  <button
+                    onClick={() => setCrmPage(p => p + 1)}
+                    disabled={safeCrmPage >= crmTotalPages - 1}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 disabled:opacity-30 hover:bg-white/10 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    Próximo →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
