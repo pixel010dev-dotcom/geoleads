@@ -192,6 +192,9 @@ export default function Home() {
   const [waAiCopies, setWaAiCopies] = useState<any[]>([]);
   const [waAiLoading, setWaAiLoading] = useState(false);
   const [waAiMessage, setWaAiMessage] = useState('');
+  const [waSendingViaBot, setWaSendingViaBot] = useState<Record<string, boolean>>({});
+  const [waSentMessages, setWaSentMessages] = useState<any[]>([]);
+  const [waSentMessagesLoading, setWaSentMessagesLoading] = useState(false);
 
   // WhatsApp Chatbot States
   const [chatbotEnabled, setChatbotEnabled] = useState(true);
@@ -639,6 +642,7 @@ export default function Home() {
 
   // Load User, Tokens and CRM Data on Mount
   useEffect(() => {
+    document.title = 'GeoLeads - Dashboard';
     const loadData = async () => {
       let sessionUserId = '';
 
@@ -770,6 +774,12 @@ export default function Home() {
     refreshChatbotStatus();
     const interval = setInterval(refreshChatbotStatus, 5000);
     return () => clearInterval(interval);
+  }, [activeTab, user, planId]);
+
+  useEffect(() => {
+    if (activeTab === 'whatsapp' && user && requireFeature('whatsappSender')) {
+      handleLoadSentMessages();
+    }
   }, [activeTab, user, planId]);
 
   // Save CRM to local cache and cloud when the user is authenticated.
@@ -1022,6 +1032,58 @@ export default function Home() {
     finishBulkQueue();
   };
 
+  const handleSendViaBot = async (lead: any) => {
+    if (!requireFeature('whatsappSender')) {
+      setActiveTab('whatsapp');
+      return;
+    }
+    if (!lead.telefone || lead.telefone === 'Não informado') return;
+    const leadKey = getLeadKey(lead);
+    if (waSendingViaBot[leadKey]) return;
+
+    setWaSendingViaBot(prev => ({ ...prev, [leadKey]: true }));
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+
+      const message = renderWhatsAppMessage(lead);
+      const res = await fetch('/api/chatbot/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leadName: lead.nome, leadPhone: lead.telefone, message, leadId: lead.id })
+      });
+      if (res.ok) {
+        setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
+        handleLoadSentMessages();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Falha ao enviar via bot.');
+      }
+    } catch (err: any) {
+      alert('Erro ao enviar: ' + (err.message || 'desconhecido'));
+    } finally {
+      setWaSendingViaBot(prev => ({ ...prev, [leadKey]: false }));
+    }
+  };
+
+  const handleLoadSentMessages = async () => {
+    if (!user || !requireFeature('whatsappSender')) return;
+    setWaSentMessagesLoading(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/chatbot/messages', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) setWaSentMessages(json.messages || []);
+    } catch {} finally {
+      setWaSentMessagesLoading(false);
+    }
+  };
+
   // Update CRM Lead field (stage or notes)
   const handleUpdateCRMLead = (nome: string, field: 'stage' | 'notes', value: string) => {
     const updated = crmLeads.map(l => {
@@ -1112,19 +1174,20 @@ export default function Home() {
     }
 
     if (leads.length === 0) return;
+    const esc = (v: string) => `"${(v || '').replace(/"/g, '""')}"`;
     const headers = ['Empresa', 'Telefone', 'E-mail', 'CNPJ', 'Avaliação', 'Instagram', 'Facebook', 'TikTok', 'Site'];
     const csvContent = [
       headers.join(','),
       ...leads.map(l => [
-        `"${l.nome}"`,
-        `"${l.telefone}"`,
-        `"${l.email || ''}"`,
-        `"${l.cnpj || ''}"`,
-        `"${l.avaliacao}"`,
-        `"${l.instagram || ''}"`,
-        `"${l.facebook || ''}"`,
-        `"${l.tiktok || ''}"`,
-        `"${l.site}"`
+        esc(l.nome),
+        esc(l.telefone),
+        esc(l.email),
+        esc(l.cnpj),
+        esc(l.avaliacao),
+        esc(l.instagram),
+        esc(l.facebook),
+        esc(l.tiktok),
+        esc(l.site)
       ].join(','))
     ].join('\n');
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1473,6 +1536,7 @@ export default function Home() {
                           onClick={() => {
                             setKeyword(preset.keyword);
                             setLocation(preset.location);
+                            setFilterRule('none');
                           }}
                           className="quick-preset"
                         >
@@ -2357,6 +2421,22 @@ export default function Home() {
                     </label>
                   </div>
 
+                  {/* STATUS DO BOT CONECTADO */}
+                  <div className={`p-3 rounded-xl text-xs leading-relaxed space-y-1 ${
+                    chatbotSession?.status === 'connected'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
+                      : 'bg-gray-500/10 border border-gray-500/20 text-gray-400'
+                  }`}>
+                    <span className="font-bold flex items-center gap-1">
+                      {chatbotSession?.status === 'connected' ? '🟢 Bot WhatsApp Conectado' : '🔴 Chatbot Desconectado'}
+                    </span>
+                    {chatbotSession?.status === 'connected' ? (
+                      <span>Envio direto via bot disponível. Respostas: {chatbotSession.repliedCount || 0}</span>
+                    ) : (
+                      <span>Vá na aba Chatbot e conecte via QR Code para enviar mensagens direto do servidor.</span>
+                    )}
+                  </div>
+
                   {/* ALERTA DE BLOQUEIO DESTAQUE */}
                   <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/20 text-xs text-red-400 leading-relaxed space-y-1">
                     <span className="font-bold flex items-center gap-1">⚠️ AVISO DE RISCO DE BLOQUEIO</span>
@@ -2493,27 +2573,42 @@ export default function Home() {
                                 {previewText}
                               </td>
                               <td className="px-4 py-4">
-                                <button
-                                  disabled={isSendingBulk && queueIndex < 0}
-                                  onClick={() => {
-                                    if (isSendingBulk) {
-                                      if (queueIndex >= 0) handleTriggerBulkSendLead(queueIndex);
-                                    } else {
-                                      openWhatsApp(lead, waTemplate);
-                                    }
-                                  }}
-                                  className={`px-3 py-2 rounded-lg font-bold text-xs cursor-pointer border transition-all ${
-                                    isActive
-                                      ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
-                                      : isSendingBulk && queueIndex < 0
-                                        ? 'bg-white/[0.02] border-white/5 text-gray-600 cursor-not-allowed'
-                                      : isSent 
-                                        ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
-                                        : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
-                                  }`}
-                                >
-                                  {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
-                                </button>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <button
+                                    disabled={isSendingBulk && queueIndex < 0}
+                                    onClick={() => {
+                                      if (isSendingBulk) {
+                                        if (queueIndex >= 0) handleTriggerBulkSendLead(queueIndex);
+                                      } else {
+                                        openWhatsApp(lead, waTemplate);
+                                      }
+                                    }}
+                                    className={`px-3 py-2 rounded-lg font-bold text-xs cursor-pointer border transition-all ${
+                                      isActive
+                                        ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
+                                        : isSendingBulk && queueIndex < 0
+                                          ? 'bg-white/[0.02] border-white/5 text-gray-600 cursor-not-allowed'
+                                        : isSent 
+                                          ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
+                                          : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
+                                    }`}
+                                  >
+                                    {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
+                                  </button>
+                                  {chatbotSession?.status === 'connected' && (
+                                    <button
+                                      disabled={waSendingViaBot[leadKey]}
+                                      onClick={() => handleSendViaBot(lead)}
+                                      className={`px-3 py-2 rounded-lg font-bold text-xs cursor-pointer border transition-all ${
+                                        waSendingViaBot[leadKey]
+                                          ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 animate-pulse'
+                                          : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
+                                      }`}
+                                    >
+                                      {waSendingViaBot[leadKey] ? '...' : '🤖 Bot'}
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -2584,27 +2679,42 @@ export default function Home() {
                               "{previewText}"
                             </div>
 
-                            <button
-                              disabled={isSendingBulk && queueIndex < 0}
-                              onClick={() => {
-                                if (isSendingBulk) {
-                                  if (queueIndex >= 0) handleTriggerBulkSendLead(queueIndex);
-                                } else {
-                                  openWhatsApp(lead, waTemplate);
-                                }
-                              }}
-                              className={`w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer border transition-all flex items-center justify-center gap-1.5 ${
-                                isActive
-                                  ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
-                                  : isSendingBulk && queueIndex < 0
-                                    ? 'bg-white/[0.02] border-white/5 text-gray-600 cursor-not-allowed'
-                                  : isSent 
-                                    ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
-                                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
-                              }`}
-                            >
-                              {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar Abordagem' : '⚡ Disparar no WhatsApp'}
-                            </button>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                disabled={isSendingBulk && queueIndex < 0}
+                                onClick={() => {
+                                  if (isSendingBulk) {
+                                    if (queueIndex >= 0) handleTriggerBulkSendLead(queueIndex);
+                                  } else {
+                                    openWhatsApp(lead, waTemplate);
+                                  }
+                                }}
+                                className={`w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer border transition-all flex items-center justify-center gap-1.5 ${
+                                  isActive
+                                    ? 'bg-green-500 text-black border-green-400 hover:bg-green-400 font-extrabold'
+                                    : isSendingBulk && queueIndex < 0
+                                      ? 'bg-white/[0.02] border-white/5 text-gray-600 cursor-not-allowed'
+                                    : isSent 
+                                      ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20' 
+                                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
+                                }`}
+                              >
+                                {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
+                              </button>
+                              {chatbotSession?.status === 'connected' && (
+                                <button
+                                  disabled={waSendingViaBot[leadKey]}
+                                  onClick={() => handleSendViaBot(lead)}
+                                  className={`w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer border transition-all flex items-center justify-center gap-1.5 ${
+                                    waSendingViaBot[leadKey]
+                                      ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 animate-pulse'
+                                      : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
+                                  }`}
+                                >
+                                  {waSendingViaBot[leadKey] ? '...' : '🤖 Enviar via Bot'}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -2617,6 +2727,43 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+
+                {/* HISTORICO DE MENSAGENS ENVIADAS VIA BOT */}
+                {chatbotSession?.status === 'connected' && waSentMessages.length > 0 && (
+                  <div className="mt-6 app-card p-6 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <h4 className="text-sm font-bold text-gray-200">📨 Mensagens Enviadas via Bot</h4>
+                      <button
+                        type="button"
+                        onClick={handleLoadSentMessages}
+                        className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 cursor-pointer"
+                      >
+                        {waSentMessagesLoading ? '...' : 'Atualizar'}
+                      </button>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                      {waSentMessages.slice(0, 20).map((msg: any) => (
+                        <div key={msg.id} className="p-3 rounded-xl bg-black/30 border border-white/5 text-xs">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-bold text-gray-200 truncate">{msg.lead_name}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                              msg.status === 'sent' ? 'bg-green-500/10 text-green-400' :
+                              msg.status === 'failed' ? 'bg-red-500/10 text-red-400' :
+                              'bg-gray-500/10 text-gray-400'
+                            }`}>
+                              {msg.status === 'sent' ? 'Enviada' : msg.status === 'failed' ? 'Falhou' : msg.status}
+                            </span>
+                          </div>
+                          <div className="text-gray-400 line-clamp-2">{msg.message}</div>
+                          <div className="text-[10px] text-gray-500 mt-1">
+                            {msg.sent_at ? new Date(msg.sent_at).toLocaleString('pt-BR') : '—'}
+                            {msg.error_message && <span className="text-red-400 ml-2">Erro: {msg.error_message}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -3128,7 +3275,7 @@ export default function Home() {
 
       {/* Widget de Prova Social */}
       <div
-        className={`hidden 2xl:flex fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm px-4 py-3 bg-black/60 border border-white/10 rounded-2xl shadow-2xl items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
+        className={`hidden lg:flex fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm px-4 py-3 bg-black/60 border border-white/10 rounded-2xl shadow-2xl items-center gap-3 hover:-translate-y-1 transition-all duration-500 cursor-default z-50 ${
           proofVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'
         }`}
       >

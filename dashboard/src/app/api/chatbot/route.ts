@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { getAuthUser, requireFeature } from '@/lib/server-auth';
+import { makeSupabaseAuthState } from '@/lib/baileys-auth-supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -230,7 +230,7 @@ const getOrCreateSession = (userId: string, config?: Partial<ChatbotConfig>) => 
 const startBotSession = async (session: BotSession) => {
   const baileys = await import('@whiskeysockets/baileys');
   const makeWASocket = baileys.default;
-  const { Browsers, DisconnectReason, useMultiFileAuthState } = baileys;
+  const { Browsers, DisconnectReason } = baileys;
 
   session.status = 'connecting';
   session.startedAtMs = Date.now();
@@ -242,9 +242,7 @@ const startBotSession = async (session: BotSession) => {
     session.socket?.end?.();
   } catch {}
 
-  const safeUserId = session.userId.replace(/[^a-zA-Z0-9_-]/g, '');
-  const authDir = path.join(process.cwd(), '.geoleads-wa-auth', safeUserId);
-  const { state, saveCreds } = await useMultiFileAuthState(authDir);
+  const { state, saveCreds } = await makeSupabaseAuthState(session.userId);
 
   const socket = makeWASocket({
     auth: state,
