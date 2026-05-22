@@ -863,7 +863,7 @@ export async function POST(request: Request) {
       existingLeadKeys: existingLeadKeys || [],
     }).finally(done);
 
-    return NextResponse.json({ jobId, message: 'Extração iniciada em segundo plano.' });
+    return NextResponse.json({ success: true, jobId, message: 'Extração iniciada em segundo plano.' });
 
   } catch (error: any) {
     done();
