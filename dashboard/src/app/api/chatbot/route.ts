@@ -283,6 +283,8 @@ const startBotSession = async (session: BotSession) => {
       const statusCode = rawCode !== undefined && rawCode !== null ? Number(rawCode) : undefined;
       session.lastDisconnectCode = statusCode !== undefined ? String(statusCode) : 'unknown';
 
+      console.log('[WAP-DEBUG] close', { statusCode, rawCode, lastDisconnectType: typeof lastDisconnect, lastDisconnectKeys: lastDisconnect ? Object.keys(lastDisconnect) : 'null', errorType: lastDisconnect?.error?.constructor?.name, errorMessage: lastDisconnect?.error?.message });
+
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
       const isBadSession = statusCode === DisconnectReason.badSession;
       const isRestartRequired = statusCode === DisconnectReason.restartRequired;

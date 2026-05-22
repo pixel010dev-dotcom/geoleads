@@ -1,0 +1,42 @@
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.1.151:3001
+- Environments: .env.local
+✓ Ready in 393ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\Admin\.gemini\antigravity\scratch\lead_extractor_saas\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\Admin\.gemini\antigravity\scratch\lead_extractor_saas\dashboard\package-lock.json
+
+
+ GET / 200 in 529ms (next.js: 223ms, application-code: 306ms)
+ GET /login 200 in 78ms (next.js: 38ms, application-code: 40ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET / 200 in 82ms (next.js: 6ms, application-code: 76ms)
+ GET /login 200 in 30ms (next.js: 4ms, application-code: 26ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /app/dashboard 200 in 1100ms (next.js: 955ms, application-code: 145ms)
+ GET /api/chatbot 200 in 1319ms (next.js: 163ms, application-code: 1156ms)
+ POST /api/chatbot 200 in 1085ms (next.js: 3ms, application-code: 1082ms)
+ GET /api/chatbot 200 in 176ms (next.js: 3ms, application-code: 173ms)
+ GET /api/chatbot 200 in 336ms (next.js: 4ms, application-code: 332ms)
+ GET /api/chatbot 200 in 208ms (next.js: 3ms, application-code: 205ms)
+ GET /api/chatbot 200 in 385ms (next.js: 3ms, application-code: 382ms)
+ GET /api/chatbot 200 in 282ms (next.js: 4ms, application-code: 278ms)
+ GET /api/chatbot 200 in 196ms (next.js: 3ms, application-code: 194ms)
+ GET /api/chatbot 200 in 905ms (next.js: 2ms, application-code: 903ms)
+ GET /api/chatbot 200 in 850ms (next.js: 3ms, application-code: 847ms)
+ GET /api/chatbot 200 in 370ms (next.js: 2ms, application-code: 368ms)
+ GET /api/chatbot 200 in 975ms (next.js: 1986µs, application-code: 973ms)
+ GET /api/chatbot 200 in 936ms (next.js: 2ms, application-code: 934ms)
+ GET /api/chatbot 200 in 248ms (next.js: 1995µs, application-code: 246ms)
+ GET /api/chatbot 200 in 576ms (next.js: 3ms, application-code: 574ms)
+ GET /api/chatbot 200 in 538ms (next.js: 2ms, application-code: 535ms)
+ GET /api/chatbot 200 in 405ms (next.js: 1643µs, application-code: 404ms)
+ GET /api/chatbot 200 in 255ms (next.js: 3ms, application-code: 251ms)
+ GET /api/chatbot 200 in 287ms (next.js: 2ms, application-code: 284ms)
+ GET /api/chatbot 200 in 276ms (next.js: 1926µs, application-code: 274ms)
+ GET /api/chatbot 200 in 267ms (next.js: 1990µs, application-code: 265ms)
+ GET /api/chatbot 200 in 278ms (next.js: 1859µs, application-code: 276ms)
