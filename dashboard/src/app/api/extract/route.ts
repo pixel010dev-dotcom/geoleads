@@ -420,6 +420,344 @@ function safeUrl(rawUrl: string, baseUrl: string) {
   }
 }
 
+type MapsPlaceExtraData = {
+  telefone: string;
+  site: string;
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  endereco: string;
+  horarios: string;
+};
+
+function emptyMapsPlaceExtraData(): MapsPlaceExtraData {
+  return { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
+}
+
+function mergeMapsPlaceExtraData(target: MapsPlaceExtraData, source: Partial<MapsPlaceExtraData>) {
+  if (!target.telefone && source.telefone) target.telefone = source.telefone;
+  if (!target.site && source.site) target.site = source.site;
+  if (!target.instagram && source.instagram) target.instagram = source.instagram;
+  if (!target.facebook && source.facebook) target.facebook = source.facebook;
+  if (!target.tiktok && source.tiktok) target.tiktok = source.tiktok;
+  if (!target.endereco && source.endereco) target.endereco = source.endereco;
+  if (!target.horarios && source.horarios) target.horarios = source.horarios;
+}
+
+function withMapsLocale(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    if (url.hostname.includes('google.')) {
+      url.searchParams.set('hl', 'pt-BR');
+      url.searchParams.set('gl', 'br');
+    }
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+function decodeMapsPayloadText(raw: string) {
+  let text = raw
+    .replace(/\\u003d/g, '=')
+    .replace(/\\u0026/g, '&')
+    .replace(/\\u002f/gi, '/')
+    .replace(/\\\//g, '/')
+    .replace(/&amp;/g, '&');
+
+  for (let i = 0; i < 2; i++) {
+    try {
+      const decoded = decodeURIComponent(text);
+      if (decoded === text) break;
+      text = decoded;
+    } catch {
+      break;
+    }
+  }
+
+  return text;
+}
+
+function collectStringLeaves(value: unknown, output: string[], depth = 0) {
+  if (output.length >= 1200 || depth > 8 || value == null) return;
+  if (typeof value === 'string') {
+    if (value.length > 1) output.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectStringLeaves(item, output, depth + 1);
+    return;
+  }
+  if (typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) collectStringLeaves(item, output, depth + 1);
+  }
+}
+
+function isValidBrazilianPhone(raw: string) {
+  const digits = raw.replace(/\D/g, '');
+  const local = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+  if (local.length < 10 || local.length > 11) return false;
+  if (/^(\d)\1+$/.test(local)) return false;
+
+  const ddd = parseInt(local.slice(0, 2), 10);
+  return (ddd >= 11 && ddd <= 19) || (ddd >= 21 && ddd <= 28) ||
+    (ddd >= 31 && ddd <= 38) || (ddd >= 41 && ddd <= 49) ||
+    (ddd >= 51 && ddd <= 59) || (ddd >= 61 && ddd <= 69) ||
+    (ddd >= 71 && ddd <= 79) || (ddd >= 81 && ddd <= 89) ||
+    (ddd >= 91 && ddd <= 99);
+}
+
+function pickPhoneFromMapsText(text: string) {
+  const patterns = [
+    /\+55\s?\(?\d{2}\)?\s?9?\d{4}[\s-]?\d{4}/g,
+    /\(?\d{2}\)?\s?9?\d{4}[\s-]?\d{4}/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const phone = match[0].trim();
+      if (isValidBrazilianPhone(phone)) return phone;
+    }
+  }
+
+  return '';
+}
+
+function cleanMapsUrlCandidate(rawUrl: string) {
+  let candidate = decodeMapsPayloadText(rawUrl)
+    .replace(/^[\["']+/, '')
+    .replace(/[\]"'<>\\]+$/g, '')
+    .replace(/[),.;]+$/g, '');
+
+  try {
+    const url = new URL(candidate);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    if (host.endsWith('google.com') && url.pathname === '/url') {
+      const redirected = url.searchParams.get('q') || url.searchParams.get('url');
+      if (redirected) candidate = redirected;
+    }
+  } catch {}
+
+  return candidate;
+}
+
+function isBusinessWebsiteCandidate(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    if (!/^https?:$/.test(url.protocol)) return false;
+    if (host.includes('google.') || host.includes('gstatic.') || host.includes('googleusercontent.')) return false;
+    if (host.includes('ggpht.') || host.includes('schema.org') || host.includes('w3.org')) return false;
+    if (host.includes('youtube.') || host.includes('youtu.be') || host.includes('maps.app.goo.gl')) return false;
+    if (host.includes('instagram.com') || host.includes('facebook.com') || host.includes('fb.com')) return false;
+    if (host.includes('tiktok.com') || host.includes('whatsapp.com') || host.includes('wa.me')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function pickWebsiteFromMapsText(text: string) {
+  const urls = text.match(/https?:\/\/[^\s"'<>\\\])]+/gi) || [];
+  for (const rawUrl of urls) {
+    const candidate = cleanMapsUrlCandidate(rawUrl);
+    if (isBusinessWebsiteCandidate(candidate)) return candidate;
+  }
+  return '';
+}
+
+function extractMapsPlaceDataFromText(raw: string): MapsPlaceExtraData {
+  const result = emptyMapsPlaceExtraData();
+  const decoded = decodeMapsPayloadText(raw);
+  const strings: string[] = [];
+  const jsonText = raw.replace(/^\)\]\}'\s*/, '').trim();
+
+  try {
+    collectStringLeaves(JSON.parse(jsonText), strings);
+  } catch {}
+
+  const text = [decoded, ...strings.map(decodeMapsPayloadText)].join('\n');
+  result.telefone = pickPhoneFromMapsText(text);
+  result.site = pickWebsiteFromMapsText(text);
+
+  for (const match of text.matchAll(ABSOLUTE_SOCIAL_REGEX)) {
+    const url = cleanMapsUrlCandidate(match[0]);
+    if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
+    if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
+    if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+  }
+
+  return result;
+}
+
+function isMapsDetailsResponse(url: string) {
+  const lower = url.toLowerCase();
+  return (lower.includes('google.com/search?') && lower.includes('tbm=map')) ||
+    lower.includes('/maps/preview/') ||
+    lower.includes('/maps/rpc') ||
+    lower.includes('/maps/place/');
+}
+
+async function waitForMapsPlaceContent(tab: any) {
+  try {
+    await tab.waitForFunction(() => {
+      const text = document.body?.innerText || '';
+      if (!text || text.length < 120) return false;
+      if (/captcha|unusual traffic|trafego incomum|sorry/i.test(text)) return true;
+      if (/\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/.test(text)) return true;
+      if (document.querySelector('[data-item-id*="phone"], [data-item-id*="authority"], [data-item-id*="address"], a[href^="tel:"]')) return true;
+      return text.includes('Sugerir mudança') || text.includes('Suggest an edit') || text.includes('Adicionar website');
+    }, null, { timeout: 6500 });
+  } catch {
+    try { await tab.waitForTimeout(1500); } catch {}
+  }
+}
+
+async function extractMapsPlaceDomData(tab: any): Promise<MapsPlaceExtraData> {
+  return tab.evaluate(() => {
+    const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
+    const text = document.body?.innerText || '';
+    const html = document.body?.innerHTML || '';
+
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const script of scripts) {
+      try {
+        const data = JSON.parse(script.textContent || '{}');
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          if (item.telephone && !result.telefone) result.telefone = item.telephone;
+          if (item.url && !result.site && !item.url.includes('google.com')) result.site = item.url;
+          if (item.sameAs && Array.isArray(item.sameAs)) {
+            for (const url of item.sameAs) {
+              if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
+              if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
+              if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+            }
+          }
+          if (item.address?.streetAddress && !result.endereco) {
+            result.endereco = item.address.streetAddress;
+            if (item.address.addressLocality) result.endereco += ', ' + item.address.addressLocality;
+            if (item.address.addressRegion) result.endereco += ' - ' + item.address.addressRegion;
+            if (item.address.postalCode) result.endereco += ', ' + item.address.postalCode;
+          }
+        }
+      } catch {}
+    }
+
+    if (!result.telefone) {
+      const phoneSel = [
+        'button[data-item-id*="phone"]', 'a[data-item-id*="phone"]', 'a[href^="tel:"]',
+        '[data-phone-number]', 'button[aria-label*="telefone"]', 'button[aria-label*="phone"]',
+        '[data-tooltip*="telefone"]', '[data-tooltip*="phone"]', 'button[aria-label*="Ligar"]',
+      ];
+      for (const sel of phoneSel) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const v = el.getAttribute('aria-label') || el.getAttribute('data-phone-number') ||
+                  el.getAttribute('href')?.replace('tel:', '') || el.getAttribute('data-value') ||
+                  el.getAttribute('data-item-id') || (el as HTMLElement).innerText;
+        if (v) { const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/); if (m) { result.telefone = m[1].trim(); break; } }
+      }
+    }
+    if (!result.telefone) {
+      for (const pat of [/(\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/g, /\+?\d{2}[\s-]?\d{2}[\s-]?\d{4,5}[\s-]?\d{4}/g, /\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/g]) {
+        const ms = text.match(pat);
+        if (ms && ms.length > 0) { result.telefone = ms[0].trim(); break; }
+      }
+    }
+
+    if (!result.site) {
+      const siteSel = [
+        'a[data-item-id*="authority"]',
+        'a[aria-label*="Website"]',
+        'a[aria-label*="site"]',
+        'a[data-tooltip*="Website"]',
+        'a[data-tooltip*="site"]',
+        'a[href^="http"]:not([href*="google"]):not([href*="maps"])'
+      ];
+      for (const sel of siteSel) {
+        const siteEl = document.querySelector(sel);
+        const h = siteEl?.getAttribute('href') || '';
+        if (h && !h.includes('google.com') && !h.includes('/maps/')) { result.site = h; break; }
+      }
+    }
+
+    if (!result.instagram && !result.facebook && !result.tiktok) {
+      for (const m of html.matchAll(/https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi)) {
+        const url = m[0].replace(/["'<>].*$/, '');
+        if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
+        if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
+        if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+      }
+    }
+
+    if (!result.endereco) {
+      const addrEl = document.querySelector('[data-item-id*="address"]');
+      if (addrEl) result.endereco = (addrEl as HTMLElement).innerText?.trim() || '';
+    }
+
+    const hMatch = text.match(/(Aberto|Fechado)(?:\s*·\s*)(.+?)(?:\.|$)/i);
+    if (hMatch) result.horarios = hMatch[0].trim();
+
+    return result;
+  });
+}
+
+async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promise<MapsPlaceExtraData> {
+  const result = emptyMapsPlaceExtraData();
+  const pendingResponses: Promise<void>[] = [];
+
+  const onResponse = (response: any) => {
+    if (!isMapsDetailsResponse(response.url())) return;
+
+    const pending = (async () => {
+      try {
+        const headers = response.headers();
+        const contentType = headers['content-type'] || '';
+        const contentLength = Number(headers['content-length'] || '0');
+        if (contentLength > 3000000) return;
+        if (contentType && !/(json|text|html|javascript)/i.test(contentType)) return;
+        const extra = extractMapsPlaceDataFromText(await response.text());
+        mergeMapsPlaceExtraData(result, extra);
+      } catch {}
+    })();
+
+    pendingResponses.push(pending);
+  };
+
+  tab.on('response', onResponse);
+
+  try {
+    try {
+      await tab.goto(withMapsLocale(placeUrl), {
+        waitUntil: 'domcontentloaded',
+        timeout: 8000,
+        referer: 'https://www.google.com/maps'
+      });
+    } catch {
+      // Google Maps can keep navigation pending while the side panel is already usable.
+    }
+
+    await waitForMapsPlaceContent(tab);
+
+    await Promise.race([
+      Promise.allSettled(pendingResponses.slice(-10)),
+      tab.waitForTimeout(1500)
+    ]).catch(() => {});
+
+    mergeMapsPlaceExtraData(result, await extractMapsPlaceDomData(tab).catch(() => emptyMapsPlaceExtraData()));
+
+    if (!result.telefone && !result.site) {
+      await tab.waitForTimeout(1000).catch(() => {});
+      mergeMapsPlaceExtraData(result, await extractMapsPlaceDomData(tab).catch(() => emptyMapsPlaceExtraData()));
+    }
+  } finally {
+    tab.off('response', onResponse);
+  }
+
+  return result;
+}
+
 async function fetchHtml(url: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3500);
@@ -1276,18 +1614,16 @@ async function runExtraction({
         let tab: any = null;
         try {
           tab = await context.newPage();
-          try {
-            await tab.goto(lead.placeUrl, {
-              waitUntil: 'networkidle',
-              timeout: 12000,
-              referer: 'https://www.google.com/maps'
-            });
-          } catch {
-            // goto timeout — skip, keep whatever card data we have
-            return;
-          }
-          await tab.waitForTimeout(2000);
-          const extraData = await tab.evaluate(() => {
+          const mapsExtraData = await extractMapsPlaceDetails(tab, lead.placeUrl);
+          if (mapsExtraData.telefone) lead.telefone = normalizePhone(mapsExtraData.telefone);
+          if (mapsExtraData.site && (!lead.site || lead.site === 'Sem site')) lead.site = mapsExtraData.site;
+          if (mapsExtraData.instagram && !lead.instagram) lead.instagram = mapsExtraData.instagram;
+          if (mapsExtraData.facebook && !lead.facebook) lead.facebook = mapsExtraData.facebook;
+          if (mapsExtraData.tiktok && !lead.tiktok) lead.tiktok = mapsExtraData.tiktok;
+          if (mapsExtraData.endereco && !lead.endereco) lead.endereco = mapsExtraData.endereco;
+          if (mapsExtraData.horarios && !lead.horarios) lead.horarios = mapsExtraData.horarios;
+          const extraData = (!mapsExtraData.telefone || (!mapsExtraData.site && (!lead.site || lead.site === 'Sem site')))
+            ? await tab.evaluate(() => {
             const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
             const text = document.body?.innerText || '';
             const html = document.body?.innerHTML || '';
@@ -1364,7 +1700,8 @@ async function runExtraction({
             if (hMatch) result.horarios = hMatch[0].trim();
 
             return result;
-          });
+            })
+            : emptyMapsPlaceExtraData();
           if (extraData.telefone) lead.telefone = normalizePhone(extraData.telefone);
           if (extraData.site && (!lead.site || lead.site === 'Sem site')) lead.site = extraData.site;
           if (extraData.instagram && !lead.instagram) lead.instagram = extraData.instagram;
