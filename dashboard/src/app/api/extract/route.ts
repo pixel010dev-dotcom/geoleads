@@ -91,6 +91,29 @@ const TYPO_DICTIONARY: Record<string, string> = {
 };
 
 // Dicionário de abreviações e shorthand de Cidades/Regiões
+function normalizeAccents(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function dictLookup(loc: string): string | undefined {
+  return LOCATION_DICTIONARY[loc] || LOCATION_DICTIONARY[normalizeAccents(loc)];
+}
+
+function cleanLocation(raw: string): string {
+  let loc = raw.trim().toLowerCase();
+  if (!loc) return '';
+  // 1. Remove artigos/preposições do início
+  loc = loc.replace(/^(em|no|na|nos|nas|em todo|em toda|in|at|en|el|la|le|a|an)\s+/i, '').trim();
+  // 2. Remove parênteses e conteúdo entre parênteses
+  loc = loc.replace(/\(.*?\)/g, '').trim();
+  // 3. Remove sufixo após vírgula (ex: "são paulo, sp" → "são paulo")
+  loc = loc.replace(/,.*$/, '').trim();
+  // 4. Remove sufixo após hífen com espaço (ex: "são paulo - sp" → "são paulo")
+  loc = loc.replace(/\s*-\s*[a-z0-9\s]+$/i, '').trim();
+  // 5. Se sobrou "sp" sozinho, mantém
+  return loc;
+}
+
 const LOCATION_DICTIONARY: Record<string, string> = {
   'sp': 'São Paulo',
   'sao paulo': 'São Paulo',
@@ -139,13 +162,106 @@ const LOCATION_DICTIONARY: Record<string, string> = {
   'argentina': 'Argentina', 'méxico': 'México', 'mexico': 'México',
   'canadá': 'Canadá', 'canada': 'Canadá', 'japão': 'Japão', 'japao': 'Japão',
   'austrália': 'Austrália', 'australia': 'Austrália',
-  // EUA estados
-  'ny': 'Nova York', 'nova york': 'Nova York', 'california': 'Califórnia',
-  'califórnia': 'Califórnia', 'florida': 'Flórida', 'flórida': 'Flórida',
-  'miami': 'Miami', 'los angeles': 'Los Angeles', 'chicago': 'Chicago',
-  'orlando': 'Orlando', 'washington': 'Washington', 'boston': 'Boston',
-  'dallas': 'Dallas', 'houston': 'Houston', 'seattle': 'Seattle',
-  'san francisco': 'San Francisco', 'las vegas': 'Las Vegas',
+  // US states (all 50) — códigos que colidem com BR foram sufixados com _us
+  'ny': 'Nova York', 'nova york': 'Nova York', 'new york': 'Nova York',
+  'california': 'Califórnia', 'califórnia': 'Califórnia',
+  'florida': 'Flórida', 'flórida': 'Flórida',
+  'ca': 'Califórnia', 'tx': 'Texas', 'fl': 'Flórida', 'il': 'Illinois',
+  'oh': 'Ohio', 'ga': 'Geórgia', 'nc': 'Carolina do Norte',
+  'mi': 'Michigan', 'nj': 'Nova Jersey', 'va': 'Virgínia', 'wa': 'Washington',
+  'az': 'Arizona', 'tn': 'Tennessee', 'in': 'Indiana',
+  'md': 'Maryland', 'mo': 'Missouri', 'wi': 'Wisconsin', 'co': 'Colorado',
+  'mn': 'Minnesota', 'ky': 'Kentucky', 'or': 'Oregon', 'ok': 'Oklahoma',
+  'ct': 'Connecticut', 'ut': 'Utah', 'ia': 'Iowa', 'nv': 'Nevada',
+  'ar': 'Arkansas', 'ks': 'Kansas', 'nm': 'Novo México', 'ne': 'Nebraska',
+  'wv': 'Virgínia Ocidental', 'id': 'Idaho', 'hi': 'Havaí', 'me': 'Maine',
+  'nh': 'New Hampshire', 'ri': 'Rhode Island', 'de': 'Delaware',
+  'sd': 'Dakota do Sul', 'nd': 'Dakota do Norte', 'ak': 'Alasca',
+  'vt': 'Vermont', 'wy': 'Wyoming',
+  // US states que colidem com BR (usar nome completo)
+  'pensilvânia': 'Pensilvânia', 'pennsylvania': 'Pensilvânia',
+  'carolina do sul': 'Carolina do Sul', 'south carolina': 'Carolina do Sul',
+  'montana': 'Montana', 'mississippi': 'Mississippi',
+  'alabama': 'Alabama', 'luisiana': 'Luisiana', 'louisiana': 'Luisiana',
+  'massachusetts': 'Massachusetts',
+  // US cities
+  'miami': 'Miami', 'los angeles': 'Los Angeles', 'la': 'Los Angeles',
+  'chicago': 'Chicago', 'orlando': 'Orlando',
+  'washington': 'Washington', 'washington dc': 'Washington', 'dc': 'Washington',
+  'boston': 'Boston', 'dallas': 'Dallas', 'houston': 'Houston',
+  'seattle': 'Seattle', 'san francisco': 'San Francisco', 'sf': 'San Francisco',
+  'las vegas': 'Las Vegas', 'vegas': 'Las Vegas',
+  'san diego': 'San Diego', 'phoenix': 'Phoenix', 'denver': 'Denver',
+  'atlanta': 'Atlanta', 'portland': 'Portland', 'nashville': 'Nashville',
+  'nova orleans': 'Nova Orleans', 'new orleans': 'Nova Orleans',
+  'philadelphia': 'Filadélfia', 'filadélfia': 'Filadélfia',
+  'san jose': 'San José', 'austin': 'Austin', 'indianapolis': 'Indianápolis',
+  'indianápolis': 'Indianápolis', 'minneapolis': 'Minneapolis',
+  'miami beach': 'Miami Beach', 'tampa': 'Tampa',
+  // Estados brasileiros (full names)
+  'acre': 'Acre', 'alagoas': 'Alagoas', 'amapá': 'Amapá', 'amazonas': 'Amazonas',
+  'bahia': 'Bahia', 'ceará': 'Ceará', 'espírito santo': 'Espírito Santo',
+  'goiás': 'Goiás', 'maranhão': 'Maranhão', 'mato grosso': 'Mato Grosso',
+  'mato grosso do sul': 'Mato Grosso do Sul', 'minas gerais': 'Minas Gerais',
+  'pará': 'Pará', 'paraíba': 'Paraíba', 'paraná': 'Paraná',
+  'pernambuco': 'Pernambuco', 'piauí': 'Piauí', 'rio de janeiro': 'Rio de Janeiro',
+  'rio grande do norte': 'Rio Grande do Norte', 'rio grande do sul': 'Rio Grande do Sul',
+  'rondônia': 'Rondônia', 'roraima': 'Roraima', 'santa catarina': 'Santa Catarina',
+  'são paulo': 'São Paulo', 'sergipe': 'Sergipe', 'tocantins': 'Tocantins',
+  'distrito federal': 'Distrito Federal',
+  // Mais cidades brasileiras
+  'niterói': 'Niterói', 'niteroi': 'Niterói', 'duque de caxias': 'Duque de Caxias',
+  'nova iguaçu': 'Nova Iguaçu', 'campos': 'Campos dos Goytacazes',
+  'são gonçalo': 'São Gonçalo', 'são bernardo do campo': 'São Bernardo do Campo',
+  'santo andré': 'Santo André', 'são josé dos campos': 'São José dos Campos',
+  'sorocaba': 'Sorocaba', 'ribeirão preto': 'Ribeirão Preto',
+  'uberlândia': 'Uberlândia', 'uberlandia': 'Uberlândia',
+  'cuiabá': 'Cuiabá', 'cuiaba': 'Cuiabá', 'campo grande': 'Campo Grande',
+  'joinville': 'Joinville', 'blumenau': 'Blumenau', 'londrina': 'Londrina',
+  'maringá': 'Maringá', 'mariga': 'Maringá', 'juiz de fora': 'Juiz de Fora',
+  'aracaju': 'Aracaju', 'maceió': 'Maceió', 'maceio': 'Maceió',
+  'teresina': 'Teresina', 'palmas': 'Palmas', 'rio branco': 'Rio Branco',
+  'porto velho': 'Porto Velho', 'boa vista': 'Boa Vista', 'macapá': 'Macapá',
+  'macapa': 'Macapá', 'belém': 'Belém', 'belem': 'Belém',
+  'ilhéus': 'Ilhéus', 'ilheus': 'Ilhéus', 'porto seguro': 'Porto Seguro',
+  // Mais países
+  'angola': 'Angola', 'argélia': 'Argélia', 'áfrica do sul': 'África do Sul',
+  'belgica': 'Bélgica', 'bélgica': 'Bélgica', 'bolívia': 'Bolívia', 'bolivia': 'Bolívia',
+  'chile': 'Chile', 'colômbia': 'Colômbia', 'colombia': 'Colômbia',
+  'coreia': 'Coreia do Sul', 'coréia': 'Coreia do Sul', 'coreia do sul': 'Coreia do Sul',
+  'costa rica': 'Costa Rica', 'cuba': 'Cuba', 'dinamarca': 'Dinamarca',
+  'egito': 'Egito', 'equador': 'Equador', 'emirados árabes': 'Emirados Árabes Unidos',
+  'escócia': 'Escócia', 'eslováquia': 'Eslováquia', 'eslovênia': 'Eslovênia',
+  'finlândia': 'Finlândia', 'grécia': 'Grécia', 'holanda': 'Holanda',
+  'hungria': 'Hungria', 'índia': 'Índia', 'indonésia': 'Indonésia',
+  'irlanda': 'Irlanda', 'israel': 'Israel', 'marrocos': 'Marrocos',
+  'noruega': 'Noruega', 'nova zelândia': 'Nova Zelândia', 'nova zelandia': 'Nova Zelândia',
+  'países baixos': 'Países Baixos', 'polônia': 'Polônia', 'polonia': 'Polônia',
+  'república tcheca': 'República Tcheca', 'romênia': 'Romênia', 'rússia': 'Rússia',
+  'russia': 'Rússia', 'suécia': 'Suécia', 'suica': 'Suíça', 'suíça': 'Suíça',
+  'tailândia': 'Tailândia', 'tailandia': 'Tailândia', 'turquia': 'Turquia', 'ucrânia': 'Ucrânia', 'uruguai': 'Uruguai',
+  'venezuela': 'Venezuela',
+  // Cidades internacionais
+  'paris': 'Paris', 'londres': 'Londres', 'berlim': 'Berlim',
+  'madri': 'Madri', 'madrid': 'Madri', 'barcelona': 'Barcelona',
+  'roma': 'Roma', 'milão': 'Milão', 'milao': 'Milão', 'veneza': 'Veneza',
+  'lisboa': 'Lisboa', 'lisbon': 'Lisboa', 'porto': 'Porto',
+  'tóquio': 'Tóquio', 'toquio': 'Tóquio', 'tokyo': 'Tóquio',
+  'xangai': 'Xangai', 'shanghai': 'Xangai', 'hong kong': 'Hong Kong',
+  'bangkok': 'Bangkok', 'sydney': 'Sydney', 'melbourne': 'Melbourne',
+  'dubai': 'Dubai', 'cidade do méxico': 'Cidade do México',
+  'buenos aires': 'Buenos Aires', 'santiago': 'Santiago',
+  'lima': 'Lima', 'bogotá': 'Bogotá', 'bogota': 'Bogotá',
+  'montevidéu': 'Montevidéu', 'montevideu': 'Montevidéu',
+  'assunção': 'Assunção', 'assuncao': 'Assunção',
+  'cidade do panamá': 'Cidade do Panamá', 'san josé': 'San José',
+  'havana': 'Havana', 'cancún': 'Cancún', 'cancun': 'Cancún',
+  'punta cana': 'Punta Cana', 'santo domingo': 'Santo Domingo',
+  'ontario': 'Ontário', 'toronto': 'Toronto', 'vancouver': 'Vancouver',
+  'montreal': 'Montreal', 'ottawa': 'Ottawa',
+  // Genéricos mundo
+  'mundo': 'Brasil', 'mundo inteiro': 'Brasil', 'mundo todo': 'Brasil',
+  'internacional': 'Brasil', 'global': 'Brasil',
 };
 
 // Regiões amplas — quando detectadas, busca sem localização específica
@@ -159,38 +275,29 @@ function isBroadLocation(location: string): boolean {
   return false;
 }
 
+const LOCATION_LOWER_WORDS = new Set(['de', 'do', 'da', 'dos', 'das', 'e', 'em', 'no', 'na']);
+
 function smartNormalizeQuery(keyword: string, location: string) {
-  // 1. Limpa espaços e coloca tudo em minúsculas para análise
   let cleanKw = keyword.trim().toLowerCase();
-  let cleanLoc = location.trim().toLowerCase();
+  let cleanLoc = cleanLocation(location);
 
-  // 2. Remove artigos/preposições comuns da localização ("em sp", "no rio", "na espanha", "nos eua")
-  cleanLoc = cleanLoc.replace(/^(em|no|na|nos|nas|em todo|em toda)\s+/i, '').trim();
-
-  // 3. Verifica dicionário ANTES de remover sufixos (evita "sp" virar string vazia)
-  if (!LOCATION_DICTIONARY[cleanLoc]) {
-    // Remove sufixos de estados comuns digitados na localização (ex: "- sp", ", sp", "sp")
-    cleanLoc = cleanLoc
-      .replace(/\s*-\s*[a-z]{2}$/i, '')
-      .replace(/,\s*[a-z]{2}$/i, '')
-      .replace(/\s+[a-z]{2}$/i, '')
-      .trim();
+  // Tenta lookup com e sem acentos
+  let dictResult = dictLookup(cleanLoc);
+  if (!dictResult && cleanLoc.length >= 2) {
+    // Se ainda tem sufixo de estado (2-3 letras), tenta sem ele
+    const semSufixo = cleanLoc.replace(/\s+[a-z]{2,3}$/i, '').trim();
+    if (semSufixo !== cleanLoc) dictResult = dictLookup(semSufixo);
   }
+  cleanLoc = dictResult || cleanLoc;
 
-  if (LOCATION_DICTIONARY[cleanLoc]) {
-    cleanLoc = LOCATION_DICTIONARY[cleanLoc];
-  } else {
-    // Caso contrário, tentamos capitalizar as palavras da localização de forma elegante
+  if (!dictResult) {
     cleanLoc = cleanLoc
-      .split(' ')
-      .map(word => {
-        if (['de', 'do', 'da', 'dos', 'das', 'e'].includes(word)) return word;
-        return word.charAt(0).toUpperCase() + word.slice(1);
-      })
+      .split(/\s+/)
+      .map(word => LOCATION_LOWER_WORDS.has(word) ? word : word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
   }
 
-  // 3. Normalização do Nicho (Keyword)
+  // Normalização do Nicho (Keyword)
   // Dividimos em palavras para ver se alguma delas é um erro comum mapeado
   const words = cleanKw.split(/\s+/);
   const correctedWords = words.map(word => {
