@@ -194,7 +194,8 @@ export default function ExtractorSection({
                 if (isBroad) {
                   const leadsPerCity = 3.5;
                   const cities = Math.min(Math.ceil(l / leadsPerCity), 140);
-                  const sec = 5 + l * 1.8;
+                  let sec = 10 + cities * 2 + l * 1.5 + 15;
+                  if (sec > 600) sec = 600;
                   if (sec > 120) {
                     return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ Tempo estimado: ~{Math.ceil(sec / 60)} minuto{Math.ceil(sec / 60) > 1 ? 's' : ''} (~{cities} cidades em {Math.min(27, Math.ceil(cities / 4))} estados)</p>;
                   }
