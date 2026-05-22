@@ -9,14 +9,20 @@ interface HackerRadarProps {
 export default function HackerRadar({ keyword, location }: HackerRadarProps) {
   const [logs, setLogs] = useState<string[]>([]);
   const [blips, setBlips] = useState<{ x: number; y: number; id: number; color: string; life: number }[]>([]);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
+    const startTime = Date.now();
+    setElapsed(0);
+
     setLogs([
       `[SYS] MOTOR DE VARREDURA INICIADO EM: ${new Date().toLocaleTimeString()}`,
       `[SYS] PESQUISA PARAMETRIZADA: "${keyword || 'Geral'}" EM "${location || 'Brasil'}"`,
       `[GRID] Estabelecendo conexões via proxies residenciais seguros...`,
       `[GRID] Acessando canais de dados públicos de geolocalização...`
     ]);
+
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
 
     const logTemplates = [
       () => `[PING] Servidor Google Maps respondeu em ${Math.floor(Math.random() * 80) + 15}ms.`,
@@ -65,6 +71,7 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
     return () => {
       clearInterval(logInterval);
       clearInterval(blipInterval);
+      clearInterval(timer);
     };
   }, [keyword, location]);
 
@@ -139,14 +146,14 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               STATUS: ESCANEANDO MAPS
             </span>
-            <span>● ONLINE</span>
+            <span>● {elapsed}s</span>
           </div>
         </div>
       </div>
       
       <p className="text-gray-400 text-xs text-center mt-6 tracking-wide leading-relaxed">
         Buscando dados públicos no Google Maps e cruzando com o site oficial da empresa. <br />
-        <span className="text-gray-600 text-[10px]">Isso pode levar de 15 a 50 segundos dependendo do limite solicitado.</span>
+        <span className="text-gray-600 text-[10px]">Tempo decorrido: {elapsed}s · Limite de segurança: 50s</span>
       </p>
     </div>
   );

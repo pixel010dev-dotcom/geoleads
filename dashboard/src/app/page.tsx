@@ -217,6 +217,7 @@ export default async function LandingPage() {
         <div className="app-container py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
           <span>&copy; {new Date().getFullYear()} GeoLeads. Todos os direitos reservados.</span>
           <div className="flex items-center gap-4">
+            <a href="mailto:pixel010dev@gmail.com?subject=Contato%20GeoLeads" className="hover:text-gray-300 transition-colors">Suporte</a>
             <Link href="/pricing" className="hover:text-gray-300 transition-colors">Preços</Link>
             <Link href="/login" className="hover:text-gray-300 transition-colors">Entrar</Link>
           </div>

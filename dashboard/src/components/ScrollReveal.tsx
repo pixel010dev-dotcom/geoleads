@@ -15,10 +15,11 @@ export default function ScrollReveal({ children, className = '', delay = 0 }: Sc
     const el = ref.current;
     if (!el) return;
 
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setTimeout(() => setVisible(true), delay);
+          timer = setTimeout(() => setVisible(true), delay);
           observer.unobserve(el);
         }
       },
@@ -26,7 +27,10 @@ export default function ScrollReveal({ children, className = '', delay = 0 }: Sc
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
   }, [delay]);
 
   return (

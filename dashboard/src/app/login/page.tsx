@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Globe from '@/components/Globe';
+import Toast, { showToast } from '@/components/Toast';
 
 export default function Login() {
+  const router = useRouter();
   useEffect(() => { document.title = 'GeoLeads - Entrar'; }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +48,7 @@ export default function Login() {
           }
           throw error;
         }
-        window.location.href = getRedirectPath();
+        router.push(getRedirectPath());
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
@@ -72,12 +75,13 @@ export default function Login() {
       },
     });
     if (error) {
-      alert('Erro ao conectar com o Google: ' + error.message);
+      showToast('Erro ao conectar com o Google: ' + error.message, 'error');
     }
   };
 
   return (
     <div className="app-shell min-h-screen text-white flex items-center justify-center relative overflow-hidden py-10 sm:py-12 px-4">
+      <Toast />
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(600px,95vw)] h-[520px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
 

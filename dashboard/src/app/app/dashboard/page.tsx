@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature, plans, type FeatureKey, type PlanId } from '@/lib/plans';
 import Globe from '@/components/Globe';
@@ -150,9 +152,103 @@ const defaultChatbotRules = [
   }
 ];
 
+const LockedFeaturePanel = ({ feature, activeTab, currentPlan, getUpgradePlan }: {
+  feature: FeatureKey;
+  activeTab: DashboardTab;
+  currentPlan: { name: string };
+  getUpgradePlan: (feature: FeatureKey) => { name: string; tokens: number };
+}) => {
+  const requiredPlan = getUpgradePlan(feature);
+  const fallbackCopy = {
+    title: `Recurso do plano ${requiredPlan.name}`,
+    description: 'Faça upgrade para liberar esta ferramenta no GeoLeads.'
+  };
+  const copy = activeTab !== 'extractor' && activeTab !== 'support'
+    ? tabUpgradeCopy[activeTab] || fallbackCopy
+    : fallbackCopy;
+
+  return (
+    <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl animate-slide-up">
+      <div className="max-w-2xl">
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold mb-4">
+          🔒 Plano {requiredPlan.name}
+        </span>
+        <h2 className="text-2xl font-bold mb-2">{copy.title}</h2>
+        <p className="text-gray-400 text-sm leading-relaxed mb-5">{copy.description}</p>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300">
+            Seu plano atual: {currentPlan.name}
+          </span>
+          <span className="px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+            {requiredPlan.tokens.toLocaleString('pt-BR')} tokens inclusos
+          </span>
+        </div>
+        <Link
+          href="/pricing"
+          className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors"
+        >
+          Ver planos
+        </Link>
+      </div>
+    </div>
+  );
+};
+
+const LeadGuideWidget = ({ user, currentPlan, tokens, onNavigate }: {
+  user: any;
+  currentPlan: { name: string };
+  tokens: number | null;
+  onNavigate: (tab: DashboardTab) => void;
+}) => (
+  <div className="lead-guide-widget">
+    <div className="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <span className="text-xs text-blue-300 font-bold uppercase tracking-wide">Widget de ação</span>
+        <h3 className="text-lg font-bold mt-1">Próximo passo para vender</h3>
+      </div>
+      <span className="px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-300 text-[11px] font-bold">
+        Motor OK
+      </span>
+    </div>
+
+    <div className="grid grid-cols-3 gap-2 mb-4">
+      <button type="button" onClick={() => onNavigate('extractor')} className="lead-step is-active">
+        <b>1</b>
+        <span>Buscar</span>
+      </button>
+      <button type="button" onClick={() => onNavigate('crm')} className="lead-step">
+        <b>2</b>
+        <span>Salvar</span>
+      </button>
+      <button type="button" onClick={() => onNavigate('whatsapp')} className="lead-step">
+        <b>3</b>
+        <span>Abordar</span>
+      </button>
+    </div>
+
+    <div className="rounded-2xl bg-black/25 border border-white/10 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs text-gray-500">Plano atual</p>
+          <p className="font-bold text-white">{user ? currentPlan.name : 'Conta gratuita'}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-gray-500">Saldo</p>
+          <p className="font-bold text-blue-300">{tokens !== null ? tokens.toLocaleString('pt-BR') : '10'} tokens</p>
+        </div>
+      </div>
+    </div>
+
+    <Link href="/pricing" className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-white text-black font-bold text-sm py-3 hover:bg-gray-200 transition-colors">
+      Comprar ou trocar plano
+    </Link>
+  </div>
+);
+
 export default function Home() {
   // Navigation
   const [activeTab, setActiveTab] = useState<DashboardTab>('extractor');
+  const router = useRouter();
 
   // Extractor States
   const [keyword, setKeyword] = useState('');
@@ -162,7 +258,7 @@ export default function Home() {
   const [hasSearched, setHasSearched] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
   const [extractStats, setExtractStats] = useState<any>(null);
-  const [filterRule, setFilterRule] = useState('none');
+  const [filterRule, setFilterRule] = useState<string>('none');
   
   // Auth & Account
   const [user, setUser] = useState<any>(null);
@@ -177,6 +273,8 @@ export default function Home() {
   const [crmSyncStatus, setCrmSyncStatus] = useState<'local' | 'syncing' | 'cloud' | 'error'>('local');
   const [crmSyncMessage, setCrmSyncMessage] = useState('CRM local');
   const [crmPage, setCrmPage] = useState(0);
+  const [bulkStageLoading, setBulkStageLoading] = useState(false);
+  const [bulkStageTarget, setBulkStageTarget] = useState('Novo');
   const CRM_PAGE_SIZE = 25;
 
   // WhatsApp Sender States
@@ -226,6 +324,11 @@ export default function Home() {
   const [supportSubmitted, setSupportSubmitted] = useState(false);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+
+  // Extraction History States
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Social Proof Notification Loop State
   const [proofIndex, setProofIndex] = useState(0);
@@ -280,7 +383,7 @@ export default function Home() {
     const token = session?.access_token;
 
     if (!token) {
-      window.location.href = '/login';
+      router.push('/login');
       return null;
     }
 
@@ -290,88 +393,7 @@ export default function Home() {
     };
   };
 
-  const LockedFeaturePanel = ({ feature }: { feature: FeatureKey }) => {
-    const requiredPlan = getUpgradePlan(feature);
-    const fallbackCopy = {
-      title: `Recurso do plano ${requiredPlan.name}`,
-      description: 'Faça upgrade para liberar esta ferramenta no GeoLeads.'
-    };
-    const copy = activeTab !== 'extractor' && activeTab !== 'support'
-      ? tabUpgradeCopy[activeTab] || fallbackCopy
-      : fallbackCopy;
-
-    return (
-      <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl animate-slide-up">
-        <div className="max-w-2xl">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold mb-4">
-            🔒 Plano {requiredPlan.name}
-          </span>
-          <h2 className="text-2xl font-bold mb-2">{copy.title}</h2>
-          <p className="text-gray-400 text-sm leading-relaxed mb-5">{copy.description}</p>
-          <div className="flex flex-wrap gap-2 mb-6">
-            <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300">
-              Seu plano atual: {currentPlan.name}
-            </span>
-            <span className="px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
-              {requiredPlan.tokens.toLocaleString('pt-BR')} tokens inclusos
-            </span>
-          </div>
-          <a
-            href="/pricing"
-            className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-gray-200 transition-colors"
-          >
-            Ver planos
-          </a>
-        </div>
-      </div>
-    );
-  };
-
-  const LeadGuideWidget = () => (
-    <div className="lead-guide-widget">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div>
-          <span className="text-xs text-blue-300 font-bold uppercase tracking-wide">Widget de ação</span>
-          <h3 className="text-lg font-bold mt-1">Próximo passo para vender</h3>
-        </div>
-        <span className="px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-300 text-[11px] font-bold">
-          Motor OK
-        </span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <button type="button" onClick={() => setActiveTab('extractor')} className="lead-step is-active">
-          <b>1</b>
-          <span>Buscar</span>
-        </button>
-        <button type="button" onClick={() => setActiveTab('crm')} className="lead-step">
-          <b>2</b>
-          <span>Salvar</span>
-        </button>
-        <button type="button" onClick={() => setActiveTab('whatsapp')} className="lead-step">
-          <b>3</b>
-          <span>Abordar</span>
-        </button>
-      </div>
-
-      <div className="rounded-2xl bg-black/25 border border-white/10 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-gray-500">Plano atual</p>
-            <p className="font-bold text-white">{user ? currentPlan.name : 'Conta gratuita'}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Saldo</p>
-            <p className="font-bold text-blue-300">{tokens !== null ? tokens.toLocaleString('pt-BR') : '10'} tokens</p>
-          </div>
-        </div>
-      </div>
-
-      <a href="/pricing" className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-white text-black font-bold text-sm py-3 hover:bg-gray-200 transition-colors">
-        Comprar ou trocar plano
-      </a>
-    </div>
-  );
+  // moved: LockedFeaturePanel and LeadGuideWidget are now top-level components
 
   const sampleCrmLeads = () => [
     {
@@ -535,7 +557,7 @@ export default function Home() {
     const token = data.session?.access_token;
 
     if (!token) {
-      window.location.href = '/login';
+      router.push('/login');
       return null;
     }
 
@@ -998,6 +1020,21 @@ showToast(`${addedCount} leads adicionados ao CRM!`, 'success');
     }
   };
 
+  // Bulk stage change for selected CRM leads
+  const handleBulkStageChange = async () => {
+    if (selectedCrmLeads.length === 0 || bulkStageLoading) return;
+    setBulkStageLoading(true);
+    const updated = crmLeads.map(l => {
+      if (selectedCrmLeads.includes(l.nome)) {
+        return { ...l, stage: bulkStageTarget };
+      }
+      return l;
+    });
+    saveCrm(updated);
+    setBulkStageLoading(false);
+    showToast(`${selectedCrmLeads.length} leads movidos para "${bulkStageTarget}"`, 'success');
+  };
+
   const finishBulkQueue = () => {
     setIsSendingBulk(false);
     setIsAutoSending(false);
@@ -1193,14 +1230,17 @@ showToast(`${addedCount} leads adicionados ao CRM!`, 'success');
     e.preventDefault();
     
     if (!user) {
-      window.location.href = '/login';
+      router.push('/login');
       return;
     }
 
-    const selectedFilter = filterOptions.find(opt => opt.value === filterRule);
-    if (selectedFilter && !requireFeature(selectedFilter.feature)) {
-      showLockedFeature(selectedFilter.feature);
-      return;
+    const selectedFilters = filterRule.split(',').map(s => s.trim()).filter(Boolean);
+    for (const f of selectedFilters) {
+      const opt = filterOptions.find(o => o.value === f);
+      if (opt && !requireFeature(opt.feature)) {
+        showLockedFeature(opt.feature);
+        return;
+      }
     }
 
     if (tokens !== null && Number(limit) > tokens) {
@@ -1258,7 +1298,21 @@ showToast("Erro: " + data.error, 'error');
 
   const logout = async () => {
     await supabase.auth.signOut();
-    window.location.reload();
+    router.push('/login');
+  };
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    setShowHistory(true);
+    try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+      const res = await fetch('/api/extract/history', { headers });
+      const data = await res.json();
+      if (data.success) setHistoryData(data.history || []);
+    } catch {} finally {
+      setHistoryLoading(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -1499,8 +1553,8 @@ showToast("Erro: " + data.error, 'error');
                 <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-300 font-bold whitespace-nowrap">
                   {currentPlan.shortName}
                 </div>
-                <a href="/account" className="text-gray-400 hover:text-white transition-colors font-medium">Conta</a>
-                <a href="/pricing" className="text-gray-400 hover:text-white transition-colors font-medium">Planos</a>
+                <Link href="/account" className="text-gray-400 hover:text-white transition-colors font-medium">Conta</Link>
+                <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors font-medium">Planos</Link>
                 <button onClick={logout} className="text-red-400 hover:text-red-300 font-medium cursor-pointer">Sair</button>
               </>
             ) : (
@@ -1509,9 +1563,9 @@ showToast("Erro: " + data.error, 'error');
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
                   <span className="hidden sm:inline">Motor Online</span>
                 </div>
-                <a href="/login" className="px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full bg-white text-black font-semibold hover:bg-gray-200 transition-all text-xs sm:text-sm shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                <Link href="/login" className="px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full bg-white text-black font-semibold hover:bg-gray-200 transition-all text-xs sm:text-sm shadow-[0_0_15px_rgba(255,255,255,0.2)]">
                   Entrar
-                </a>
+                </Link>
               </>
             )}
           </div>
@@ -1554,7 +1608,7 @@ showToast("Erro: " + data.error, 'error');
               </div>
             </div>
 
-            <LeadGuideWidget />
+            <LeadGuideWidget user={user} currentPlan={currentPlan} tokens={tokens} onNavigate={setActiveTab} />
           </div>
 
           <DashboardCharts userId={user?.id || ''} />
@@ -1608,7 +1662,7 @@ showToast("Erro: " + data.error, 'error');
         </header>
 
         {activeTabLocked && activeTabFeature && (
-          <LockedFeaturePanel feature={activeTabFeature} />
+          <LockedFeaturePanel feature={activeTabFeature} activeTab={activeTab} currentPlan={currentPlan} getUpgradePlan={getUpgradePlan} />
         )}
 
         {/* ==================== TAB 1: EXTRACTOR ==================== */}
@@ -1684,17 +1738,26 @@ showToast("Erro: " + data.error, 'error');
 
                   {/* PREMIUM GRID CHIPS FOR FILTER SELECTOR */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Exigência Obrigatória (Cobrança Justa)</label>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Filtros (selecione um ou mais)</label>
                     <div className="extract-filter-grid">
                       {filterOptions.map((opt) => {
-                        const isSelected = filterRule === opt.value;
+                        const selectedSet = new Set(filterRule.split(',').map(s => s.trim()).filter(Boolean));
+                        const isSelected = filterRule === 'none' && opt.value === 'none' ? true : selectedSet.has(opt.value);
                         const isLocked = !requireFeature(opt.feature);
                         const requiredPlan = getUpgradePlan(opt.feature);
                         return (
                           <button
                             key={opt.value}
                             type="button"
-                            onClick={() => isLocked ? showLockedFeature(opt.feature) : setFilterRule(opt.value)}
+                            onClick={() => {
+                              if (isLocked) { showLockedFeature(opt.feature); return; }
+                              if (opt.value === 'none') { setFilterRule('none'); return; }
+                              const current = new Set(filterRule.split(',').map(s => s.trim()).filter(Boolean));
+                              if (current.has(opt.value)) current.delete(opt.value); else current.add(opt.value);
+                              if (current.size === 0) { setFilterRule('none'); return; }
+                              current.delete('none');
+                              setFilterRule(Array.from(current).join(','));
+                            }}
                             className={`filter-option-card ${
                               isLocked
                                 ? 'is-locked'
@@ -1780,6 +1843,12 @@ showToast("Erro: " + data.error, 'error');
                       </svg>
                       Exportar CSV
                     </button>
+                    <button 
+                      onClick={fetchHistory}
+                      className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-4 py-2 rounded-lg border border-amber-500/20 cursor-pointer"
+                    >
+                      🕐 Histórico
+                    </button>
                   </div>
                 </div>
 
@@ -1800,6 +1869,9 @@ showToast("Erro: " + data.error, 'error');
                           <th className="px-4 py-3 font-medium">Contato</th>
                           <th className="px-4 py-3 font-medium">E-mail</th>
                           <th className="px-4 py-3 font-medium">Redes</th>
+                          <th className="px-4 py-3 font-medium">Categoria</th>
+                          <th className="px-4 py-3 font-medium">Endereço</th>
+                          <th className="px-4 py-3 font-medium">Horários</th>
                           <th className="px-4 py-3 font-medium">Ações</th>
                         </tr>
                       </thead>
@@ -1850,6 +1922,15 @@ showToast("Erro: " + data.error, 'error');
                                 )}
                               </div>
                             </td>
+                            <td className="px-4 py-4 text-xs text-gray-400">
+                              {lead.categoria || '-'}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-400 max-w-[200px] truncate" title={lead.endereco || '-'}>
+                              {lead.endereco || '-'}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-400">
+                              {lead.horarios || '-'}
+                            </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
                                 <button 
@@ -1876,7 +1957,7 @@ showToast("Erro: " + data.error, 'error');
                         {/* Estado vazio: antes de buscar */}
                         {displayLeads.length === 0 && !hasSearched && !isExtracting && (
                           <tr>
-                            <td colSpan={5} className="px-4 py-16 text-center">
+                            <td colSpan={8} className="px-4 py-16 text-center">
                               <div className="text-4xl mb-4">🔍</div>
                               <p className="text-gray-300 font-medium text-lg mb-2">Pronto para começar!</p>
                               <p className="text-gray-500 text-sm max-w-md mx-auto">
@@ -1889,7 +1970,7 @@ showToast("Erro: " + data.error, 'error');
                         {/* Estado vazio: depois de buscar e não achar nada */}
                         {displayLeads.length === 0 && hasSearched && !isExtracting && (
                           <tr>
-                            <td colSpan={5} className="px-4 py-16 text-center">
+                            <td colSpan={8} className="px-4 py-16 text-center">
                               <div className="text-4xl mb-4">🕵️</div>
                               <p className="text-gray-300 font-medium text-lg mb-2">Nenhum lead encontrado</p>
                               <p className="text-gray-500 text-sm max-w-lg mx-auto">
@@ -2042,12 +2123,36 @@ showToast("Erro: " + data.error, 'error');
                   </label>
                 )}
                 {selectedCrmLeads.length > 0 && (
-                  <button
-                    onClick={handleRemoveSelectedFromCRM}
-                    className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white border border-red-500/30 text-xs font-semibold cursor-pointer transition-colors"
-                  >
-                    🗑️ Excluir ({selectedCrmLeads.length})
-                  </button>
+                  <>
+                    <button
+                      onClick={handleRemoveSelectedFromCRM}
+                      className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white border border-red-500/30 text-xs font-semibold cursor-pointer transition-colors"
+                    >
+                      🗑️ Excluir ({selectedCrmLeads.length})
+                    </button>
+                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                      Mover para:
+                      <select
+                        value={bulkStageTarget}
+                        onChange={(e) => setBulkStageTarget(e.target.value)}
+                        style={{ colorScheme: 'dark' }}
+                        className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                      >
+                        <option value="Novo">Novo Lead</option>
+                        <option value="Em Contato">Em Contato</option>
+                        <option value="Proposta">Proposta Enviada</option>
+                        <option value="Fechado">Vendido / Ganho</option>
+                        <option value="Perdido">Perdido</option>
+                      </select>
+                    </span>
+                    <button
+                      onClick={handleBulkStageChange}
+                      disabled={bulkStageLoading}
+                      className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white border border-blue-500/30 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {bulkStageLoading ? 'Movendo...' : 'Aplicar'}
+                    </button>
+                  </>
                 )}
                 <input 
                   type="text" 
@@ -3368,6 +3473,15 @@ showToast("Erro: " + data.error, 'error');
                 >
                   ✉️ Abrir Chamado por E-mail
                 </a>
+
+                <a 
+                  href="https://mail.google.com/mail/?view=cm&fs=1&to=pixel010dev@gmail.com&su=Suporte%20GeoLeads&body=Ol%C3%A1%20equipe%20GeoLeads%2C"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 rounded-xl font-medium text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 text-sm"
+                >
+                  🌐 Abrir no Gmail Web
+                </a>
               </div>
             </div>
 
@@ -3475,6 +3589,68 @@ showToast("Erro: " + data.error, 'error');
           </div>
         )}
       </main>
+
+      {/* Modal de Histórico */}
+      {showHistory && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-12 sm:pt-16 px-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowHistory(false)} />
+          <div className="relative w-full max-w-2xl max-h-[80vh] bg-gray-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                🕐 Histórico de Extrações
+              </h3>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(80vh-64px)] p-4">
+              {historyLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin h-6 w-6 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+              ) : historyData.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-3xl mb-3">📭</div>
+                  <p className="text-gray-400">Nenhuma extração encontrada.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {historyData.map((h: any) => (
+                    <div key={h.id} className="p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <span className="font-bold text-sm text-white">{h.keyword}</span>
+                          <span className="text-gray-400 text-sm mx-1.5">em</span>
+                          <span className="font-bold text-sm text-blue-400">{h.location}</span>
+                        </div>
+                        <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                          {new Date(h.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                        <span>🔹 {h.leads_found} leads encontrados</span>
+                        <span>🔹 {h.tokens_spent} tokens gastos</span>
+                        <span>🔹 {h.search_time_seconds}s de busca</span>
+                        {h.filter_rule && h.filter_rule !== 'none' && (
+                          <span>🔹 Filtro: {h.filter_rule}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Widget de Prova Social */}
       <div

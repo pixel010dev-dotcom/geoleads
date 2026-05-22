@@ -114,14 +114,16 @@ function smartNormalizeQuery(keyword: string, location: string) {
   let cleanKw = keyword.trim().toLowerCase();
   let cleanLoc = location.trim().toLowerCase();
 
-  // 2. Remove sufixos de estados comuns digitados na localização (ex: "- sp", ", sp", "sp")
-  cleanLoc = cleanLoc
-    .replace(/\s*-\s*[a-z]{2}$/i, '') // ex: "- sp" ou "- rj"
-    .replace(/,\s*[a-z]{2}$/i, '')   // ex: ", sp" ou ", rj"
-    .replace(/\s+[a-z]{2}$/i, '')    // ex: " sp" ou " rj" no fim da frase se a localização for maior
-    .trim();
+  // 2. Verifica dicionário ANTES de remover sufixos (evita "sp" virar string vazia)
+  if (!LOCATION_DICTIONARY[cleanLoc]) {
+    // Remove sufixos de estados comuns digitados na localização (ex: "- sp", ", sp", "sp")
+    cleanLoc = cleanLoc
+      .replace(/\s*-\s*[a-z]{2}$/i, '')
+      .replace(/,\s*[a-z]{2}$/i, '')
+      .replace(/\s+[a-z]{2}$/i, '')
+      .trim();
+  }
 
-  // Se a localização inteira sobrou apenas como sigla do estado (ex: "sp"), resolvemos pelo dicionário
   if (LOCATION_DICTIONARY[cleanLoc]) {
     cleanLoc = LOCATION_DICTIONARY[cleanLoc];
   } else {
@@ -365,26 +367,40 @@ async function enrichLead(lead: any) {
   return lead;
 }
 
+// Converte filterRule string única ou lista para array de regras
+function parseFilterRules(filterRule: string): string[] {
+  if (!filterRule || filterRule === 'none') return [];
+  return filterRule.split(',').map(r => r.trim()).filter(Boolean);
+}
+
 // Pré-filtro rápido ANTES de enriquecer (aplicado na extração do Maps)
 function preFilter(lead: any, filterRule: string): boolean {
-  if (!filterRule || filterRule === 'none') return true;
-  // Telefone pode ser filtrado direto do Maps (sem precisar visitar o site)
-  if (filterRule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
-  // Site pode ser filtrado direto do Maps  
-  if (filterRule === 'site') return lead.site && lead.site !== 'Sem site';
-  // Os demais (email, insta, face) precisam de enriquecimento, então passam aqui
-  return true;
+  const rules = parseFilterRules(filterRule);
+  if (rules.length === 0) return true;
+  // Todos os filtros devem passar (AND)
+  return rules.every(rule => {
+    if (rule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
+    if (rule === 'site') return lead.site && lead.site !== 'Sem site';
+    // Os demais (email, insta, face) precisam de enriquecimento, então passam aqui
+    return true;
+  });
 }
 
 // Pós-filtro DEPOIS de enriquecer (para email, insta, face)
 function postFilter(lead: any, filterRule: string): boolean {
-  if (!filterRule || filterRule === 'none' || filterRule === 'phone' || filterRule === 'site') return true;
-  if (filterRule === 'email') return !!lead.email;
-  if (filterRule === 'insta') return !!lead.instagram;
-  if (filterRule === 'face') return !!lead.facebook;
-  if (filterRule === 'tiktok') return !!lead.tiktok;
-  if (filterRule === 'cnpj') return !!lead.cnpj;
-  return true;
+  const rules = parseFilterRules(filterRule);
+  if (rules.length === 0) return true;
+  const postRules = rules.filter(r => !['phone', 'site', 'none'].includes(r));
+  if (postRules.length === 0) return true;
+  // Todos os filtros pós-enriquecimento devem passar (AND)
+  return postRules.every(rule => {
+    if (rule === 'email') return !!lead.email;
+    if (rule === 'insta') return !!lead.instagram;
+    if (rule === 'face') return !!lead.facebook;
+    if (rule === 'tiktok') return !!lead.tiktok;
+    if (rule === 'cnpj') return !!lead.cnpj;
+    return true;
+  });
 }
 
 export async function POST(request: Request) {
@@ -402,7 +418,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Preencha o termo e a cidade.' }, { status: 400 });
     }
 
-    if (filterRule && filterRule !== 'none' && filterRule !== 'phone' && filterRule !== 'site') {
+    if (filterRule && filterRule !== 'none') {
       const featureMap: Record<string, FeatureKey> = {
         email: 'emailEnrichment',
         cnpj: 'cnpjEnrichment',
@@ -410,11 +426,14 @@ export async function POST(request: Request) {
         face: 'socialEnrichment',
         tiktok: 'socialEnrichment'
       };
-      const requiredFeature = featureMap[filterRule];
-      if (requiredFeature && !requireFeature(auth.planId, requiredFeature)) {
-        return NextResponse.json({
-          error: `Filtro "${filterRule}" exige plano superior. Faca upgrade para usar.`
-        }, { status: 403 });
+      const rules = parseFilterRules(filterRule);
+      for (const rule of rules) {
+        const requiredFeature = featureMap[rule];
+        if (requiredFeature && !requireFeature(auth.planId, requiredFeature)) {
+          return NextResponse.json({
+            error: `Filtro "${rule}" exige plano superior. Faca upgrade para usar.`
+          }, { status: 403 });
+        }
       }
     }
 
@@ -439,10 +458,27 @@ export async function POST(request: Request) {
     const startTime = Date.now();
 
     browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    
-    // Bloqueia imagens e CSS para carregar mais rápido
-    await page.route('**/*.{png,jpg,jpeg,gif,svg,css,woff,woff2}', route => route.abort());
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      viewport: { width: 1920, height: 1080 },
+      locale: 'pt-BR',
+      timezoneId: 'America/Sao_Paulo',
+      geolocation: { latitude: -23.5505, longitude: -46.6333 },
+      permissions: ['geolocation'],
+    });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
+
+    // Bloqueia recursos não essenciais de forma stealth (204 em vez de abort)
+    await page.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2}', route => route.fulfill({ status: 204, body: '' }));
+
+    // Cookies de consentimento proativos (evita popup de cookies)
+    await page.context().addCookies([
+      { name: 'CONSENT', value: 'YES+cb.20250522-13-p0.en+FX+937', domain: '.google.com', path: '/' },
+      { name: 'SOCS', value: 'CAISHAgENhB0Dcm9sZQ==', domain: '.google.com', path: '/' },
+    ]);
 
     const query = encodeURIComponent(`${keyword} em ${location}`);
     await page.goto(`https://www.google.com/maps/search/${query}`, { 
@@ -450,15 +486,10 @@ export async function POST(request: Request) {
       timeout: 15000 
     });
     
-    // Aceita cookies do Google se aparecer
+    // Cookies de consentimento já foram definidos proativamente
+    // Logo após a navegação, verifica se o feed carregou
     try {
-      const acceptBtn = page.locator('button:has-text("Aceitar"), button:has-text("Accept"), form[action*="consent"] button');
-      await acceptBtn.first().click({ timeout: 3000 });
-    } catch(e) { /* Sem popup de cookies - ok */ }
-
-    // Espera o feed de resultados carregar
-    try {
-      await page.waitForSelector('div[role="feed"]', { timeout: 8000 });
+      await page.waitForSelector('div[role="feed"]', { timeout: 10000 });
     } catch(e) {
       await browser.close();
       return NextResponse.json({ 
@@ -472,10 +503,11 @@ export async function POST(request: Request) {
       });
     }
 
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1500 + Math.random() * 1000);
 
     const validLeads: any[] = [];
     const scrapedNames = new Set<string>();
+    const scrapedPhones = new Set<string>();
     let scrollAttempts = 0;
     let emptyScrolls = 0;
 
@@ -541,10 +573,80 @@ export async function POST(request: Request) {
                 if (v) telefone = v.trim();
               }
             }
-            
-            // Avaliação
-            const ratingMatch = text.match(/(\d[.,]\d)\s/);
-            const avaliacao = ratingMatch ? ratingMatch[1] : 'N/A';
+
+            // 5. Fallback: links tel:
+            if (telefone === 'Não informado') {
+              const telLink = container.querySelector('a[href^="tel:"]');
+              if (telLink) {
+                const t = telLink.getAttribute('href')?.replace('tel:', '').trim();
+                if (t) telefone = t;
+              }
+            }
+
+            // 6. Fallback: WhatsApp links
+            if (telefone === 'Não informado') {
+              const waLink = container.querySelector('a[href*="wa.me"], a[href*="whatsapp.com"]');
+              if (waLink) {
+                const href = waLink.getAttribute('href') || '';
+                const wm = href.match(/(\d{10,15})/);
+                if (wm) telefone = wm[1];
+              }
+            }
+
+            // 7. Fallback: itemprop telephone
+            if (telefone === 'Não informado') {
+              const item = container.querySelector('[itemprop="telephone"]');
+              if (item) telefone = (item as HTMLElement).innerText?.trim() || '';
+            }
+
+            // Avaliação via aria-label semântico (mais preciso que regex)
+            let avaliacao = 'N/A';
+            const ratingEl = container.querySelector('[role="img"][aria-label*="estrelas"], [role="img"][aria-label*="stars"]');
+            if (ratingEl) {
+              const ariaLabel = ratingEl.getAttribute('aria-label') || '';
+              const rMatch = ariaLabel.match(/(\d[.,]\d)/);
+              if (rMatch) avaliacao = rMatch[1].replace(',', '.');
+            }
+            if (avaliacao === 'N/A') {
+              const rMatch = text.match(/(\d[.,]\d)\s*(?:estrela|star|\(|$)/i);
+              if (rMatch) avaliacao = rMatch[1].replace(',', '.');
+            }
+
+            // Categoria (tipo de negócio ex: "Restaurante italiano")
+            let categoria = '';
+            const textParts = text.split('\n').filter(p => p.trim());
+            for (let i = 0; i < textParts.length; i++) {
+              const part = textParts[i].trim();
+              if (part.includes('·') || part.includes('R$')) {
+                const catMatch = part.match(/^(.+?)\s*(?:·|R\$)/);
+                if (catMatch) categoria = catMatch[1].trim();
+                break;
+              }
+            }
+
+            // Endereço
+            let endereco = '';
+            for (const part of textParts) {
+              const addrMatch = part.match(/((?:Rua|Av\.?|Avenida|Travessa|Praça|Alameda|Rodovia)\s.+)/i);
+              if (addrMatch) { endereco = addrMatch[1]; break; }
+            }
+            if (!endereco) {
+              const addrMatch = text.match(/([A-Za-zÀ-ÿ\s]+\d+\s*-\s*[A-Za-zÀ-ÿ\s]+,\s*[A-Za-zÀ-ÿ\s]+-[A-Z]{2})/);
+              if (addrMatch) endereco = addrMatch[1];
+            }
+
+            // Horários (ex: "Aberto ⋅ Fecha às 22:00")
+            let horarios = '';
+            const hoursMatch = text.match(/(Aberto|Fechado)(?:\s*⋅\s*)(.+?)(?:\.|$)/i);
+            if (hoursMatch) horarios = hoursMatch[0].trim();
+
+            // CEP
+            const cepMatch = text.match(/\d{5}-?\d{3}/);
+            const cep = cepMatch ? cepMatch[0] : '';
+
+            // Review count
+            const reviewCountMatch = text.match(/\((\d[\d.]*)\)\s*(?:avalia|review)/i);
+            const reviewCount = reviewCountMatch ? reviewCountMatch[1] : '';
 
             // Site oficial
             let site = 'Sem site';
@@ -560,15 +662,22 @@ export async function POST(request: Request) {
             // Place URL
             const placeUrl = (anchor as HTMLAnchorElement).href || '';
             
-            chunk.push({ nome, telefone, avaliacao, site, placeUrl });
+            chunk.push({ nome, telefone, avaliacao, site, placeUrl, cep, reviewCount, categoria, endereco, horarios });
           } catch(e) {}
         }
         return chunk;
       });
 
-      // 2. Filtra novos leads (não repetidos)
-      const newLeads = rawChunk.filter(l => !scrapedNames.has(l.nome));
-      newLeads.forEach(l => scrapedNames.add(l.nome));
+      // 2. Filtra novos leads (não repetidos) — nome composto + telefone
+      const newLeads = rawChunk.filter(l => {
+        if (scrapedNames.has(l.nome)) return false;
+        if (l.telefone !== 'Não informado' && scrapedPhones.has(l.telefone)) return false;
+        return true;
+      });
+      newLeads.forEach(l => {
+        scrapedNames.add(l.nome);
+        if (l.telefone !== 'Não informado') scrapedPhones.add(l.telefone);
+      });
 
       if (newLeads.length === 0) {
         emptyScrolls++;
@@ -599,39 +708,73 @@ export async function POST(request: Request) {
       if (validLeads.length < targetLimit) {
         await page.evaluate(() => {
           const feed = document.querySelector('div[role="feed"]');
-          if (feed) feed.scrollBy(0, 1500);
+          if (feed) feed.scrollBy(0, 1200 + Math.random() * 600);
         });
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1200 + Math.random() * 800);
       }
       scrollAttempts++;
     }
 
     // Segunda passada: extrair telefone de leads que ficaram sem (info panel do Maps)
+    // Executa em paralelo com limite de concorrência (5 por vez)
+    // AGORA: espera o elemento de telefone renderizar (networkidle + waitForSelector)
     const leadsSemTelefone = validLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
-    for (let i = 0; i < Math.min(leadsSemTelefone.length, 15); i++) {
-      try {
-        await page.goto(leadsSemTelefone[i].placeUrl, { waitUntil: 'domcontentloaded', timeout: 8000 });
-        await page.waitForTimeout(1500);
-        const phone = await page.evaluate(() => {
-          const btn = document.querySelector('button[data-item-id*="phone"]');
-          if (btn) {
-            const label = btn.getAttribute('aria-label');
-            if (label) {
-              const m = label.match(/\+?\d[\d\s\-\(\)]{8,18}\d/);
-              if (m) return m[0].trim();
+    const BATCH_SIZE = 5;
+    const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 30);
+    for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
+      const batch = leadsSemTelefone.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (lead) => {
+        let tab: any = null;
+        try {
+          tab = await context.newPage();
+          await tab.goto(lead.placeUrl, {
+            waitUntil: 'networkidle',
+            timeout: 12000,
+            referer: 'https://www.google.com/maps'
+          });
+          // Aguarda o elemento de telefone renderizar (ou falha silenciosamente)
+          await tab.waitForSelector('button[data-item-id*="phone"], a[href^="tel:"], [data-phone-number]', {
+            timeout: 8000
+          }).catch(() => {});
+          // Scroll para acionar lazy rendering
+          await tab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await tab.waitForTimeout(300);
+          const phone = await tab.evaluate(() => {
+            const selectors = [
+              'button[data-item-id*="phone"]',
+              'a[data-item-id*="phone"]',
+              'a[href^="tel:"]',
+              '[data-phone-number]',
+              'button[aria-label*="telefone"]',
+              'button[aria-label*="phone"]',
+              '[data-tooltip*="telefone"]',
+              '[data-tooltip*="phone"]',
+            ];
+            for (const sel of selectors) {
+              const el = document.querySelector(sel);
+              if (!el) continue;
+              const value = el.getAttribute('aria-label') ||
+                            el.getAttribute('data-phone-number') ||
+                            el.getAttribute('href')?.replace('tel:', '') ||
+                            el.getAttribute('data-value') ||
+                            (el as HTMLElement).innerText;
+              if (value) {
+                const m = value.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/);
+                if (m) return m[1].trim();
+              }
             }
-          }
-          const text = document.body?.innerText || '';
-          const m = text.match(/(?:Telefone|Tel|Phone|Fone|WhatsApp)[:\s]*([\+\d][\d\s\-\(\)]{8,18}\d)/i);
-          if (m) return m[1].trim();
-          const m2 = text.match(/\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/);
-          if (m2) return m2[0];
-          return '';
-        });
-        if (phone) leadsSemTelefone[i].telefone = phone;
-      } catch (e) {
-        // Falha ao navegar - continua
-      }
+            const text = document.body?.innerText || '';
+            const m = text.match(/\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/);
+            if (m) return m[0];
+            return '';
+          });
+          if (phone) lead.telefone = phone;
+        } catch {
+          // Falha ao navegar - continua
+        } finally {
+          if (tab) try { await tab.close(); } catch {}
+        }
+      }));
     }
 
     await browser.close();
@@ -639,6 +782,7 @@ export async function POST(request: Request) {
 
     const gastos = validLeads.length;
     if (auth && gastos > 0) {
+      let deducted = false;
       const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
         p_user_id: auth.user.id,
         p_amount: gastos
@@ -646,7 +790,10 @@ export async function POST(request: Request) {
       if (deductError && !deductError.message?.includes('does not exist')) {
         console.warn('RPC deduct_tokens falhou, usando fallback:', deductError.message);
       }
-      if (deductError) {
+      if (!deductError) {
+        deducted = true;
+      }
+      if (!deducted) {
         const { error: fallbackError } = await requestSupabase
           .from('profiles')
           .update({ tokens: Math.max(0, auth.tokens - gastos) })
@@ -656,6 +803,22 @@ export async function POST(request: Request) {
           console.error('Falha ao deduzir tokens (fallback):', fallbackError.message);
         }
       }
+    }
+
+    // Salva histórico da extração
+    try {
+      await requestSupabase.from('extraction_history').insert({
+        user_id: auth.user.id,
+        keyword,
+        location,
+        filter_rule: filterRule || '',
+        leads_found: validLeads.length,
+        leads_requested: targetLimit,
+        tokens_spent: gastos,
+        search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+      });
+    } catch (histErr) {
+      // Falha ao salvar histórico não deve quebrar a extração
     }
 
     return NextResponse.json({ 
@@ -675,7 +838,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("ERRO NO MOTOR:", msg);
-    if (browser) await browser.close();
+    if (browser) { try { await browser.close(); } catch {} }
     return NextResponse.json({ error: 'Erro ao extrair: ' + msg }, { status: 500 });
   }
 }

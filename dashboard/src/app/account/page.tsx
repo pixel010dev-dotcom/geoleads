@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { getPlanById, plans, paidPlanIds, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
 import Globe from '@/components/Globe';
 
 export default function Account() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [tokens, setTokens] = useState<number>(0);
   const [planId, setPlanId] = useState<PlanId>('free');
@@ -13,45 +16,46 @@ export default function Account() {
   const [payments, setPayments] = useState<any[]>([]);
   const [loadError, setLoadError] = useState('');
 
+  const loadAccountData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        router.push('/login');
+        return;
+      }
+
+      setUser(session.user);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tokens, plan_id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profile) {
+        setTokens(profile.tokens);
+        setPlanId((profile.plan_id as PlanId) || 'free');
+      }
+
+      const { data: history } = await supabase
+        .from('payment_history')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      setPayments(history || []);
+    } catch (err) {
+      console.error('Account load error:', err);
+      setLoadError('Erro ao carregar dados. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.title = 'GeoLeads - Minha Conta';
-    const loadData = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          window.location.href = '/login';
-          return;
-        }
-
-        setUser(session.user);
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('tokens, plan_id')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (profile) {
-          setTokens(profile.tokens);
-          setPlanId((profile.plan_id as PlanId) || 'free');
-        }
-
-        const { data: history } = await supabase
-          .from('payment_history')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        setPayments(history || []);
-      } catch (err) {
-        console.error('Account load error:', err);
-        setLoadError('Erro ao carregar dados. Tente novamente.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+    loadAccountData();
   }, []);
 
   if (loading) {
@@ -70,7 +74,7 @@ export default function Account() {
       <div className="app-shell min-h-screen text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 mb-4">{loadError}</p>
-          <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer">
+          <button onClick={() => { setLoading(true); setLoadError(''); loadAccountData(); }} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer">
             Tentar Novamente
           </button>
         </div>
@@ -85,12 +89,12 @@ export default function Account() {
     <div className="app-shell min-h-screen text-white relative pb-16">
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
         <div className="app-container min-h-16 py-3 flex items-center justify-between gap-3">
-          <a href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2 group">
             <Globe size={28} />
             <span className="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
-          </a>
+          </Link>
           <div className="flex items-center gap-4">
-            <a href="/" className="text-gray-400 hover:text-white transition-colors text-sm">Voltar ao Dashboard</a>
+            <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">Voltar ao Dashboard</Link>
           </div>
         </div>
       </nav>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { createAdminSupabaseClient } from '@/lib/server-auth';
+import { sendFeedbackNotification } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -28,6 +28,8 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: 'Tabela não configurada. Execute a migration SQL.' }, { status: 500 });
     }
+
+    sendFeedbackNotification({ name: name || 'Usuário', rating, feedback, userId });
 
     return NextResponse.json({ success: true });
   } catch (err) {

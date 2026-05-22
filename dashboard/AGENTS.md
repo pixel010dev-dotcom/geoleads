@@ -152,6 +152,56 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - supabase/migration_whatsapp_persist.sql ✓
 - supabase/migration_testimonials.sql ✓
 
+## Últimas alterações (22/05/2026) — quarta leva: Deep Bug Fix + Motor v3 + Features
+
+### Motor de Extração v3 (route.ts)
+- Anti-bot detection: user agent realístico, viewport 1920x1080, locale pt-BR, timezone America/Sao_Paulo, geolocation SP, navigator.webdriver=false
+- Resource blocking stealth: 204 no content em vez de abort (menos detectável)
+- Cookies de consentimento do Google definidos proativamente ANTES da navegação (evita popup)
+- Delay randomizado entre scrolls (1200-2000ms) e após load (1500-2500ms)
+- Paralelismo na segunda passada: abre até 5 place pages simultaneamente (Promise.all com concorrência 5)
+- Limite da segunda passada aumentado de 15 para 30 leads
+- Novas estratégias de telefone: a[href^="tel:"], a[href*="wa.me"/whatsapp.com], [itemprop="telephone"]
+- Deduplicação melhorada: agora usa nome + telefone como chave composta (scrapedPhones Set)
+- Avaliação corrigida: usa aria-label semântico [role="img"][aria-label*="estrelas"] em vez de regex frágil
+- Novo campo CEP extraído dos cards (\d{5}-?\d{3})
+- Novo campo reviewCount extraído
+
+### Navegação Interna (SPA)
+- Todos os 7 window.location.href substituídos por router.push() (dashboard, account, pricing, login)
+- Todos os 6 <a href="/..."> substituídos por Next.js <Link href="/..."> (dashboard, account)
+- window.location.reload() substituído por router.push() (dashboard logout) e refetch (account retry)
+- LockedFeaturePanel e LeadGuideWidget movidos para fora do componente Home (quebravam reconciliação do React)
+- 3 alert() no pricing substituídos por showToast()
+- Toast component adicionado na página de pricing
+- Login page: redirect agora usa router.push()
+
+### Extração Histórico
+- Nova tabela extraction_history (SQL migration em supabase/migration_extraction_history.sql)
+- API GET /api/extract/history — retorna últimas 50 extrações do usuário
+- Extrator salva histórico automaticamente após cada extração
+- Dashboard: botão "🕐 Histórico" abaixo do extrator + modal com tabela
+
+### CRM Bulk Actions
+- "Mover para:" dropdown no CRM para alterar stage de múltiplos leads selecionados
+- Suporta: Novo, Em Contato, Proposta, Fechado, Cliente
+- Integrado com o sistema de seleção múltipla e saveCrm() existente
+
+### Email Notification (Feedback)
+- Nova lib email.ts com nodemailer (Gmail SMTP)
+- /api/feedback agora envia email de notificação quando feedback é submetido
+- .env.example atualizado com SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, NOTIFICATION_EMAIL
+
+### Suporte
+- Footer da landing page: link "Suporte" via mailto
+- Dashboard: botão "🌐 Abrir no Gmail Web" no card de suporte
+
+### Bug Fixes
+- ScrollReveal: setTimeout limpo no cleanup do useEffect
+- Extract route: browser.close() com try-catch no catch handler
+- Chatbot route: handlers connection.update e messages.upsert com try-catch externo (evita unhandled promise rejections)
+- @types/nodemailer instalado (TS build fix)
+
 ## Próximos passos sugeridos
 1. ~~Melhorar SEO da landing page~~ (feito)
 2. ~~Recolher testimonials reais dos usuários~~ (feito)

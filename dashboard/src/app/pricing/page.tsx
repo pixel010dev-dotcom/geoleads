@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import Toast, { showToast } from '@/components/Toast';
 import { getCostPerLeadLabel, paidPlanIds, plans, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
 
 const planIcons: Record<PlanId, string> = {
@@ -36,6 +38,7 @@ type PixSession = {
 };
 
 export default function Pricing() {
+  const router = useRouter();
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>('pro');
   const [user, setUser] = useState<User | null>(null);
@@ -89,7 +92,7 @@ export default function Pricing() {
           stopPolling();
           setPixMessage('Pagamento confirmado! Redirecionando...');
           window.setTimeout(() => {
-            window.location.href = `/?checkout=success&plan=${selectedPlanId}`;
+            router.push(`/?checkout=success&plan=${selectedPlanId}`);
           }, 1500);
         }
       } catch {
@@ -101,7 +104,7 @@ export default function Pricing() {
   const checkoutRequest = async (planId: PlanId, method: 'pix' | 'card') => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
-      window.location.href = `/login?next=/pricing&plan=${planId}`;
+      router.push(`/login?next=/pricing&plan=${planId}`);
       return null;
     }
 
@@ -146,7 +149,7 @@ export default function Pricing() {
       startPolling(data.paymentId, token);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Erro desconhecido';
-      alert(`Erro PIX: ${message}`);
+      showToast(`Erro PIX: ${message}`, 'error');
     } finally {
       setLoadingPlan(null);
     }
@@ -161,11 +164,11 @@ export default function Pricing() {
       if (result.data.url) {
         window.location.href = result.data.url;
       } else {
-        alert('Erro: link do Mercado Pago nao gerado.');
+        showToast('Erro: link do Mercado Pago nao gerado.', 'error');
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Erro desconhecido';
-      alert(`Erro checkout: ${message}`);
+      showToast(`Erro checkout: ${message}`, 'error');
     } finally {
       setLoadingPlan(null);
     }
@@ -190,6 +193,7 @@ export default function Pricing() {
 
   return (
     <div className="app-shell min-h-screen text-white py-5 sm:py-8 relative overflow-hidden">
+      <Toast />
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-35" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(760px,92vw)] h-[280px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
 

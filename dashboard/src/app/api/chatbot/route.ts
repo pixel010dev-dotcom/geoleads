@@ -260,13 +260,14 @@ const startBotSession = async (session: BotSession) => {
   socket.ev.on('creds.update', saveCreds);
 
   socket.ev.on('connection.update', async (update: any) => {
-    const { connection, qr, lastDisconnect } = update;
+    try {
+      const { connection, qr, lastDisconnect } = update;
 
-    if (qr) {
-      session.qr = qr;
-      session.qrDataUrl = await QRCode.toDataURL(qr, { width: 320, margin: 1 });
-      session.status = 'qr';
-    }
+      if (qr) {
+        session.qr = qr;
+        session.qrDataUrl = await QRCode.toDataURL(qr, { width: 320, margin: 1 });
+        session.status = 'qr';
+      }
 
     if (connection === 'open') {
       session.status = 'connected';
@@ -327,10 +328,14 @@ const startBotSession = async (session: BotSession) => {
       session.status = 'error';
       session.lastError = `Conexão caiu após várias tentativas. Código: ${session.lastDisconnectCode}`;
     }
+    } catch (e: any) {
+      session.lastError = `Erro no connection.update: ${e?.message || 'desconhecido'}`;
+    }
   });
 
   socket.ev.on('messages.upsert', async (event: any) => {
-    session.lastEventType = event.type || 'unknown';
+    try {
+      session.lastEventType = event.type || 'unknown';
 
     if (!session.config.enabled) {
       session.lastIgnoredReason = 'Bot desativado nas configurações.';
@@ -423,6 +428,9 @@ const startBotSession = async (session: BotSession) => {
         session.lastIgnoredReason = 'Erro ao enviar resposta automática.';
       }
     }
+    } catch (e: any) {
+      session.lastError = `Erro no messages.upsert: ${e?.message || 'desconhecido'}`;
+    }
   });
 
   return session;
@@ -499,7 +507,8 @@ export async function POST(request: Request) {
     socket.ev.on('creds.update', saveCreds);
 
     socket.ev.on('connection.update', async (update: any) => {
-      const { connection, lastDisconnect } = update;
+      try {
+        const { connection, lastDisconnect } = update;
 
       if (connection === 'open') {
         session.status = 'connected';
@@ -550,6 +559,9 @@ export async function POST(request: Request) {
           session.status = 'disconnected';
           session.lastError = `Conexão caiu após várias tentativas. Código: ${session.lastDisconnectCode}`;
         }
+      }
+      } catch (e: any) {
+        session.lastError = `Erro no connection.update (pairing): ${e?.message || 'desconhecido'}`;
       }
     });
 
