@@ -121,7 +121,31 @@ const LOCATION_DICTIONARY: Record<string, string> = {
   'manos': 'Manaus',
   'manaus': 'Manaus',
   'vitora': 'Vitória',
-  'vitoria': 'Vitória'
+  'vitoria': 'Vitória',
+  // Estados brasileiros
+  'mg': 'Minas Gerais', 'ba': 'Bahia', 'pr': 'Paraná', 'rs': 'Rio Grande do Sul',
+  'sc': 'Santa Catarina', 'go': 'Goiás', 'pe': 'Pernambuco', 'ce': 'Ceará',
+  'pa': 'Pará', 'ma': 'Maranhão', 'pb': 'Paraíba', 'rn': 'Rio Grande do Norte',
+  'al': 'Alagoas', 'pi': 'Piauí', 'se': 'Sergipe', 'ro': 'Rondônia',
+  'to': 'Tocantins', 'ac': 'Acre', 'ap': 'Amapá', 'rr': 'Roraima',
+  'ms': 'Mato Grosso do Sul', 'mt': 'Mato Grosso', 'es': 'Espírito Santo',
+  'df': 'Distrito Federal',
+  // Países
+  'eua': 'Estados Unidos', 'usa': 'Estados Unidos', 'estados unidos': 'Estados Unidos',
+  'eua (estados unidos)': 'Estados Unidos', 'estados unidos da américa': 'Estados Unidos',
+  'espanha': 'Espanha', 'china': 'China', 'iraque': 'Iraque', 'italia': 'Itália',
+  'itália': 'Itália', 'frança': 'França', 'franca': 'França', 'alemanha': 'Alemanha',
+  'inglaterra': 'Inglaterra', 'reino unido': 'Reino Unido', 'portugal': 'Portugal',
+  'argentina': 'Argentina', 'méxico': 'México', 'mexico': 'México',
+  'canadá': 'Canadá', 'canada': 'Canadá', 'japão': 'Japão', 'japao': 'Japão',
+  'austrália': 'Austrália', 'australia': 'Austrália',
+  // EUA estados
+  'ny': 'Nova York', 'nova york': 'Nova York', 'california': 'Califórnia',
+  'califórnia': 'Califórnia', 'florida': 'Flórida', 'flórida': 'Flórida',
+  'miami': 'Miami', 'los angeles': 'Los Angeles', 'chicago': 'Chicago',
+  'orlando': 'Orlando', 'washington': 'Washington', 'boston': 'Boston',
+  'dallas': 'Dallas', 'houston': 'Houston', 'seattle': 'Seattle',
+  'san francisco': 'San Francisco', 'las vegas': 'Las Vegas',
 };
 
 // Regiões amplas — quando detectadas, busca sem localização específica
@@ -140,7 +164,10 @@ function smartNormalizeQuery(keyword: string, location: string) {
   let cleanKw = keyword.trim().toLowerCase();
   let cleanLoc = location.trim().toLowerCase();
 
-  // 2. Verifica dicionário ANTES de remover sufixos (evita "sp" virar string vazia)
+  // 2. Remove artigos/preposições comuns da localização ("em sp", "no rio", "na espanha", "nos eua")
+  cleanLoc = cleanLoc.replace(/^(em|no|na|nos|nas|em todo|em toda)\s+/i, '').trim();
+
+  // 3. Verifica dicionário ANTES de remover sufixos (evita "sp" virar string vazia)
   if (!LOCATION_DICTIONARY[cleanLoc]) {
     // Remove sufixos de estados comuns digitados na localização (ex: "- sp", ", sp", "sp")
     cleanLoc = cleanLoc
