@@ -842,18 +842,18 @@ export async function POST(request: Request) {
     }
 
     // Cria job no Supabase e dispara extração em background
-    const jobId = crypto.randomUUID();
-    const { error: jobError } = await requestSupabase.from('extraction_jobs').insert({
-      id: jobId, user_id: auth.user.id, status: 'running',
+    const { data: jobData, error: jobError } = await requestSupabase.from('extraction_jobs').insert({
+      user_id: auth.user.id, status: 'running',
       keyword, location, filter_rule: filterRule || '',
       leads_count: 0, scanned: 0, cities_scanned: 0, search_time_seconds: 0,
       started_at: new Date().toISOString(),
-    });
-    if (jobError) {
+    }).select('id').single();
+    if (jobError || !jobData) {
       done();
       console.error('Falha ao criar job:', jobError);
       return NextResponse.json({ error: 'Falha ao iniciar extração. Tente novamente.' }, { status: 500 });
     }
+    const jobId = jobData.id;
 
     runExtraction({
       jobId, auth, requestSupabase,
