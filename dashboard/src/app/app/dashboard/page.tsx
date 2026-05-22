@@ -275,6 +275,7 @@ export default function Home() {
   const [crmPage, setCrmPage] = useState(0);
   const [bulkStageLoading, setBulkStageLoading] = useState(false);
   const [bulkStageTarget, setBulkStageTarget] = useState('Novo');
+  const [enrichLoading, setEnrichLoading] = useState(false);
   const CRM_PAGE_SIZE = 25;
 
   // WhatsApp Sender States
@@ -1035,6 +1036,68 @@ showToast(`${addedCount} leads adicionados ao CRM!`, 'success');
     showToast(`${selectedCrmLeads.length} leads movidos para "${bulkStageTarget}"`, 'success');
   };
 
+  const handleReEnrichSelected = async () => {
+    const toEnrich = crmLeads.filter(l => selectedCrmLeads.includes(l.nome) && l.site && l.site !== 'Sem site');
+    if (toEnrich.length === 0) {
+      showToast('Nenhum lead selecionado com site para enriquecer.', 'warning');
+      return;
+    }
+    setEnrichLoading(true);
+    let enriched = 0;
+    const updated = [...crmLeads];
+    for (const lead of toEnrich) {
+      try {
+        const headers = await getAuthedJsonHeaders();
+        if (!headers) return;
+        const res = await fetch('/api/lead-enrich', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade })
+        });
+        const data = await res.json();
+        if (data.success && data.enriched) {
+          const idx = updated.findIndex(l => l.nome === lead.nome);
+          if (idx >= 0) {
+            updated[idx] = { ...updated[idx], ...data.enriched };
+          }
+          enriched++;
+        }
+      } catch {}
+    }
+    saveCrm(updated);
+    setEnrichLoading(false);
+    showToast(`${enriched} de ${toEnrich.length} leads re-enriquecidos!`, 'success');
+  };
+
+  const handleReEnrichSingle = async (lead: any) => {
+    if (!lead.site || lead.site === 'Sem site') {
+      showToast('Lead sem site para enriquecer.', 'warning');
+      return;
+    }
+    try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+      const res = await fetch('/api/lead-enrich', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade })
+      });
+      const data = await res.json();
+      if (data.success && data.enriched) {
+        const updated = crmLeads.map(l => {
+          if (l.nome === lead.nome) return { ...l, ...data.enriched };
+          return l;
+        });
+        saveCrm(updated);
+        showToast(`"${lead.nome}" enriquecido!`, 'success');
+      } else {
+        showToast(`Falha ao enriquecer "${lead.nome}".`, 'error');
+      }
+    } catch {
+      showToast(`Erro ao enriquecer "${lead.nome}".`, 'error');
+    }
+  };
+
   const finishBulkQueue = () => {
     setIsSendingBulk(false);
     setIsAutoSending(false);
@@ -1344,6 +1407,36 @@ showToast("Erro: " + data.error, 'error');
     link.href = url;
     link.download = `GeoLeads_${keyword}_${new Date().toLocaleDateString('pt-BR')}.csv`;
     link.click();
+  };
+
+  const exportToXLSX = async () => {
+    if (!requireFeature('export')) {
+      showLockedFeature('export');
+      return;
+    }
+    if (leads.length === 0) return;
+    try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+      const res = await fetch('/api/export/xlsx', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ leads, filename: `GeoLeads_${keyword}_${new Date().toLocaleDateString('pt-BR')}.xlsx` })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro ao exportar XLSX');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `GeoLeads_${keyword}_${new Date().toLocaleDateString('pt-BR')}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao exportar XLSX', 'error');
+    }
   };
 
   const renderWhatsAppMessage = (lead: any, template = waTemplate) => {
@@ -1844,6 +1937,13 @@ showToast("Erro: " + data.error, 'error');
                       Exportar CSV
                     </button>
                     <button 
+                      onClick={exportToXLSX}
+                      disabled={leads.length === 0}
+                      className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20 cursor-pointer"
+                    >
+                      📊 XLSX
+                    </button>
+                    <button 
                       onClick={fetchHistory}
                       className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-4 py-2 rounded-lg border border-amber-500/20 cursor-pointer"
                     >
@@ -2152,6 +2252,13 @@ showToast("Erro: " + data.error, 'error');
                     >
                       {bulkStageLoading ? 'Movendo...' : 'Aplicar'}
                     </button>
+                    <button
+                      onClick={handleReEnrichSelected}
+                      disabled={enrichLoading}
+                      className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white border border-amber-500/30 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {enrichLoading ? 'Enriquecendo...' : '🔄 Re-enriquecer'}
+                    </button>
                   </>
                 )}
                 <input 
@@ -2276,6 +2383,14 @@ showToast("Erro: " + data.error, 'error');
                               💬 Contatar
                             </button>
                           )}
+                          {lead.site && lead.site !== 'Sem site' && (
+                            <button
+                              onClick={() => handleReEnrichSingle(lead)}
+                              className="p-2 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-colors text-xs font-semibold cursor-pointer"
+                            >
+                              🔄 Re-enriquecer
+                            </button>
+                          )}
                           <button
                             onClick={() => handleRemoveFromCRM(lead.nome)}
                             className="p-2 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-colors text-xs font-semibold cursor-pointer"
@@ -2396,6 +2511,14 @@ showToast("Erro: " + data.error, 'error');
                           className="flex-1 py-2.5 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
                         >
                           💬 Contatar
+                        </button>
+                      )}
+                      {lead.site && lead.site !== 'Sem site' && (
+                        <button
+                          onClick={() => handleReEnrichSingle(lead)}
+                          className="flex-1 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          🔄 Re-enriquecer
                         </button>
                       )}
                       <button

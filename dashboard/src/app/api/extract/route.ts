@@ -5,6 +5,21 @@ import { type FeatureKey } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 
+// Controle de extrações simultâneas por usuário
+const activeExtractions = new Map<string, number>();
+const MAX_CONCURRENT_PER_USER = 2;
+const MAX_GLOBAL_CONCURRENT = 10;
+
+function getConcurrentExtractions(userId: string): number {
+  return activeExtractions.get(userId) || 0;
+}
+
+function getGlobalConcurrent(): number {
+  let total = 0;
+  for (const count of activeExtractions.values()) total += count;
+  return total;
+}
+
 // Algoritmo de Distância de Levenshtein para medir similaridade entre palavras
 function getLevenshteinDistance(a: string, b: string): number {
   const tmp = [];
@@ -191,8 +206,46 @@ const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
 const HREF_REGEX = /href=["']([^"']+)["']/gi;
 const ABSOLUTE_SOCIAL_REGEX = /https?:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi;
 
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 0) return raw;
+  // Se já tem DDI (+55), mantém
+  if (digits.startsWith('55') && digits.length >= 12) {
+    return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+  }
+  // Se tem DDI diferente
+  if (digits.length >= 13 && !digits.startsWith('55')) {
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+  }
+  // Só DDD + número (assume Brasil)
+  if (digits.length >= 10 && digits.length <= 11) {
+    return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+  }
+  // Fallback: formata o que tem
+  return digits;
+}
+
 function normalizeCnpj(value: string) {
   return value.replace(/\D/g, '').slice(0, 14);
+}
+
+function validateCnpjChecksum(cnpj: string): boolean {
+  const digits = cnpj.replace(/\D/g, '').slice(0, 14);
+  if (digits.length !== 14) return false;
+  // Rejeita sequências iguais (11.111.111/1111-11)
+  if (/^(\d)\1{13}$/.test(digits)) return false;
+  // Valida 1º dígito verificador
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += parseInt(digits[i]) * (i < 4 ? 5 - i : 13 - i);
+  let digit1 = 11 - (sum % 11);
+  if (digit1 >= 10) digit1 = 0;
+  if (parseInt(digits[12]) !== digit1) return false;
+  // Valida 2º dígito verificador
+  sum = 0;
+  for (let i = 0; i < 13; i++) sum += parseInt(digits[i]) * (i < 5 ? 6 - i : 13 - i);
+  let digit2 = 11 - (sum % 11);
+  if (digit2 >= 10) digit2 = 0;
+  return parseInt(digits[13]) === digit2;
 }
 
 function formatCnpj(value: string) {
@@ -241,7 +294,9 @@ function pickEmail(html: string) {
 
 function pickCnpj(html: string) {
   const match = html.match(CNPJ_REGEX);
-  return match ? formatCnpj(match[0]) : '';
+  if (!match) return '';
+  const formatted = formatCnpj(match[0]);
+  return validateCnpjChecksum(formatted) ? formatted : '';
 }
 
 function normalizeSocialUrl(rawUrl: string, baseUrl: string) {
@@ -333,6 +388,13 @@ function applySignalsToLead(lead: any, html: string, baseUrl: string) {
   if (!lead.email) lead.email = pickEmail(html);
   if (!lead.cnpj) lead.cnpj = pickCnpj(html);
 
+  // Tenta extrair telefone do HTML do site (fallback pra quando o Maps não tem)
+  if (!lead.telefone || lead.telefone === 'Não informado') {
+    const text = html.replace(/<[^>]*>/g, ' ');
+    const telMatch = text.match(/\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/);
+    if (telMatch) lead.telefone = normalizePhone(telMatch[0]);
+  }
+
   const socials = pickSocialLinks(html, baseUrl);
   if (!lead.instagram) lead.instagram = socials.instagram;
   if (!lead.facebook) lead.facebook = socials.facebook;
@@ -340,6 +402,19 @@ function applySignalsToLead(lead: any, html: string, baseUrl: string) {
 }
 
 // Enriquecimento: visita o site da empresa e caca contatos, CNPJ e redes.
+const EMAIL_FALLBACK_PATTERNS = [
+  (domain: string) => `contato@${domain}`,
+  (domain: string) => `comercial@${domain}`,
+  (domain: string) => `sac@${domain}`,
+  (domain: string) => `admin@${domain}`,
+  (domain: string) => `vendas@${domain}`,
+  (domain: string) => `adm@${domain}`,
+  (domain: string) => `contato@www.${domain}`,
+];
+
+// Cache de enriquecimento por domínio (evita refetch do mesmo site)
+const enrichCache = new Map<string, { email: string; cnpj: string; instagram: string; facebook: string; tiktok: string }>();
+
 async function enrichLead(lead: any) {
   lead.email = '';
   lead.instagram = '';
@@ -350,8 +425,24 @@ async function enrichLead(lead: any) {
   if (!lead.site || lead.site === 'Sem site') return lead;
 
   try {
+    const domain = extractDomain(lead.site);
+    // 1. Tenta cache
+    if (domain && enrichCache.has(domain)) {
+      const cached = enrichCache.get(domain)!;
+      lead.email = cached.email;
+      lead.cnpj = cached.cnpj;
+      lead.instagram = cached.instagram;
+      lead.facebook = cached.facebook;
+      lead.tiktok = cached.tiktok;
+      return lead;
+    }
+
     const homeHtml = await fetchHtml(lead.site);
-    if (!homeHtml) return lead;
+    if (!homeHtml) {
+      // Se o site não respondeu, tenta fallback de email por padrões comuns
+      if (domain) applyEmailFallback(lead, domain);
+      return lead;
+    }
 
     applySignalsToLead(lead, homeHtml, lead.site);
 
@@ -362,9 +453,42 @@ async function enrichLead(lead: any) {
         if (html) applySignalsToLead(lead, html, contactUrls[index]);
       });
     }
+
+    // 2. Fallback de email se ainda não encontrou
+    if (!lead.email && domain) {
+      applyEmailFallback(lead, domain);
+    }
+
+    // 3. Salva no cache
+    if (domain) {
+      enrichCache.set(domain, {
+        email: lead.email,
+        cnpj: lead.cnpj,
+        instagram: lead.instagram,
+        facebook: lead.facebook,
+        tiktok: lead.tiktok,
+      });
+    }
   } catch (e) { /* Timeout ou site fora do ar - ok, continua */ }
 
   return lead;
+}
+
+function extractDomain(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, '').toLowerCase();
+  } catch { return null; }
+}
+
+function applyEmailFallback(lead: any, domain: string) {
+  for (const fn of EMAIL_FALLBACK_PATTERNS) {
+    const email = fn(domain);
+    if (!BAD_EMAIL_REGEX.test(email)) {
+      lead.email = email;
+      return;
+    }
+  }
 }
 
 // Converte filterRule string única ou lista para array de regras
@@ -405,11 +529,38 @@ function postFilter(lead: any, filterRule: string): boolean {
 
 export async function POST(request: Request) {
   let browser;
+  let auth: Awaited<ReturnType<typeof getAuthUser>>;
+  let extractionDone = false;
+  function done() {
+    if (!extractionDone) {
+      extractionDone = true;
+      if (auth) {
+        const c = activeExtractions.get(auth.user.id) || 1;
+        if (c <= 1) activeExtractions.delete(auth.user.id);
+        else activeExtractions.set(auth.user.id, c - 1);
+      }
+    }
+  }
+
   try {
-    const auth = await getAuthUser(request);
+    auth = await getAuthUser(request);
     if (!auth) {
       return NextResponse.json({ error: 'Nao autenticado. Faca login para extrair leads.' }, { status: 401 });
     }
+
+    // Rate limit: máximo 2 extrações simultâneas por usuário, 10 global
+    const concurrent = getConcurrentExtractions(auth.user.id);
+    if (concurrent >= MAX_CONCURRENT_PER_USER) {
+      return NextResponse.json({
+        error: `Você já tem ${concurrent} extrações em andamento. Aguarde uma finalizar antes de iniciar outra.`
+      }, { status: 429 });
+    }
+    if (getGlobalConcurrent() >= MAX_GLOBAL_CONCURRENT) {
+      return NextResponse.json({
+        error: 'Sistema sobrecarregado. Tente novamente em alguns segundos.'
+      }, { status: 503 });
+    }
+    activeExtractions.set(auth.user.id, concurrent + 1);
 
     const { keyword: rawKeyword, location: rawLocation, limit, filterRule } = await request.json();
     const requestSupabase = createRequestSupabaseClient(request);
@@ -486,12 +637,27 @@ export async function POST(request: Request) {
       timeout: 15000 
     });
     
+    // Detecta bloqueio do Google (CAPTCHA ou página de bloqueio)
+    const pageTitle = await page.title().catch(() => '');
+    const pageUrl = page.url();
+    if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
+      await browser.close();
+      done();
+      return NextResponse.json({
+        success: true,
+        leads: [],
+        message: 'Google bloqueou a busca temporariamente. Tente novamente em alguns minutos.',
+        stats: { correctedKeyword, correctedLocation }
+      });
+    }
+
     // Cookies de consentimento já foram definidos proativamente
     // Logo após a navegação, verifica se o feed carregou
     try {
       await page.waitForSelector('div[role="feed"]', { timeout: 10000 });
     } catch(e) {
       await browser.close();
+      done();
       return NextResponse.json({ 
         success: true, 
         leads: [], 
@@ -506,13 +672,14 @@ export async function POST(request: Request) {
     await page.waitForTimeout(1500 + Math.random() * 1000);
 
     const validLeads: any[] = [];
+    const allEnrichedLeads: any[] = [];
     const scrapedNames = new Set<string>();
     const scrapedPhones = new Set<string>();
     let scrollAttempts = 0;
     let emptyScrolls = 0;
 
     // Loop Principal Otimizado
-    while (validLeads.length < targetLimit && (Date.now() - startTime) < MAX_TIME && scrollAttempts < 30) {
+    while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && scrollAttempts < 30) {
       
       // 1. Extrai todos os cards visíveis da tela
       const rawChunk = await page.evaluate(() => {
@@ -692,20 +859,22 @@ export async function POST(request: Request) {
         
         if (preFiltered.length > 0) {
           // 4. Enriquece APENAS os que passaram no pré-filtro (economiza tempo!)
-          const enriched = await Promise.all(preFiltered.map(lead => enrichLead(lead)));
+          const enriched = await Promise.all(preFiltered.map(lead => {
+            // Normaliza telefone antes de enriquecer
+            if (lead.telefone && lead.telefone !== 'Não informado') lead.telefone = normalizePhone(lead.telefone);
+            return enrichLead(lead);
+          }));
           
-          // 5. Aplica PÓS-FILTRO (para email/insta/face)
+          // 5. Acumula TODOS os leads enriquecidos (segunda passada roda antes do pós-filtro)
           for (const lead of enriched) {
-            if (postFilter(lead, filterRule)) {
-              validLeads.push(lead);
-              if (validLeads.length >= targetLimit) break;
-            }
+            allEnrichedLeads.push(lead);
+            if (allEnrichedLeads.length >= targetLimit * 2) break;
           }
         }
       }
 
       // Scroll para carregar mais resultados
-      if (validLeads.length < targetLimit) {
+      if (allEnrichedLeads.length < targetLimit * 2) {
         await page.evaluate(() => {
           const feed = document.querySelector('div[role="feed"]');
           if (feed) feed.scrollBy(0, 1200 + Math.random() * 600);
@@ -716,9 +885,8 @@ export async function POST(request: Request) {
     }
 
     // Segunda passada: extrair telefone de leads que ficaram sem (info panel do Maps)
-    // Executa em paralelo com limite de concorrência (5 por vez)
-    // AGORA: espera o elemento de telefone renderizar (networkidle + waitForSelector)
-    const leadsSemTelefone = validLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
+    // Roda ANTES do pós-filtro para maximizar a coleta independente do filtro escolhido
+    const leadsSemTelefone = allEnrichedLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
     const BATCH_SIZE = 5;
     const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 30);
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
@@ -732,53 +900,75 @@ export async function POST(request: Request) {
             timeout: 12000,
             referer: 'https://www.google.com/maps'
           });
-          // Aguarda o elemento de telefone renderizar (ou falha silenciosamente)
           await tab.waitForSelector('button[data-item-id*="phone"], a[href^="tel:"], [data-phone-number]', {
             timeout: 8000
           }).catch(() => {});
-          // Scroll para acionar lazy rendering
           await tab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
           await tab.waitForTimeout(300);
-          const phone = await tab.evaluate(() => {
-            const selectors = [
-              'button[data-item-id*="phone"]',
-              'a[data-item-id*="phone"]',
-              'a[href^="tel:"]',
-              '[data-phone-number]',
-              'button[aria-label*="telefone"]',
-              'button[aria-label*="phone"]',
-              '[data-tooltip*="telefone"]',
-              '[data-tooltip*="phone"]',
+          const extraData = await tab.evaluate(() => {
+            const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
+            const text = document.body?.innerText || '';
+
+            const phoneSelectors = [
+              'button[data-item-id*="phone"]', 'a[data-item-id*="phone"]', 'a[href^="tel:"]',
+              '[data-phone-number]', 'button[aria-label*="telefone"]', 'button[aria-label*="phone"]',
+              '[data-tooltip*="telefone"]', '[data-tooltip*="phone"]',
             ];
-            for (const sel of selectors) {
+            for (const sel of phoneSelectors) {
               const el = document.querySelector(sel);
               if (!el) continue;
-              const value = el.getAttribute('aria-label') ||
-                            el.getAttribute('data-phone-number') ||
-                            el.getAttribute('href')?.replace('tel:', '') ||
-                            el.getAttribute('data-value') ||
-                            (el as HTMLElement).innerText;
-              if (value) {
-                const m = value.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/);
-                if (m) return m[1].trim();
-              }
+              const v = el.getAttribute('aria-label') || el.getAttribute('data-phone-number') ||
+                        el.getAttribute('href')?.replace('tel:', '') || el.getAttribute('data-value') ||
+                        (el as HTMLElement).innerText;
+              if (v) { const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/); if (m) { result.telefone = m[1].trim(); break; } }
             }
-            const text = document.body?.innerText || '';
-            const m = text.match(/\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/);
-            if (m) return m[0];
-            return '';
+            if (!result.telefone) { const m = text.match(/\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/); if (m) result.telefone = m[0]; }
+
+            const siteEl = document.querySelector('a[data-item-id*="authority"], a[href^="http"]:not([href*="google"]):not([href*="maps"])');
+            if (siteEl) { const h = siteEl.getAttribute('href') || ''; if (h) result.site = h; }
+
+            const html = document.body?.innerHTML || '';
+            const socialRegex = /https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi;
+            for (const m of html.matchAll(socialRegex)) {
+              const url = m[0].replace(/["'<>].*$/, '');
+              if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
+              if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
+              if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+            }
+
+            const addrEl = document.querySelector('[data-item-id*="address"]');
+            if (addrEl) result.endereco = (addrEl as HTMLElement).innerText?.trim() || '';
+
+            const hMatch = text.match(/(Aberto|Fechado)(?:\s*⋅\s*)(.+?)(?:\.|$)/i);
+            if (hMatch) result.horarios = hMatch[0].trim();
+
+            return result;
           });
-          if (phone) lead.telefone = phone;
+          if (extraData.telefone) lead.telefone = normalizePhone(extraData.telefone);
+          if (extraData.site && (!lead.site || lead.site === 'Sem site')) lead.site = extraData.site;
+          if (extraData.instagram && !lead.instagram) lead.instagram = extraData.instagram;
+          if (extraData.facebook && !lead.facebook) lead.facebook = extraData.facebook;
+          if (extraData.tiktok && !lead.tiktok) lead.tiktok = extraData.tiktok;
+          if (extraData.endereco && !lead.endereco) lead.endereco = extraData.endereco;
+          if (extraData.horarios && !lead.horarios) lead.horarios = extraData.horarios;
         } catch {
-          // Falha ao navegar - continua
         } finally {
           if (tab) try { await tab.close(); } catch {}
         }
       }));
     }
 
+    // Agora aplica o PÓS-FILTRO em todos os leads enriquecidos + segunda passada
+    for (const lead of allEnrichedLeads) {
+      if (postFilter(lead, filterRule)) {
+        validLeads.push(lead);
+        if (validLeads.length >= targetLimit) break;
+      }
+    }
+
     await browser.close();
     browser = null;
+    done();
 
     const gastos = validLeads.length;
     if (auth && gastos > 0) {
@@ -839,6 +1029,7 @@ export async function POST(request: Request) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("ERRO NO MOTOR:", msg);
     if (browser) { try { await browser.close(); } catch {} }
+    done();
     return NextResponse.json({ error: 'Erro ao extrair: ' + msg }, { status: 500 });
   }
 }
