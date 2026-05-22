@@ -1092,6 +1092,30 @@ async function runExtraction({
               if (item) telefone = (item as HTMLElement).innerText?.trim() || '';
             }
 
+            // 8. Fallback: data-item-id com phone
+            if (telefone === 'Não informado') {
+              const el = container.querySelector('[data-item-id*="phone"]');
+              if (el) {
+                const v = el.getAttribute('aria-label') || el.getAttribute('data-value') || (el as HTMLElement).innerText;
+                if (v) {
+                  const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/);
+                  if (m) telefone = m[1].trim();
+                }
+              }
+            }
+
+            // 9. Fallback: regex melhorado no texto (inclui +55)
+            if (telefone === 'Não informado') {
+              const patterns = [
+                /(\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/g,
+                /\+?\d{2}[\s-]?\d{2}[\s-]?\d{4,5}[\s-]?\d{4}/g,
+              ];
+              for (const pat of patterns) {
+                const m = text.match(pat);
+                if (m && m[0].length >= 10) { telefone = m[0].trim(); break; }
+              }
+            }
+
             // Avaliação via aria-label semântico (mais preciso que regex)
             let avaliacao = 'N/A';
             const ratingEl = container.querySelector('[role="img"][aria-label*="estrelas"], [role="img"][aria-label*="stars"]');
@@ -1212,15 +1236,17 @@ async function runExtraction({
     citiesDone++;
   }
 
-  // Segunda passada: extrair telefone de leads que ficaram sem (info panel do Maps)
+  // Segunda passada: extrair dados faltantes de leads (telefone e site) das páginas individuais do Maps
   // Roda ANTES do pós-filtro para maximizar a coleta independente do filtro escolhido
-  const leadsSemTelefone = allEnrichedLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
+  const leadsParaSegundaPassagem = allEnrichedLeads.filter(l =>
+    (l.telefone === 'Não informado' || !l.site || l.site === 'Sem site') && l.placeUrl
+  );
     const BATCH_SIZE = 5;
-    const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 20);
+    const MAX_SECOND_PASS = Math.min(leadsParaSegundaPassagem.length, 25);
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
       if (await checkCancelled()) break;
       if ((Date.now() - startTime) >= MAX_TIME) break;
-      const batch = leadsSemTelefone.slice(i, i + BATCH_SIZE);
+      const batch = leadsParaSegundaPassagem.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(async (lead) => {
         let tab: any = null;
         try {
@@ -1233,16 +1259,20 @@ async function runExtraction({
           await tab.waitForSelector('button[data-item-id*="phone"], a[href^="tel:"], [data-phone-number]', {
             timeout: 5000
           }).catch(() => {});
+          await tab.waitForTimeout(2000);
           await tab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-          await tab.waitForTimeout(300);
+          await tab.waitForTimeout(500);
           const extraData = await tab.evaluate(() => {
             const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
             const text = document.body?.innerText || '';
+            const html = document.body?.innerHTML || '';
 
             const phoneSelectors = [
               'button[data-item-id*="phone"]', 'a[data-item-id*="phone"]', 'a[href^="tel:"]',
               '[data-phone-number]', 'button[aria-label*="telefone"]', 'button[aria-label*="phone"]',
               '[data-tooltip*="telefone"]', '[data-tooltip*="phone"]',
+              'button[aria-label*="Ligar"]', 'a[aria-label*="Ligar"]',
+              '[data-item-id*="phone"]',
             ];
             for (const sel of phoneSelectors) {
               const el = document.querySelector(sel);
@@ -1252,12 +1282,21 @@ async function runExtraction({
                         (el as HTMLElement).innerText;
               if (v) { const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/); if (m) { result.telefone = m[1].trim(); break; } }
             }
-            if (!result.telefone) { const m = text.match(/\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/); if (m) result.telefone = m[0]; }
+            if (!result.telefone) {
+              const phonePatterns = [
+                /(\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/g,
+                /\+?\d{2}[\s-]?\d{2}[\s-]?\d{4,5}[\s-]?\d{4}/g,
+                /\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/g,
+              ];
+              for (const pat of phonePatterns) {
+                const ms = text.match(pat);
+                if (ms && ms.length > 0) { result.telefone = ms[0].trim(); break; }
+              }
+            }
 
-            const siteEl = document.querySelector('a[data-item-id*="authority"], a[href^="http"]:not([href*="google"]):not([href*="maps"])');
-            if (siteEl) { const h = siteEl.getAttribute('href') || ''; if (h) result.site = h; }
+            const siteEl = document.querySelector('a[data-item-id*="authority"], a[href^="http"]:not([href*="google"]):not([href*="maps"]), [data-item-id*="authority"] a');
+            if (siteEl) { const h = siteEl.getAttribute('href') || ''; if (h && !h.includes('google.com')) result.site = h; }
 
-            const html = document.body?.innerHTML || '';
             const socialRegex = /https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi;
             for (const m of html.matchAll(socialRegex)) {
               const url = m[0].replace(/["'<>].*$/, '');
