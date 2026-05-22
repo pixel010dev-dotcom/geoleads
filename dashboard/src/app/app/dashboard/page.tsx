@@ -3071,6 +3071,7 @@ showToast("Erro: " + data.error, 'error');
                   >
                     Salvar Configuração
                   </button>
+                  <p className="text-[11px] text-gray-600 text-center mt-2">⚠ As config. só valem após salvar</p>
                 </div>
               </div>
 
