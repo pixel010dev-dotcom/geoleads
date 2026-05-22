@@ -679,6 +679,38 @@ function postFilter(lead: any, filterRule: string): boolean {
   });
 }
 
+function shuffleArray<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+const MAJOR_CITIES = [
+  'São Paulo, SP', 'Rio de Janeiro, RJ', 'Belo Horizonte, MG',
+  'Brasília, DF', 'Salvador, BA', 'Fortaleza, CE',
+  'Curitiba, PR', 'Manaus, AM', 'Recife, PE', 'Porto Alegre, RS',
+  'Belém, PA', 'Goiânia, GO', 'Campinas, SP', 'São Luís, MA',
+  'Maceió, AL', 'Natal, RN', 'Campo Grande, MS', 'Teresina, PI',
+  'João Pessoa, PB', 'São José dos Campos, SP', 'Ribeirão Preto, SP',
+  'Uberlândia, MG', 'Sorocaba, SP', 'Cuiabá, MT', 'Joinville, SC',
+  'Londrina, PR', 'Juiz de Fora, MG', 'Florianópolis, SC',
+  'Maringá, PR', 'Blumenau, SC', 'Aracaju, SE', 'Feira de Santana, BA',
+  'Caxias do Sul, RS', 'Vila Velha, ES', 'Jundiaí, SP', 'Piracicaba, SP',
+  'Bauru, SP', 'Olinda, PE', 'Canoas, RS', 'Ponta Grossa, PR',
+  'Franca, SP', 'Cascavel, PR', 'São José do Rio Preto, SP',
+  'Petrópolis, RJ', 'Caruaru, PE', 'Macaé, RJ', 'Cabo Frio, RJ',
+  'Guarujá, SP', 'Indaiatuba, SP', 'Americana, SP', 'Araraquara, SP',
+  'Marília, SP', 'Mogi Guaçu, SP', 'São Carlos, SP', 'Sumaré, SP',
+  'Araçatuba, SP', 'Cotia, SP', 'Diadema, SP',
+  'Limeira, SP', 'Mogi das Cruzes, SP', 'Osasco, SP',
+  'Praia Grande, SP', 'Suzano, SP', 'Hortolândia, SP', 'Itu, SP',
+  'Jacareí, SP', 'Pindamonhangaba, SP', 'Botucatu, SP',
+  'Bragança Paulista, SP', 'Ferraz de Vasconcelos, SP', 'Itapevi, SP',
+  'Itapecerica da Serra, SP', 'Votuporanga, SP', 'Ourinhos, SP',
+];
+
 export async function POST(request: Request) {
   let browser;
   let auth: Awaited<ReturnType<typeof getAuthUser>>;
@@ -786,46 +818,6 @@ export async function POST(request: Request) {
       { name: 'SOCS', value: 'CAISHAgENhB0Dcm9sZQ==', domain: '.google.com', path: '/' },
     ]);
 
-    const query = encodeURIComponent(`${keyword} em ${location}`);
-    await page.goto(`https://www.google.com/maps/search/${query}`, { 
-      waitUntil: 'domcontentloaded',
-      timeout: 15000 
-    });
-    
-    // Detecta bloqueio do Google (CAPTCHA ou página de bloqueio)
-    const pageTitle = await page.title().catch(() => '');
-    const pageUrl = page.url();
-    if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
-      await browser.close();
-      done();
-      return NextResponse.json({
-        success: true,
-        leads: [],
-        message: 'Google bloqueou a busca temporariamente. Tente novamente em alguns minutos.',
-        stats: { correctedKeyword, correctedLocation }
-      });
-    }
-
-    // Cookies de consentimento já foram definidos proativamente
-    // Logo após a navegação, verifica se o feed carregou
-    try {
-      await page.waitForSelector('div[role="feed"]', { timeout: 10000 });
-    } catch(e) {
-      await browser.close();
-      done();
-      return NextResponse.json({ 
-        success: true, 
-        leads: [], 
-        message: 'Google Maps não carregou resultados para essa busca.',
-        stats: {
-          correctedKeyword,
-          correctedLocation
-        }
-      });
-    }
-
-    await page.waitForTimeout(1500 + Math.random() * 1000);
-
     const validLeads: any[] = [];
     const allEnrichedLeads: any[] = [];
     const scrapedNames = new Set<string>();
@@ -833,16 +825,50 @@ export async function POST(request: Request) {
 
     // Pré-popula com leads já existentes no CRM para evitar duplicatas
     if (Array.isArray(existingLeadKeys)) {
-      for (const key of existingLeadKeys) {
-        scrapedNames.add(key);
-      }
+      for (const key of existingLeadKeys) scrapedNames.add(key);
     }
 
-    let scrollAttempts = 0;
-    let emptyScrolls = 0;
-
     const MAX_SCROLL = isBroadRegion ? 100 : 30;
-    while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && scrollAttempts < MAX_SCROLL) {
+    const searchLocations = isBroadRegion ? shuffleArray([...MAJOR_CITIES]).slice(0, 40) : [location];
+    const maxScrollPerCity = isBroadRegion ? 8 : MAX_SCROLL;
+
+    for (const searchLoc of searchLocations) {
+      if (validLeads.length >= targetLimit) break;
+      if ((Date.now() - startTime) >= MAX_TIME) break;
+
+      const cityQuery = encodeURIComponent(`${keyword} em ${searchLoc}`);
+      await page.goto(`https://www.google.com/maps/search/${cityQuery}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 15000
+      });
+
+      // Detecta bloqueio do Google (CAPTCHA)
+      const pageTitle = await page.title().catch(() => '');
+      const pageUrl = page.url();
+      if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
+        await browser.close();
+        done();
+        return NextResponse.json({
+          success: true,
+          leads: [],
+          message: 'Google bloqueou a busca temporariamente. Tente novamente em alguns minutos.',
+          stats: { correctedKeyword, correctedLocation }
+        });
+      }
+
+      // Verifica se o feed carregou
+      try {
+        await page.waitForSelector('div[role="feed"]', { timeout: 8000 });
+      } catch {
+        continue; // Sem resultados nesta cidade, tenta próxima
+      }
+
+      await page.waitForTimeout(1500 + Math.random() * 1000);
+
+      let cityScrolls = 0;
+      let emptyScrolls = 0;
+
+      while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity) {
       
       // 1. Extrai todos os cards visíveis da tela
       const rawChunk = await page.evaluate(() => {
@@ -1044,12 +1070,13 @@ export async function POST(request: Request) {
         });
         await page.waitForTimeout(1200 + Math.random() * 800);
       }
-      scrollAttempts++;
+      cityScrolls++;
     }
+  }
 
-    // Segunda passada: extrair telefone de leads que ficaram sem (info panel do Maps)
-    // Roda ANTES do pós-filtro para maximizar a coleta independente do filtro escolhido
-    const leadsSemTelefone = allEnrichedLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
+  // Segunda passada: extrair telefone de leads que ficaram sem (info panel do Maps)
+  // Roda ANTES do pós-filtro para maximizar a coleta independente do filtro escolhido
+  const leadsSemTelefone = allEnrichedLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
     const BATCH_SIZE = 5;
     const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 30);
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
