@@ -965,7 +965,7 @@ async function runExtraction({
     const allEnrichedLeads: any[] = [];
     const MAX_SCROLL = isBroadRegion ? 100 : 30;
     const searchLocations = isBroadRegion ? shuffleArray([...MAJOR_CITIES]) : [location];
-    const maxScrollPerCity = isBroadRegion ? 12 : MAX_SCROLL;
+    const maxScrollPerCity = isBroadRegion ? 8 : MAX_SCROLL;
 
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
@@ -995,12 +995,12 @@ async function runExtraction({
 
       // Verifica se o feed carregou
       try {
-        await page.waitForSelector('div[role="feed"]', { timeout: 8000 });
+        await page.waitForSelector('div[role="feed"]', { timeout: 5000 });
       } catch {
         continue; // Sem resultados nesta cidade, tenta próxima
       }
 
-      await page.waitForTimeout(1500 + Math.random() * 1000);
+      await page.waitForTimeout(1000 + Math.random() * 500);
 
       let cityScrolls = 0;
       let emptyScrolls = 0;
@@ -1205,7 +1205,7 @@ async function runExtraction({
           const feed = document.querySelector('div[role="feed"]');
           if (feed) feed.scrollBy(0, 1200 + Math.random() * 600);
         });
-        await page.waitForTimeout(1200 + Math.random() * 800);
+        await page.waitForTimeout(800 + Math.random() * 600);
       }
       cityScrolls++;
     }
@@ -1216,7 +1216,7 @@ async function runExtraction({
   // Roda ANTES do pós-filtro para maximizar a coleta independente do filtro escolhido
   const leadsSemTelefone = allEnrichedLeads.filter(l => l.telefone === 'Não informado' && l.placeUrl);
     const BATCH_SIZE = 5;
-    const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 30);
+    const MAX_SECOND_PASS = Math.min(leadsSemTelefone.length, 20);
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
       if (await checkCancelled()) break;
       const batch = leadsSemTelefone.slice(i, i + BATCH_SIZE);
@@ -1230,7 +1230,7 @@ async function runExtraction({
             referer: 'https://www.google.com/maps'
           });
           await tab.waitForSelector('button[data-item-id*="phone"], a[href^="tel:"], [data-phone-number]', {
-            timeout: 8000
+            timeout: 5000
           }).catch(() => {});
           await tab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
           await tab.waitForTimeout(300);
