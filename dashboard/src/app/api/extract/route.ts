@@ -786,9 +786,9 @@ export async function POST(request: Request) {
       { name: 'SOCS', value: 'CAISHAgENhB0Dcm9sZQ==', domain: '.google.com', path: '/' },
     ]);
 
-    const searchQuery = isBroadRegion ? `${keyword} Brasil` : `${keyword} em ${location}`;
-    const query = encodeURIComponent(searchQuery);
-    await page.goto(`https://www.google.com/maps/search/${query}`, { 
+    const query = encodeURIComponent(`${keyword} em ${location}`);
+    const mapCenter = isBroadRegion ? '/@-14.2350,-51.9253,4z' : '';
+    await page.goto(`https://www.google.com/maps/search/${query}${mapCenter}`, { 
       waitUntil: 'domcontentloaded',
       timeout: 15000 
     });
