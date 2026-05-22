@@ -64,3 +64,5 @@
  GET /app/dashboard 200 in 121ms (next.js: 78ms, application-code: 43ms)
  GET /api/chatbot 200 in 445ms (next.js: 102ms, application-code: 343ms)
  GET /api/chatbot 200 in 291ms (next.js: 1780µs, application-code: 289ms)
+ GET /api/chatbot 200 in 770ms (next.js: 2ms, application-code: 768ms)
+ GET /api/chatbot 200 in 519ms (next.js: 2ms, application-code: 516ms)

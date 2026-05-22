@@ -6,6 +6,7 @@ import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature
 import Globe from '@/components/Globe';
 import HackerRadar from '@/components/HackerRadar';
 import Toast, { showToast } from '@/components/Toast';
+import DashboardCharts from '@/components/DashboardCharts';
 
 type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
 
@@ -1543,6 +1544,8 @@ showToast("Erro: " + data.error, 'error');
 
             <LeadGuideWidget />
           </div>
+
+          <DashboardCharts userId={user?.id || ''} />
 
           {/* TAB NAVIGATION BAR */}
           <div className="app-tabs dashboard-tabs flex gap-2 mb-6 max-w-full overflow-x-auto no-scrollbar">
