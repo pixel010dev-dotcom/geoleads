@@ -207,7 +207,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### Painel Admin (Testimonials)
 - Nova rota: `GET /api/admin/testimonials` — lista todos os depoimentos (admin client, auth guard por email)
 - Nova rota: `PATCH /api/admin/testimonials/[id]` — aprova/rejeita depoimento por ID
-- Nova página: `src/app/app/admin/page.tsx` — painel admin com lista de depoimentos pendentes e aprovados, botões de aprovar/rejeitar, guard de acesso para `diogopfeifer0@gmail.com`
+- Nova página: `src/app/app/admin/page.tsx` — painel admin com lista de depoimentos pendentes e aprovados, botões de aprovar/rejeitar, guard de acesso para `pixel010dev@gmail.com`
 - Acessível em `/app/admin` com link "← Dashboard" para voltar
 
 ### Fix: Filtro do Extrator eliminando leads antes da segunda passagem
@@ -219,6 +219,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Se o usuário digitar "Brasil", "Brazil", "todo Brasil" etc. na região, o motor busca apenas `"Academia Brasil"` no Maps (sem localização específica)
 - Google Maps retorna resultados de várias cidades do país
 - Flag `broadRegion` no response stats
+
+### Fix de Tipos (TypeScript + Turbopack)
+- `WhatsAppSection.tsx` e `ChatbotSection.tsx` usavam `export function` (named) mas dashboard importava como default — corrigido para `import { ... }`
+- Prop types de `requireFeature`, `setActiveTab`, `showToast` e `updateChatbotRule` ajustados para corresponder aos tipos do dashboard (`FeatureKey`, `DashboardTab`, `ToastType`)
+- **Build local**: `npx next build` compila sem erros
 
 ### Deduplicação com CRM
 - Leads já salvos no CRM não aparecem mais nas buscas

@@ -222,7 +222,7 @@ export default function ExtractorSection({
                     </p>
                     {extractStats.correctedKeyword && (
                       <p className="text-xs text-blue-400 font-medium">
-                        ✨ Busca normalizada: "{extractStats.correctedKeyword} em {extractStats.correctedLocation}"
+                        ✨ Busca: "{extractStats.correctedKeyword}{extractStats.broadRegion ? ' (país inteiro)' : ` em ${extractStats.correctedLocation}`}"
                       </p>
                     )}
                   </div>
