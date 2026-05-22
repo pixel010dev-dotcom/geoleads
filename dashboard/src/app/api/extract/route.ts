@@ -919,7 +919,7 @@ async function runExtraction({
   }
 
   const startTime = Date.now();
-  const MAX_TIME = isBroadRegion ? Math.min(600000, 5000 + targetLimit * 2000) : 50000;
+    const MAX_TIME = isBroadRegion ? Math.min(600000, 15000 + targetLimit * 3000) : 60000;
   const validLeads: any[] = [];
   const scrapedNames = new Set<string>(existingLeadKeys);
   const scrapedPhones = new Set<string>();
@@ -1234,6 +1234,15 @@ async function runExtraction({
       cityScrolls++;
     }
     citiesDone++;
+    // Salva leads incrementalmente no Supabase (entrega em tempo real)
+    if (validLeads.length > 0) {
+      try {
+        await updateJob(jobId, {
+          leads: validLeads,
+          leads_count: validLeads.length,
+        });
+      } catch {}
+    }
   }
 
   // Segunda passada: extrair dados faltantes de leads (telefone e site) das páginas individuais do Maps
@@ -1252,14 +1261,11 @@ async function runExtraction({
         try {
           tab = await context.newPage();
           await tab.goto(lead.placeUrl, {
-            waitUntil: 'load',
-            timeout: 10000,
+            waitUntil: 'networkidle',
+            timeout: 12000,
             referer: 'https://www.google.com/maps'
           });
-          await tab.waitForSelector('button[data-item-id*="phone"], a[href^="tel:"], [data-phone-number]', {
-            timeout: 5000
-          }).catch(() => {});
-          await tab.waitForTimeout(2000);
+          await tab.waitForTimeout(3000);
           await tab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
           await tab.waitForTimeout(500);
           const extraData = await tab.evaluate(() => {

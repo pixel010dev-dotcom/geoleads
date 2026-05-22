@@ -711,12 +711,18 @@ export default function Home() {
             if (pollRef.current) clearInterval(pollRef.current);
             localStorage.removeItem('lastJobId');
             if (tokens !== null && j.leads_count > 0) setTokens(Math.max(0, tokens - j.leads_count));
-          } else if (j.status === 'failed') {
+          } else if (j.status === 'running') {
+            // Entrega incremental: mostra leads já encontrados durante a extração
+            if (j.leads && j.leads.length > 0) {
+              setLeads(j.leads);
+              setHasSearched(true);
+            }
+          } else if (j.status === 'failed' || j.status === 'cancelled') {
             setIsExtracting(false);
             setHasSearched(true);
             if (pollRef.current) clearInterval(pollRef.current);
             localStorage.removeItem('lastJobId');
-            showToast("Erro: " + (j.error || 'Falha na extração'), 'error');
+            if (j.status === 'failed') showToast("Erro: " + (j.error || 'Falha na extração'), 'error');
           }
         }
       } catch {}
