@@ -665,21 +665,23 @@ export default function CRMSection({
 
       {/* IMPORT CSV MODAL */}
       {showImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setShowImport(false); setImportPreview(null); }}>
-          <div className="app-card w-full max-w-2xl p-6 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/60 border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">📥 Importar Leads (CSV)</h3>
-              <button onClick={() => { setShowImport(false); setImportPreview(null); }} className="text-gray-500 hover:text-white text-xl cursor-pointer">&times;</button>
+        <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.6)',padding:'1rem',overflowY:'auto'}}
+          onClick={() => { setShowImport(false); setImportPreview(null); }}>
+          <div style={{width:'100%',maxWidth:'42rem',maxHeight:'90vh',background:'#111',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'1.5rem',padding:'1.5rem',boxShadow:'0 25px 50px rgba(0,0,0,0.5)',overflow:'auto',marginTop:'auto',marginBottom:'auto'}}
+            onClick={e => e.stopPropagation()}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem'}}>
+              <h3 style={{fontSize:'1.125rem',fontWeight:700}}>📥 Importar Leads (CSV)</h3>
+              <button onClick={() => { setShowImport(false); setImportPreview(null); }} style={{color:'#999',fontSize:'1.25rem',border:'none',background:'none',cursor:'pointer'}}>&times;</button>
             </div>
 
             {!importPreview ? (
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center hover:border-cyan-500/30 transition-colors">
-                  <input type="file" accept=".csv" onChange={e => setImportFile(e.target.files?.[0] || null)} className="hidden" id="csv-upload" />
-                  <label htmlFor="csv-upload" className="cursor-pointer block">
-                    <div className="text-4xl mb-3">📄</div>
-                    <p className="text-sm text-gray-300 font-semibold">{importFile ? importFile.name : 'Clique para selecionar um arquivo CSV'}</p>
-                    <p className="text-[11px] text-gray-500 mt-1">O cabeçalho deve conter colunas como: Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
+              <div style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
+                <div style={{border:'2px dashed rgba(255,255,255,0.1)',borderRadius:'0.75rem',padding:'2rem',textAlign:'center'}}>
+                  <input type="file" accept=".csv" onChange={e => setImportFile(e.target.files?.[0] || null)} style={{display:'none'}} id="csv-upload" />
+                  <label htmlFor="csv-upload" style={{cursor:'pointer',display:'block'}}>
+                    <div style={{fontSize:'2.25rem',marginBottom:'0.75rem'}}>📄</div>
+                    <p style={{fontSize:'0.875rem',color:'#ccc',fontWeight:600}}>{importFile ? importFile.name : 'Clique para selecionar um arquivo CSV'}</p>
+                    <p style={{fontSize:'0.6875rem',color:'#888',marginTop:'0.25rem'}}>Cabeçalhos esperados: Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
                   </label>
                 </div>
                 <button onClick={async () => {
@@ -703,49 +705,49 @@ export default function CRMSection({
                     finally { setImportLoading(false); }
                   }}
                   disabled={!importFile || importLoading}
-                  className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 transition-all duration-200 cursor-pointer">
+                  style={{width:'100%',padding:'0.75rem',borderRadius:'0.75rem',fontWeight:700,color:'#fff',border:'none',cursor:'pointer',background:'linear-gradient(90deg,#0891b2,#2563eb)',opacity:(!importFile || importLoading)?0.5:1}}>
                   {importLoading ? 'Processando...' : '📤 Enviar e Analisar'}
                 </button>
-                <p className="text-[10px] text-gray-600 text-center">O arquivo não é salvo no servidor. Os dados são processados em memória.</p>
+                <p style={{fontSize:'0.625rem',color:'#666',textAlign:'center'}}>O arquivo não é salvo no servidor. Processado em memória.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-300">{importPreview.length} leads detectados</p>
-                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} className="text-xs text-gray-500 hover:text-white cursor-pointer">← Voltar</button>
+              <div style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <p style={{fontSize:'0.875rem',color:'#ccc'}}>{importPreview.length} leads detectados</p>
+                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} style={{fontSize:'0.75rem',color:'#888',border:'none',background:'none',cursor:'pointer'}}>← Voltar</button>
                 </div>
                 {importUnmapped.length > 0 && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-                    <p className="text-xs text-amber-400 font-semibold mb-1">Colunas não reconhecidas:</p>
-                    <p className="text-[11px] text-amber-300">{importUnmapped.join(', ')}</p>
-                    <p className="text-[11px] text-amber-400/70 mt-1">Dica: use cabeçalhos como Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
+                  <div style={{background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.2)',borderRadius:'0.75rem',padding:'0.75rem'}}>
+                    <p style={{fontSize:'0.75rem',color:'#fbbf24',fontWeight:600,marginBottom:'0.25rem'}}>Colunas não reconhecidas:</p>
+                    <p style={{fontSize:'0.6875rem',color:'#fcd34d'}}>{importUnmapped.join(', ')}</p>
+                    <p style={{fontSize:'0.6875rem',color:'rgba(251,191,36,0.7)',marginTop:'0.25rem'}}>Use: Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
                   </div>
                 )}
-                <div className="max-h-52 overflow-y-auto border border-white/5 rounded-xl bg-black/30">
-                  <table className="w-full text-xs">
-                    <thead className="bg-white/5 text-gray-400 sticky top-0">
-                      <tr>{(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <th key={h} className="px-3 py-2 text-left">{importColumnMap[h] || h}</th>)}</tr>
+                <div style={{maxHeight:'13rem',overflowY:'auto',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'0.75rem',background:'rgba(0,0,0,0.3)'}}>
+                  <table style={{width:'100%',fontSize:'0.75rem'}}>
+                    <thead style={{background:'rgba(255,255,255,0.05)',color:'#999',position:'sticky',top:0}}>
+                      <tr>{(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <th key={h} style={{padding:'0.5rem 0.75rem',textAlign:'left'}}>{importColumnMap[h] || h}</th>)}</tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody style={{borderTop:'1px solid rgba(255,255,255,0.05)'}}>
                       {importPreview.slice(0, 10).map((lead: any, i: number) => (
-                        <tr key={i} className="hover:bg-white/[0.02]">
-                          {(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <td key={h} className="px-3 py-2 text-gray-400 truncate max-w-[120px]">{lead[importColumnMap[h] || h] || '—'}</td>)}
+                        <tr key={i}>
+                          {(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <td key={h} style={{padding:'0.5rem 0.75rem',color:'#999',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{lead[importColumnMap[h] || h] || '—'}</td>)}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="flex gap-2">
+                <div style={{display:'flex',gap:'0.5rem'}}>
                   <button onClick={() => {
                       if (onImportLeads) onImportLeads(importPreview);
                       setShowImport(false);
                       setImportPreview(null);
                       setImportFile(null);
                     }}
-                    className="flex-1 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 transition-all duration-200 cursor-pointer text-sm">
+                    style={{flex:1,padding:'0.75rem',borderRadius:'0.75rem',fontWeight:700,color:'#fff',border:'none',cursor:'pointer',background:'linear-gradient(90deg,#16a34a,#059669)'}}>
                     ✅ Importar {importPreview.length} Leads
                   </button>
-                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 cursor-pointer text-sm">Cancelar</button>
+                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} style={{padding:'0.75rem 1rem',borderRadius:'0.75rem',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'#ccc',cursor:'pointer'}}>Cancelar</button>
                 </div>
               </div>
             )}
