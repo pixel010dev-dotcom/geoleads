@@ -42,6 +42,7 @@ export interface CRMSectionProps {
   handleUpdateCRMLead: (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => void;
   openWhatsApp: (lead: any) => void;
   waSentMessages?: any[];
+  onImportLeads?: (leads: any[]) => void;
 }
 
 const CRM_PAGE_SIZE = 25;
@@ -73,6 +74,7 @@ export default function CRMSection({
   handleUpdateCRMLead,
   openWhatsApp,
   waSentMessages,
+  onImportLeads,
 }: CRMSectionProps) {
   const waSentNames = new Set((waSentMessages || []).map((m: any) => m.lead_name).filter(Boolean));
   const [crmFilterTag, setCrmFilterTag] = useState('all');
@@ -81,6 +83,13 @@ export default function CRMSection({
   const [tagInputs, setTagInputs] = useState<Record<string, string>>({});
   const [showTagMenu, setShowTagMenu] = useState<Record<string, boolean>>({});
   const [crmViewMode, setCrmViewMode] = useState<'table' | 'kanban'>('table');
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[] | null>(null);
+  const [importColumnMap, setImportColumnMap] = useState<Record<string, string>>({});
+  const [importLoading, setImportLoading] = useState(false);
+  const [importUnmapped, setImportUnmapped] = useState<string[]>([]);
+  const [importCsvHeaders, setImportCsvHeaders] = useState<string[]>([]);
 
   const toggleTag = (leadNome: string, tag: string) => {
     const lead = crmLeads.find(l => l.nome === leadNome);
@@ -233,6 +242,10 @@ export default function CRMSection({
               📥 Exportar CSV ({filteredCrmLeads.length})
             </button>
           )}
+          <button onClick={() => setShowImport(true)}
+            className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white border border-cyan-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap">
+            📥 Importar CSV
+          </button>
           <button
             onClick={() => setCrmViewMode(v => v === 'table' ? 'kanban' : 'table')}
             className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap border ${
@@ -645,6 +658,95 @@ export default function CRMSection({
             >
               Próximo →
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT CSV MODAL */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setShowImport(false); setImportPreview(null); }}>
+          <div className="app-card w-full max-w-2xl p-6 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/60 border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">📥 Importar Leads (CSV)</h3>
+              <button onClick={() => { setShowImport(false); setImportPreview(null); }} className="text-gray-500 hover:text-white text-xl cursor-pointer">&times;</button>
+            </div>
+
+            {!importPreview ? (
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center hover:border-cyan-500/30 transition-colors">
+                  <input type="file" accept=".csv" onChange={e => setImportFile(e.target.files?.[0] || null)} className="hidden" id="csv-upload" />
+                  <label htmlFor="csv-upload" className="cursor-pointer block">
+                    <div className="text-4xl mb-3">📄</div>
+                    <p className="text-sm text-gray-300 font-semibold">{importFile ? importFile.name : 'Clique para selecionar um arquivo CSV'}</p>
+                    <p className="text-[11px] text-gray-500 mt-1">O cabeçalho deve conter colunas como: Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
+                  </label>
+                </div>
+                <button onClick={async () => {
+                    if (!importFile) return;
+                    setImportLoading(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('file', importFile);
+                      const { data: { session } } = await (await import('@/lib/supabase')).supabase.auth.getSession();
+                      const token = session?.access_token;
+                      if (!token) { alert('Faça login novamente.'); return; }
+                      const res = await fetch('/api/import/csv', { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } });
+                      const data = await res.json();
+                      if (data.success) {
+                        setImportPreview(data.leads);
+                        setImportColumnMap(data.columnMap);
+                        setImportUnmapped(data.unmappedColumns || []);
+                        setImportCsvHeaders(data.csvHeaders);
+                      } else throw new Error(data.error);
+                    } catch (err: any) { alert('Erro: ' + err.message); }
+                    finally { setImportLoading(false); }
+                  }}
+                  disabled={!importFile || importLoading}
+                  className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 transition-all duration-200 cursor-pointer">
+                  {importLoading ? 'Processando...' : '📤 Enviar e Analisar'}
+                </button>
+                <p className="text-[10px] text-gray-600 text-center">O arquivo não é salvo no servidor. Os dados são processados em memória.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-300">{importPreview.length} leads detectados</p>
+                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} className="text-xs text-gray-500 hover:text-white cursor-pointer">← Voltar</button>
+                </div>
+                {importUnmapped.length > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                    <p className="text-xs text-amber-400 font-semibold mb-1">Colunas não reconhecidas:</p>
+                    <p className="text-[11px] text-amber-300">{importUnmapped.join(', ')}</p>
+                  </div>
+                )}
+                <div className="max-h-52 overflow-y-auto border border-white/5 rounded-xl bg-black/30">
+                  <table className="w-full text-xs">
+                    <thead className="bg-white/5 text-gray-400 sticky top-0">
+                      <tr>{importCsvHeaders.filter(h => importColumnMap[h]).map(h => <th key={h} className="px-3 py-2 text-left">{importColumnMap[h]}</th>)}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {importPreview.slice(0, 10).map((lead: any, i: number) => (
+                        <tr key={i} className="hover:bg-white/[0.02]">
+                          {importCsvHeaders.filter(h => importColumnMap[h]).map(h => <td key={h} className="px-3 py-2 text-gray-400 truncate max-w-[120px]">{lead[importColumnMap[h]] || '—'}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => {
+                      if (onImportLeads) onImportLeads(importPreview);
+                      setShowImport(false);
+                      setImportPreview(null);
+                      setImportFile(null);
+                    }}
+                    className="flex-1 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 transition-all duration-200 cursor-pointer text-sm">
+                    ✅ Importar {importPreview.length} Leads
+                  </button>
+                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 cursor-pointer text-sm">Cancelar</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

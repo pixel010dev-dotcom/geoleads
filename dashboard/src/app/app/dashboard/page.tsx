@@ -1169,6 +1169,18 @@ export default function Home() {
             handleBulkStageChange={handleBulkStageChange} handleReEnrichSelected={handleReEnrichSelected}
             handleReEnrichSingle={handleReEnrichSingle} handleUpdateCRMLead={handleUpdateCRMLead} openWhatsApp={openWhatsApp}
             waSentMessages={waSentMessages}
+            onImportLeads={(importedLeads) => {
+              const updated = [...importedLeads.map(l => ({
+                ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
+                nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral',
+              })), ...crmLeads];
+              saveCrm(updated);
+              setSelectedWaLeads(prev => {
+                const newKeys = importedLeads.filter((l: any) => l.telefone && l.telefone !== 'Não informado').map((l: any) => getLeadKey(l));
+                return Array.from(new Set([...newKeys, ...prev]));
+              });
+              showToast(`${importedLeads.length} leads importados!`, 'success');
+            }}
           />
         )}
 
