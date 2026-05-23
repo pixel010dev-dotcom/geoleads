@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import ScrollReveal from '@/components/ScrollReveal';
+import Globe from '@/components/Globe';
 
 export default async function LandingPage() {
   const { data: realTestimonials } = await supabase
@@ -50,13 +51,7 @@ export default async function LandingPage() {
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
         <div className="app-container min-h-16 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3 cursor-default">
-            <div
-              className="relative rounded-full overflow-hidden select-none flex-shrink-0"
-              style={{ width: 32, height: 32, background: 'radial-gradient(circle at 35% 35%, #00d9ff 0%, #0052ff 50%, #000c3b 100%)', boxShadow: 'inset -4px -4px 8px rgba(0,0,0,0.8), inset 4px 4px 8px rgba(255,255,255,0.3), 0 0 12px rgba(0,217,255,0.5)', border: '1px solid rgba(0,217,255,0.3)' }}
-            >
-              <div className="absolute inset-0 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35) 0%, transparent 55%)', zIndex: 3 }} />
-              <div className="absolute inset-0 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle at 75% 75%, transparent 35%, rgba(0,0,0,0.8) 100%)', zIndex: 2 }} />
-            </div>
+            <Globe size={32} />
             <span className="font-extrabold text-xl sm:text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
               Geo<span className="text-blue-400">Leads</span>
             </span>
