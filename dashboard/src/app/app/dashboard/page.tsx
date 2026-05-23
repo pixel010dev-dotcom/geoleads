@@ -17,6 +17,7 @@ import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
 import AICopySection from '@/components/dashboard/AICopySection';
 import EnrichSection from '@/components/dashboard/EnrichSection';
 import SupportSection from '@/components/dashboard/SupportSection';
+import FacebookAds from '@/components/dashboard/FacebookAds';
 import SocialProofWidget from '@/components/dashboard/SocialProofWidget';
 import { generatePdfReport } from '@/lib/pdf-report';
 
@@ -1125,7 +1126,7 @@ export default function Home() {
               📄 Relatório PDF
             </button>
             <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 no-scrollbar">
-            {(['extractor', 'enrich', 'crm', 'whatsapp', 'chatbot', 'ia', 'support'] as const).map((tab) => (
+            {(['extractor', 'enrich', 'crm', 'whatsapp', 'chatbot', 'ia', 'support', 'facebook'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
                 {tab === 'extractor' && '🚀 Motor Extrator'}
@@ -1135,6 +1136,7 @@ export default function Home() {
                 {tab === 'chatbot' && <>🤖 Chatbot WhatsApp{!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}</>}
                 {tab === 'ia' && <>🤖 Gerador de Copys IA{!requireFeature('aiCopy') && <span className="text-[10px] text-amber-300">🔒</span>}</>}
                 {tab === 'support' && '🙋‍♀️ Suporte & Avaliação'}
+                {tab === 'facebook' && '📢 Anúncios Facebook'}
               </button>
             ))}
           </div>
@@ -1262,6 +1264,10 @@ export default function Home() {
             supportSubmitted={supportSubmitted} setSupportSubmitted={setSupportSubmitted}
             hoveredStar={hoveredStar} setHoveredStar={setHoveredStar} user={user} showToast={showToast}
           />
+        )}
+
+        {activeTab === 'facebook' && (
+          <FacebookAds showToast={showToast} />
         )}
       </main>
 

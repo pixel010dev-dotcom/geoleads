@@ -1,4 +1,4 @@
-export type DashboardTab = 'extractor' | 'enrich' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
+export type DashboardTab = 'extractor' | 'enrich' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support' | 'facebook';
 
 export const tabFeatureMap: Record<DashboardTab, string | null> = {
   extractor: null,
@@ -8,6 +8,7 @@ export const tabFeatureMap: Record<DashboardTab, string | null> = {
   chatbot: 'chatbot',
   ia: 'aiCopy',
   support: null,
+  facebook: 'facebook',
 };
 
 export const tabUpgradeCopy: Record<string, { title: string; description: string }> = {
