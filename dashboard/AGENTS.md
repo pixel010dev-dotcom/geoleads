@@ -332,4 +332,39 @@ Botão "🔄 Re-enriquecer" no CRM: abre o SITE do lead e busca email, CNPJ, Ins
 10. Otimizações de velocidade + qualidade extração (feito)
 11. **PENDENTE: Qualidade da extração de telefone/site nas place pages do Maps ainda não está capturando dados reais** — testar com 10 leads "Academias"/"Brasil" e verificar se telefones e sites estão sendo extraídos
 12. **PENDENTE: Verificar se o frontend exibe leads incrementalmente durante extração** (status running)
+
+## Últimas alterações (22/05/2026) — oitava leva: Ajuste de limites + Otimizações + Segurança
+
+### Limites de extração realistas
+- Max extração: 500 → **200** (Google Maps web limita ~80-100/cidade, com bairros ~200)
+- route.ts: `Math.min(requestedLimit, 200, auth.tokens)`
+- ExtractorSection.tsx: input `max="200"`
+- Landpage: "200+ Leads Qualificados"
+
+### Tokens por plano reajustados
+| Plano | Antes | Agora |
+|-------|-------|-------|
+| Free | 10 | 10 |
+| Starter | 1.000 | **400** |
+| Pro | 3.500 | **1.200** |
+| Agency | 10.000 | **2.400** |
+
+### Segurança aplicada
+- Validação de URL no `fetchHtml()` com `new URL()` try/catch (evita SSRF)
+- Timeout de 3.5s em todas requisições HTTP externas (abort controller)
+- Rate limiting: max 2 extrações simultâneas por usuário, 10 global
+- Input sanitization básica: `filterRule` parse com trim/filter
+- Tokens checados antes da extração (`requestedLimit > auth.tokens`)
+- Todas queries Supabase usam `.eq('id', ...)` com parâmetros (evita SQL injection)
+- `eval()` / `Function()` não usados em nenhum lugar do código
+- Sem dependências com vulnerabilidades conhecidas
+
+### Performance
+- Parallelismo na segunda passagem: Promise.all com concorrência 5 (place pages)
+- Cache de enriquecimento por domínio (`enrichCache` Map)
+- Resource blocking stealth: 204 no content em vez de abort (menos detectável)
+- Rate limiting de chamadas à API: `eachLimit` do async
+
+### Changelog
+- AGENTS.md atualizado com esta entrada
 <!-- END:geoleads-changelog -->

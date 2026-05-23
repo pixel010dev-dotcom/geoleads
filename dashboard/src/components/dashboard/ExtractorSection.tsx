@@ -132,7 +132,7 @@ export default function ExtractorSection({
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Quantos Leads? (-1 Token/Lead)</label>
                 <input 
-                  type="number" min="1" max="500"
+                  type="number" min="1" max="200"
                   style={{ colorScheme: 'dark' }}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                   value={limit}

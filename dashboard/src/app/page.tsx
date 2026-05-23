@@ -86,7 +86,7 @@ export default async function LandingPage() {
               <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.08] mb-6">
                 Extraia{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400">
-                  500+ Leads Qualificados
+                  200+ Leads Qualificados
                 </span>{' '}
                 em 3 Minutos
               </h1>

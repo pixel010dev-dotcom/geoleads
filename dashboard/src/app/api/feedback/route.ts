@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@/lib/server-auth';
+import { createAdminSupabaseClient, getAuthUser } from '@/lib/server-auth';
 import { sendFeedbackNotification } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthUser(request);
     const body = await request.json();
-    const { rating, feedback, name, userId } = body;
+    const { rating, feedback, name } = body;
+    const userId = auth?.user?.id || body.userId;
 
     if (!rating || rating < 1 || rating > 5) {
       return NextResponse.json({ error: 'Nota inválida (1-5)' }, { status: 400 });

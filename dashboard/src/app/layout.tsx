@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "GeoLeads - Motor de Extração de Leads B2B",
-    description: "Extraia 500+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos. Do Google Maps ao CRM, tudo em um fluxo.",
+    description: "Extraia 200+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos. Do Google Maps ao CRM, tudo em um fluxo.",
     url: '/',
     siteName: "GeoLeads",
     type: "website",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "GeoLeads - Motor de Extração de Leads B2B",
-    description: "Extraia 500+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos.",
+    description: "Extraia 200+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos.",
   },
   robots: {
     index: true,

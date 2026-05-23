@@ -834,7 +834,31 @@ async function enrichLeadsWithMapsPlaceDetails(
   return changed;
 }
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const hostname = u.hostname.toLowerCase();
+    // Bloqueia IPs privados / internos (SSRF protection)
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' ||
+        hostname === '[::1]' || hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
+    // Bloqueia IPs privados 10.x.x.x, 172.16-31.x.x, 192.168.x.x, 169.254.x.x
+    const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
+    if (ipv4) {
+      const a = parseInt(ipv4[1]), b = parseInt(ipv4[2]);
+      if (a === 10) return false;
+      if (a === 172 && b >= 16 && b <= 31) return false;
+      if (a === 192 && b === 168) return false;
+      if (a === 169 && b === 254) return false;
+      if (a === 127) return false;
+    }
+    return true;
+  } catch { return false; }
+}
+
 async function fetchHtml(url: string) {
+  if (!isSafeUrl(url)) return '';
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3500);
 
@@ -1294,7 +1318,7 @@ export async function POST(request: Request) {
     const location = correctedLocation;
     const isBroadRegion = isBroadLocation(rawLocation) || isBroadLocation(correctedLocation);
     const requestedLimit = Math.max(1, Number(limit) || 10);
-    const targetLimit = Math.min(requestedLimit, 500, auth.tokens);
+    const targetLimit = Math.min(requestedLimit, 200, auth.tokens);
     if (requestedLimit > auth.tokens) {
       done();
       return NextResponse.json({
@@ -1430,7 +1454,7 @@ const allEnrichedLeads: any[] = [];
 
     // Para buscas em cidades grandes com targetLimit alto, expande por bairros
     // O Google Maps limita resultados por busca a ~100-120 itens.
-    // Para chegar a 500 leads em uma cidade, precisamos variar a busca por sub-regiões.
+    // Para chegar a 200 leads em uma cidade, precisamos variar a busca por sub-regiões.
     let searchLocations: string[];
     if (isBroadRegion) {
       searchLocations = shuffleArray([...MAJOR_CITIES]);

@@ -57,11 +57,11 @@ export async function PATCH(
 
     const supabase = createRequestSupabaseClient(_request);
     const { jobId } = await params;
-    const body = await _request.json();
+    const { status } = await _request.json();
 
     const { data, error } = await supabase
       .from('extraction_jobs')
-      .update({ ...body, completed_at: body.status === 'cancelled' ? new Date().toISOString() : undefined })
+      .update({ status, completed_at: status === 'cancelled' ? new Date().toISOString() : undefined })
       .eq('id', jobId)
       .eq('user_id', auth.user.id)
       .select()
