@@ -94,7 +94,7 @@ export default function Account() {
             <span className="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">Voltar ao Dashboard</Link>
+            <Link href="/app/dashboard" className="text-gray-400 hover:text-white transition-colors text-sm">Voltar ao Dashboard</Link>
           </div>
         </div>
       </nav>

@@ -153,7 +153,7 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
       
       <p className="text-gray-400 text-xs text-center mt-6 tracking-wide leading-relaxed">
         Buscando dados públicos no Google Maps e cruzando com o site oficial da empresa. <br />
-        <span className="text-gray-600 text-[10px]">Tempo decorrido: {elapsed}s · Limite de segurança: 50s</span>
+        <span className="text-gray-600 text-[10px]">Tempo decorrido: {elapsed}s · Limite de segurança: 600s</span>
       </p>
     </div>
   );

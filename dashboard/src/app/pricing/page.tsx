@@ -411,7 +411,7 @@ export default function Pricing() {
 
             <button
               type="button"
-              onClick={() => !user ? window.location.href = `/login?next=/pricing&plan=${selectedPlanId}` : buyWithCard(selectedPlan.id)}
+              onClick={() => !user ? router.push(`/login?next=/pricing&plan=${selectedPlanId}`) : buyWithCard(selectedPlan.id)}
               disabled={loadingPlan !== null && !!user}
               className="mt-3 w-full py-3 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-gray-200 disabled:opacity-50 cursor-pointer"
               title={!user ? 'Faça login para pagar com cartão' : ''}

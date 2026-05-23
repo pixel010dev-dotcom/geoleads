@@ -490,15 +490,13 @@ export default function Home() {
   };
 
   const handleRemoveFromCRM = (nome: string) => {
-    if (confirm(`Tem certeza que deseja excluir o lead "${nome}" do CRM?`)) {
-      const removedLead = crmLeads.find(l => l.nome === nome);
-      const updated = crmLeads.filter(l => l.nome !== nome);
-      saveCrm(updated);
-      setSelectedCrmLeads(prev => prev.filter(n => n !== nome));
-      if (removedLead) {
-        setSelectedWaLeads(prev => prev.filter(key => key !== getLeadKey(removedLead)));
-        deleteCrmFromCloud([getLeadKey(removedLead)]);
-      }
+    const removedLead = crmLeads.find(l => l.nome === nome);
+    const updated = crmLeads.filter(l => l.nome !== nome);
+    saveCrm(updated);
+    setSelectedCrmLeads(prev => prev.filter(n => n !== nome));
+    if (removedLead) {
+      setSelectedWaLeads(prev => prev.filter(key => key !== getLeadKey(removedLead)));
+      deleteCrmFromCloud([getLeadKey(removedLead)]);
     }
   };
 
@@ -528,14 +526,13 @@ export default function Home() {
 
   const handleRemoveSelectedFromCRM = () => {
     if (selectedCrmLeads.length === 0) return;
-    if (confirm(`Tem certeza que deseja excluir os ${selectedCrmLeads.length} leads selecionados do CRM?`)) {
-      const removedKeys = crmLeads.filter(l => selectedCrmLeads.includes(l.nome)).map(getLeadKey);
-      const updated = crmLeads.filter(l => !selectedCrmLeads.includes(l.nome));
-      saveCrm(updated);
-      setSelectedCrmLeads([]);
-      setSelectedWaLeads(prev => prev.filter(key => !removedKeys.includes(key)));
-      deleteCrmFromCloud(removedKeys);
-    }
+    const removedKeys = crmLeads.filter(l => selectedCrmLeads.includes(l.nome)).map(getLeadKey);
+    const updated = crmLeads.filter(l => !selectedCrmLeads.includes(l.nome));
+    saveCrm(updated);
+    setSelectedCrmLeads([]);
+    setSelectedWaLeads(prev => prev.filter(key => !removedKeys.includes(key)));
+    deleteCrmFromCloud(removedKeys);
+    showToast(`${selectedCrmLeads.length} leads removidos do CRM.`, 'success');
   };
 
   const handleBulkStageChange = async () => {

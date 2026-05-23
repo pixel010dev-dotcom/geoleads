@@ -103,10 +103,10 @@ export default function DashboardCharts({ userId, refreshKey = 0 }: { userId: st
         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all"
-            style={{ width: `${Math.min(100, (tokenBalance / 10000) * 100)}%` }}
+            style={{ width: `${Math.min(100, (tokenBalance / 2400) * 100)}%` }}
           />
         </div>
-        <p className="text-[10px] text-gray-500 mt-2">Baseado em 10.000 tokens</p>
+        <p className="text-[10px] text-gray-500 mt-2">Baseado no plano Agency (2.400 tokens)</p>
       </div>
 
       {/* Total Leads */}
