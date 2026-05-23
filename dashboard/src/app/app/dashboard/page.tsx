@@ -676,8 +676,8 @@ export default function Home() {
     } catch {} finally { setWaSentMessagesLoading(false); }
   };
 
-  const handleUpdateCRMLead = (nome: string, field: 'stage' | 'notes', value: string) => {
-    const updated = crmLeads.map(l => l.nome === nome ? { ...l, [field]: value } : l);
+  const handleUpdateCRMLead = (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => {
+    const updated = crmLeads.map(l => l.nome === nome ? { ...l, [field]: field === 'tags' ? value.split(',').filter(Boolean) : value } : l);
     saveCrm(updated);
   };
 

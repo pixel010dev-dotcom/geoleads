@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
 
 export interface CRMSectionProps {
@@ -23,11 +24,12 @@ export interface CRMSectionProps {
   handleBulkStageChange: () => Promise<void>;
   handleReEnrichSelected: () => Promise<void>;
   handleReEnrichSingle: (lead: any) => Promise<void>;
-  handleUpdateCRMLead: (nome: string, field: 'stage' | 'notes', value: string) => void;
+  handleUpdateCRMLead: (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => void;
   openWhatsApp: (lead: any) => void;
 }
 
 const CRM_PAGE_SIZE = 25;
+const ALL_TAGS = ['Quente', 'Morno', 'Frio', 'Agendar', 'Ligou', 'Não respondeu', 'Indicação'];
 
 export default function CRMSection({
   crmLeads,
@@ -55,7 +57,25 @@ export default function CRMSection({
   handleUpdateCRMLead,
   openWhatsApp,
 }: CRMSectionProps) {
-  const filteredCrmLeads = crmLeads.filter(lead => {
+  const [crmFilterTag, setCrmFilterTag] = useState('all');
+  const [crmSortField, setCrmSortField] = useState('nome');
+  const [crmSortDir, setCrmSortDir] = useState<'asc' | 'desc'>('asc');
+  const [tagInputs, setTagInputs] = useState<Record<string, string>>({});
+  const [showTagMenu, setShowTagMenu] = useState<Record<string, boolean>>({});
+
+  const toggleTag = (leadNome: string, tag: string) => {
+    const lead = crmLeads.find(l => l.nome === leadNome);
+    if (!lead) return;
+    const tags = Array.isArray(lead.tags) ? [...lead.tags] : [];
+    const idx = tags.indexOf(tag);
+    if (idx >= 0) tags.splice(idx, 1);
+    else tags.push(tag);
+    handleUpdateCRMLead(leadNome, 'tags', tags.join(','));
+  };
+
+  const allUsedTags = [...new Set(crmLeads.flatMap(l => Array.isArray(l.tags) ? l.tags : []))].sort();
+
+  let filteredCrmLeads = crmLeads.filter(lead => {
     const matchesSearch = 
       lead.nome.toLowerCase().includes(crmSearch.toLowerCase()) || 
       lead.telefone.toLowerCase().includes(crmSearch.toLowerCase()) ||
@@ -63,8 +83,19 @@ export default function CRMSection({
       lead.cnpj?.toLowerCase().includes(crmSearch.toLowerCase()) ||
       lead.nicho.toLowerCase().includes(crmSearch.toLowerCase()) ||
       lead.cidade.toLowerCase().includes(crmSearch.toLowerCase());
-    if (crmFilterStage === 'all') return matchesSearch;
-    return matchesSearch && lead.stage === crmFilterStage;
+    if (crmFilterStage !== 'all' && lead.stage !== crmFilterStage) return false;
+    if (crmFilterTag !== 'all') {
+      const tags = Array.isArray(lead.tags) ? lead.tags : [];
+      if (!tags.includes(crmFilterTag)) return false;
+    }
+    return matchesSearch;
+  });
+
+  filteredCrmLeads.sort((a, b) => {
+    let va = (a[crmSortField] || '').toString().toLowerCase();
+    let vb = (b[crmSortField] || '').toString().toLowerCase();
+    if (crmSortField === 'savedAt') { va = a.savedAt || ''; vb = b.savedAt || ''; }
+    return crmSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
   });
   const crmTotalPages = Math.max(1, Math.ceil(filteredCrmLeads.length / CRM_PAGE_SIZE));
   const safeCrmPage = Math.min(crmPage, crmTotalPages - 1);
@@ -164,6 +195,17 @@ export default function CRMSection({
             <option value="Fechado">Vendido / Ganho</option>
             <option value="Perdido">Perdido</option>
           </select>
+          {allUsedTags.length > 0 && (
+            <select
+              value={crmFilterTag}
+              onChange={(e) => setCrmFilterTag(e.target.value)}
+              style={{ colorScheme: 'dark' }}
+              className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="all">Todas as Tags</option>
+              {allUsedTags.map((t: string) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
         </div>
       </div>
 
@@ -181,9 +223,14 @@ export default function CRMSection({
                   className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-4 w-4"
                 />
               </th>
-              <th className="px-4 py-3 font-medium">Lead Info</th>
+              <th className={`px-4 py-3 font-medium cursor-pointer hover:text-white select-none ${crmSortField === 'nome' ? 'text-white' : ''}`} onClick={() => { setCrmSortField('nome'); setCrmSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+                Lead Info {crmSortField === 'nome' ? (crmSortDir === 'asc' ? '↑' : '↓') : ''}
+              </th>
               <th className="px-4 py-3 font-medium">Contatos</th>
-              <th className="px-4 py-3 font-medium">Funil / Status</th>
+              <th className="px-4 py-3 font-medium">Tags</th>
+              <th className={`px-4 py-3 font-medium cursor-pointer hover:text-white select-none ${crmSortField === 'stage' ? 'text-white' : ''}`} onClick={() => { setCrmSortField('stage'); setCrmSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+                Funil / Status {crmSortField === 'stage' ? (crmSortDir === 'asc' ? '↑' : '↓') : ''}
+              </th>
               <th className="px-4 py-3 font-medium">Minhas Anotações</th>
               <th className="px-4 py-3 font-medium">Ações</th>
             </tr>
@@ -226,6 +273,26 @@ export default function CRMSection({
                     {lead.tiktok && (
                       <a href={lead.tiktok} target="_blank" className="text-cyan-300 block hover:underline">🎵 TikTok</a>
                     )}
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {(Array.isArray(lead.tags) ? lead.tags : []).map((tag: string) => (
+                      <span key={tag} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 text-[10px]">
+                        {tag}
+                        <button onClick={() => toggleTag(lead.nome, tag)} className="hover:text-white ml-0.5 cursor-pointer">&times;</button>
+                      </span>
+                    ))}
+                    <div className="relative">
+                      <button onClick={() => setShowTagMenu(s => ({ ...s, [lead.nome]: !s[lead.nome] }))} className="px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 hover:text-white border border-white/10 text-[10px] cursor-pointer">+</button>
+                      {showTagMenu[lead.nome] && (
+                        <div className="absolute top-6 left-0 z-20 bg-gray-900 border border-white/10 rounded-xl p-2 shadow-2xl min-w-[140px]" onMouseLeave={() => setShowTagMenu(s => ({ ...s, [lead.nome]: false }))}>
+                          {ALL_TAGS.filter(t => !(Array.isArray(lead.tags) ? lead.tags : []).includes(t)).map((tag: string) => (
+                            <button key={tag} onClick={() => { toggleTag(lead.nome, tag); setShowTagMenu(s => ({ ...s, [lead.nome]: false })); }} className="block w-full text-left px-2 py-1 text-xs text-gray-300 hover:bg-white/5 rounded-lg cursor-pointer">{tag}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-4">
@@ -287,7 +354,7 @@ export default function CRMSection({
 
             {filteredCrmLeads.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-16 text-center text-gray-500">
                   <div className="text-3xl mb-3">📁</div>
                   <p className="font-semibold">Nenhum lead encontrado no CRM.</p>
                   <p className="text-xs max-w-md mx-auto mt-1">Salve leads a partir do "Motor Extrator" para visualizá-los e gerenciá-los aqui no seu pipeline.</p>
@@ -355,6 +422,25 @@ export default function CRMSection({
                 )}
               </div>
 
+              <div className="border-t border-white/5 pt-3 flex flex-wrap gap-1 items-center">
+                <span className="text-[11px] text-gray-500 font-medium mr-1">Tags:</span>
+                {(Array.isArray(lead.tags) ? lead.tags : []).map((tag: string) => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 text-[10px]">
+                    {tag}
+                    <button onClick={() => toggleTag(lead.nome, tag)} className="hover:text-white ml-0.5 cursor-pointer">&times;</button>
+                  </span>
+                ))}
+                <div className="relative inline-block">
+                  <button onClick={() => setShowTagMenu(s => ({ ...s, [lead.nome]: !s[lead.nome] }))} className="px-2 py-0.5 rounded-full bg-white/5 text-gray-400 hover:text-white border border-white/10 text-[10px] cursor-pointer">+ Tag</button>
+                  {showTagMenu[lead.nome] && (
+                    <div className="absolute top-6 left-0 z-20 bg-gray-900 border border-white/10 rounded-xl p-2 shadow-2xl min-w-[140px]" onMouseLeave={() => setShowTagMenu(s => ({ ...s, [lead.nome]: false }))}>
+                      {ALL_TAGS.filter(t => !(Array.isArray(lead.tags) ? lead.tags : []).includes(t)).map((tag: string) => (
+                        <button key={tag} onClick={() => { toggleTag(lead.nome, tag); setShowTagMenu(s => ({ ...s, [lead.nome]: false })); }} className="block w-full text-left px-2 py-1 text-xs text-gray-300 hover:bg-white/5 rounded-lg cursor-pointer">{tag}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
                 <span className="text-[11px] text-gray-500 font-medium">Funil / Status:</span>
                 <select

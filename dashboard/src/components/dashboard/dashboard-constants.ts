@@ -43,6 +43,7 @@ export const normalizeCrmLead = (lead: any) => ({
   cnpj: lead.cnpj || '',
   stage: lead.stage || 'Novo',
   notes: lead.notes || '',
+  tags: Array.isArray(lead.tags) ? lead.tags : [],
   savedAt: lead.savedAt || new Date().toISOString(),
   nicho: lead.nicho || 'Geral',
   cidade: lead.cidade || 'Geral'
