@@ -30,8 +30,10 @@ export default function HackMap({ leads }: { leads: any[] }) {
   const markersLayer = useRef<any>(null);
   const coordsRef = useRef<[number, number][]>([]);
   const geoDone = useRef(false);
+  const citiesKeyRef = useRef('');
   const [pointCount, setPointCount] = useState(0);
   const [leaflet, setLeaflet] = useState<any>(null);
+  const hasTiles = useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -61,6 +63,9 @@ export default function HackMap({ leads }: { leads: any[] }) {
   useEffect(() => {
     if (!leaflet || !mapInstance.current) return;
     const cities = [...new Set(leads.map((l) => l.cidade).filter(Boolean))] as string[];
+    const newKey = cities.sort().join('|');
+    if (newKey === citiesKeyRef.current) return;
+    citiesKeyRef.current = newKey;
     geoDone.current = false;
     coordsRef.current = [];
     let cancelled = false;
