@@ -354,6 +354,8 @@ const ABSOLUTE_SOCIAL_REGEX = /https?:\/\/(?:www\.)?(?:instagram\.com|facebook\.
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (digits.length === 0) return raw;
+  // Rejeita números com 6+ dígitos repetidos consecutivos (falsos positivos do Maps)
+  if (/(\d)\1{5,}/.test(digits)) return 'Não informado';
   // Se já tem DDI (+55), mantém
   if (digits.startsWith('55') && digits.length >= 12) {
     return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
@@ -376,8 +378,8 @@ function normalizePhone(raw: string): string {
     // DDD não brasileiro — formata como número internacional genérico
     return `+${digits.slice(0, 2)} ${digits.slice(2)}`;
   }
-  // Fallback: formata o que tem
-  return digits;
+  // Fallback: formato não reconhecido → marca como não disponível
+  return 'Não informado';
 }
 
 function normalizeCnpj(value: string) {
@@ -482,7 +484,10 @@ function isValidBrazilianPhone(raw: string) {
   const digits = raw.replace(/\D/g, '');
   const local = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
   if (local.length < 10 || local.length > 11) return false;
+  // Rejeita números com todos dígitos iguais (ex: 416666666666)
   if (/^(\d)\1+$/.test(local)) return false;
+  // Rejeita números com 6+ dígitos consecutivos repetidos (ex: 416666666666 → '666666')
+  if (/(\d)\1{5,}/.test(local)) return false;
 
   const ddd = parseInt(local.slice(0, 2), 10);
   return (ddd >= 11 && ddd <= 19) || (ddd >= 21 && ddd <= 28) ||
@@ -1445,27 +1450,41 @@ const allEnrichedLeads: any[] = [];
     // Scroll por cidade/bairro baseado na demanda e tempo disponível
     const maxScrollPerCity = isBroadRegion ? 15 : Math.max(20, Math.min(200, targetLimit * 2));
 
-    // Para targets grandes, gera variações de busca (Maps retorna diferentes resultados)
-    const searchVariations = (kw: string, loc: string) => {
-      const base = `${kw} em ${loc}`;
-      const alt = `${kw} ${loc}`;
-      if (targetLimit <= 100) return [base];
-      // Com variações, algumas academias que não aparecem numa busca aparecem em outra
-      return [base, alt, `${kw} no ${loc}`, `${kw} - ${loc}`];
+    // Para targets grandes, gera variações de nicho (Maps retorna resultados DIFERENTES)
+    // Ex: "Academia" → "Personal Trainer", "Crossfit", "Musculação", "Ginástica"
+    const nicheVariations = (kw: string) => {
+      const kwLower = kw.toLowerCase();
+      if (targetLimit <= 100) return [kw];
+      // Mapeamento de nichos comuns para variações que retornam leads diferentes
+      const variants: Record<string, string[]> = {
+        'academia': ['Personal Trainer', 'Crossfit', 'Centro de Treinamento', 'Musculação', 'Ginástica'],
+        'restaurante': ['Restaurante', 'Bar', 'Lanchonete', 'Pizzaria', 'Hamburgueria'],
+        'dentista': ['Dentista', 'Odontologia', 'Implante Dentário', 'Clínica Odontológica'],
+        'advogado': ['Advogado', 'Escritório de Advocacia', 'Consultoria Jurídica'],
+        'medico': ['Médico', 'Clínica', 'Consultório', 'Especialidade Médica'],
+        'estetica': ['Estética', 'Salão de Beleza', 'Depilação', 'Massagem', 'Spa'],
+        'petshop': ['Petshop', 'Veterinário', 'Banho e Tosa', 'Hotel para Cães'],
+      };
+      for (const [base, vars] of Object.entries(variants)) {
+        if (kwLower.includes(base)) return [kw, ...vars];
+      }
+      return [kw];
     };
+
+    const keywordsToTry = nicheVariations(keyword);
 
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
       if ((Date.now() - startTime) >= MAX_TIME) break;
       if (await checkCancelled()) break;
 
-      const queries = searchVariations(keyword, searchLoc);
-      for (const query of queries) {
+      // Para cada keyword variation, faz uma busca separada (Maps retorna leads diferentes)
+      for (const kwVar of keywordsToTry) {
         if (validLeads.length >= targetLimit) break;
         if ((Date.now() - startTime) >= MAX_TIME) break;
         if (await checkCancelled()) break;
 
-      const cityQuery = encodeURIComponent(query);
+      const cityQuery = encodeURIComponent(`${kwVar} em ${searchLoc}`);
       await page.goto(`https://www.google.com/maps/search/${cityQuery}`, {
         waitUntil: 'domcontentloaded',
         timeout: 15000
