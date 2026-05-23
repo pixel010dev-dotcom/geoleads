@@ -18,6 +18,7 @@ import AICopySection from '@/components/dashboard/AICopySection';
 import EnrichSection from '@/components/dashboard/EnrichSection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import SocialProofWidget from '@/components/dashboard/SocialProofWidget';
+import { generatePdfReport } from '@/lib/pdf-report';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('extractor');
@@ -1118,6 +1119,10 @@ export default function Home() {
           <div className="flex items-center gap-2 sm:gap-3 mb-6 overflow-x-auto max-w-full">
             <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold flex-shrink-0">
               🎁 Indique e Ganhe
+            </button>
+            <button onClick={() => generatePdfReport({ tokens: tokens ?? 0, leads: crmLeads, userName: user?.email || 'Usuário' })}
+              className="text-[11px] px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold flex-shrink-0">
+              📄 Relatório PDF
             </button>
             <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 no-scrollbar">
             {(['extractor', 'enrich', 'crm', 'whatsapp', 'chatbot', 'ia', 'support'] as const).map((tab) => (

@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.106.0",
     "@whiskeysockets/baileys": "^7.0.0-rc12",
     "jimp": "^1.6.1",
+    "jspdf": "^4.2.1",
     "mercadopago": "^2.12.1",
     "next": "16.2.6",
     "nodemailer": "^8.0.7",
