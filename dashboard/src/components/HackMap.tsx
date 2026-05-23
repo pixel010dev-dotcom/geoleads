@@ -55,10 +55,17 @@ export default function HackMap({ leads }: { leads: any[] }) {
     if (!leaflet || !mapInstance.current) return;
     const cities = [...new Set(leads.map((l) => l.cidade).filter(Boolean))] as string[];
     if (cities.length === 0) return;
-    Promise.all(cities.map(geocodeCity)).then((results) => {
-      const valid = results.filter(Boolean) as [number, number][];
-      setCoords(valid);
-    });
+    let cancelled = false;
+    (async () => {
+      const results: ([number, number] | null)[] = [];
+      for (const city of cities) {
+        if (cancelled) break;
+        results.push(await geocodeCity(city));
+        await new Promise(r => setTimeout(r, 1200));
+      }
+      if (!cancelled) setCoords(results.filter(Boolean) as [number, number][]);
+    })();
+    return () => { cancelled = true; };
   }, [leads, leaflet]);
 
   useEffect(() => {
