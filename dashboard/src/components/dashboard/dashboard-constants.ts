@@ -1,12 +1,13 @@
-export type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
+export type DashboardTab = 'extractor' | 'enrich' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
 
 export const tabFeatureMap: Record<DashboardTab, string | null> = {
-  extractor: 'extractor',
+  extractor: null,
+  enrich: null,
   crm: 'crm',
   whatsapp: 'whatsappSender',
   chatbot: 'chatbot',
   ia: 'aiCopy',
-  support: null
+  support: null,
 };
 
 export const tabUpgradeCopy: Record<string, { title: string; description: string }> = {

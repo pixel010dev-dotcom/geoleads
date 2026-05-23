@@ -15,6 +15,7 @@ import CRMSection from '@/components/dashboard/CRMSection';
 import { WhatsAppSection } from '@/components/dashboard/WhatsAppSection';
 import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
 import AICopySection from '@/components/dashboard/AICopySection';
+import EnrichSection from '@/components/dashboard/EnrichSection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import SocialProofWidget from '@/components/dashboard/SocialProofWidget';
 
@@ -1015,10 +1016,11 @@ export default function Home() {
               🎁 Indique e Ganhe
             </button>
             <div className="app-tabs dashboard-tabs flex gap-2 max-w-full overflow-x-auto no-scrollbar">
-            {(['extractor', 'crm', 'whatsapp', 'chatbot', 'ia', 'support'] as const).map((tab) => (
+            {(['extractor', 'enrich', 'crm', 'whatsapp', 'chatbot', 'ia', 'support'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
                 {tab === 'extractor' && '🚀 Motor Extrator'}
+                {tab === 'enrich' && '🔍 Buscar Dados'}
                 {tab === 'crm' && <>📋 CRM de Leads{!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}{crmLeads.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>}</>}
                 {tab === 'whatsapp' && <>⚡ Disparador WhatsApp{!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}</>}
                 {tab === 'chatbot' && <>🤖 Chatbot WhatsApp{!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}</>}
@@ -1109,6 +1111,19 @@ export default function Home() {
             aiTone={aiTone} setAiTone={setAiTone} generatedCopies={generatedCopies}
             isGeneratingCopies={isGeneratingCopies} generateAICopies={generateAICopies}
             setWaTemplate={setWaTemplate} setActiveTab={setActiveTab} showToast={showToast}
+          />
+        )}
+
+        {activeTab === 'enrich' && (
+          <EnrichSection
+            crmLeads={crmLeads}
+            handleReEnrichSingle={handleReEnrichSingle}
+            handleReEnrichSelected={handleReEnrichSelected}
+            enrichLoading={enrichLoading}
+            selectedCrmLeads={selectedCrmLeads}
+            setSelectedCrmLeads={setSelectedCrmLeads}
+            openWhatsApp={openWhatsApp}
+            showToast={showToast}
           />
         )}
 
