@@ -28,7 +28,9 @@ export default function HackMap({ leads }: { leads: any[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markersLayer = useRef<any>(null);
-  const [coords, setCoords] = useState<[number, number][]>([]);
+  const coordsRef = useRef<[number, number][]>([]);
+  const geoDone = useRef(false);
+  const [pointCount, setPointCount] = useState(0);
   const [leaflet, setLeaflet] = useState<any>(null);
 
   useEffect(() => {
@@ -59,51 +61,47 @@ export default function HackMap({ leads }: { leads: any[] }) {
   useEffect(() => {
     if (!leaflet || !mapInstance.current) return;
     const cities = [...new Set(leads.map((l) => l.cidade).filter(Boolean))] as string[];
-    if (cities.length === 0) return;
+    geoDone.current = false;
+    coordsRef.current = [];
     let cancelled = false;
     (async () => {
-      const results: ([number, number] | null)[] = [];
       for (const city of cities) {
         if (cancelled) break;
-        results.push(await geocodeCity(city));
+        const c = await geocodeCity(city);
+        if (c) coordsRef.current.push(c);
         await new Promise(r => setTimeout(r, 1200));
       }
-      if (!cancelled) setCoords(results.filter(Boolean) as [number, number][]);
+      if (cancelled) return;
+      geoDone.current = true;
+      const L = leaflet;
+      const map = mapInstance.current;
+      const coords = coordsRef.current;
+      if (coords.length === 0) return;
+      markersLayer.current.clearLayers();
+      coords.forEach(([lat, lng]) => {
+        const circle = L.circleMarker([lat, lng], {
+          radius: 8,
+          color: '#00ff41',
+          fillColor: '#ff0040',
+          fillOpacity: 0.9,
+          weight: 2,
+          opacity: 1,
+        });
+        circle.addTo(markersLayer.current);
+        const pulse = L.circleMarker([lat, lng], {
+          radius: 18,
+          color: '#00ff41',
+          fillColor: '#00ff41',
+          fillOpacity: 0.15,
+          weight: 1,
+        });
+        pulse.addTo(markersLayer.current);
+      });
+      map.fitBounds(L.latLngBounds(coords).pad(0.3));
+      setPointCount(coords.length);
     })();
     return () => { cancelled = true; };
   }, [leads, leaflet]);
-
-  useEffect(() => {
-    if (!leaflet || !mapInstance.current || coords.length === 0) return;
-    const L = leaflet;
-    const map = mapInstance.current;
-    markersLayer.current.clearLayers();
-
-    coords.forEach(([lat, lng]) => {
-      const circle = L.circleMarker([lat, lng], {
-        radius: 8,
-        color: '#00ff41',
-        fillColor: '#ff0040',
-        fillOpacity: 0.9,
-        weight: 2,
-        opacity: 1,
-      });
-      circle.addTo(markersLayer.current);
-
-      const pulse = L.circleMarker([lat, lng], {
-        radius: 18,
-        color: '#00ff41',
-        fillColor: '#00ff41',
-        fillOpacity: 0.15,
-        weight: 1,
-      });
-      pulse.addTo(markersLayer.current);
-    });
-
-    if (coords.length > 0) {
-      map.fitBounds(L.latLngBounds(coords).pad(0.3));
-    }
-  }, [coords, leaflet]);
 
   return (
     <div className="relative rounded-2xl overflow-hidden border border-green-500/20 shadow-[0_0_30px_rgba(0,255,65,0.05)]">
@@ -112,7 +110,7 @@ export default function HackMap({ leads }: { leads: any[] }) {
         GEOLEADS_MAP::ACTIVE
       </div>
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-1 text-[10px] text-green-500/50 font-mono">
-        {coords.length} PONTOS
+        {pointCount} PONTOS
       </div>
       <div ref={mapRef} className="w-full h-[320px] sm:h-[400px]" />
     </div>
