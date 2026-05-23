@@ -80,6 +80,7 @@ export default function CRMSection({
   const [crmSortDir, setCrmSortDir] = useState<'asc' | 'desc'>('asc');
   const [tagInputs, setTagInputs] = useState<Record<string, string>>({});
   const [showTagMenu, setShowTagMenu] = useState<Record<string, boolean>>({});
+  const [crmViewMode, setCrmViewMode] = useState<'table' | 'kanban'>('table');
 
   const toggleTag = (leadNome: string, tag: string) => {
     const lead = crmLeads.find(l => l.nome === leadNome);
@@ -232,10 +233,19 @@ export default function CRMSection({
               📥 Exportar CSV ({filteredCrmLeads.length})
             </button>
           )}
+          <button
+            onClick={() => setCrmViewMode(v => v === 'table' ? 'kanban' : 'table')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap border ${
+              crmViewMode === 'kanban' ? 'bg-purple-600 border-purple-500/30 text-white' : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+            }`}
+          >
+            {crmViewMode === 'kanban' ? '📋 Ver Tabela' : '📊 Kanban'}
+          </button>
         </div>
       </div>
 
       {/* TABLE / CARDS CONTAINER */}
+      {crmViewMode === 'table' && (
       <div className="rounded-2xl border border-white/5 bg-black/20 overflow-hidden">
         {/* Desktop Table */}
         <table className="hidden md:table w-full text-left text-sm">
@@ -544,8 +554,78 @@ export default function CRMSection({
           )}
         </div>
       </div>
+      )}
 
-      {filteredCrmLeads.length > CRM_PAGE_SIZE && (
+      {/* KANBAN VIEW */}
+      {crmViewMode === 'kanban' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mt-4">
+          {['Novo', 'Em Contato', 'Proposta', 'Fechado', 'Perdido'].map(stage => {
+            const stageLeads = filteredCrmLeads.filter(l => (l.stage || 'Novo') === stage);
+            const stageColors: Record<string, string> = {
+              'Novo': 'border-blue-500/30 bg-blue-500/5',
+              'Em Contato': 'border-amber-500/30 bg-amber-500/5',
+              'Proposta': 'border-purple-500/30 bg-purple-500/5',
+              'Fechado': 'border-green-500/30 bg-green-500/5',
+              'Perdido': 'border-red-500/30 bg-red-500/5',
+            };
+            const headerColors: Record<string, string> = {
+              'Novo': 'text-blue-400',
+              'Em Contato': 'text-amber-400',
+              'Proposta': 'text-purple-400',
+              'Fechado': 'text-green-400',
+              'Perdido': 'text-red-400',
+            };
+            return (
+              <div key={stage} className={`rounded-xl border ${stageColors[stage]} p-3 min-h-[200px]`}>
+                <div className={`text-xs font-bold uppercase tracking-wider mb-3 flex items-center justify-between ${headerColors[stage]}`}>
+                  <span>{stage}</span>
+                  <span className="text-white/40 font-mono">{stageLeads.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {stageLeads.slice(0, 30).map(lead => (
+                    <div key={lead.nome} className="bg-black/60 border border-white/5 rounded-lg p-3 hover:border-white/20 transition-colors group">
+                      <div className="font-bold text-gray-200 text-xs truncate">{lead.nome}</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5 truncate">{lead.nicho} · {lead.cidade}</div>
+                      {lead.telefone && lead.telefone !== 'Não informado' && (
+                        <div className="text-[10px] text-gray-400 font-mono mt-1">📞 {lead.telefone}</div>
+                      )}
+                      {lead.email && (
+                        <div className="text-[10px] text-purple-400 truncate">✉️ {lead.email}</div>
+                      )}
+                      {(Array.isArray(lead.tags) ? lead.tags : []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {(Array.isArray(lead.tags) ? lead.tags : []).slice(0, 3).map((tag: string) => (
+                            <span key={tag} className="px-1 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 text-[9px]">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {lead.telefone && lead.telefone !== 'Não informado' && (
+                          <button onClick={() => openWhatsApp(lead)} className="flex-1 py-1 rounded bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 text-[9px] font-semibold cursor-pointer">💬</button>
+                        )}
+                        <button onClick={() => handleRemoveFromCRM(lead.nome)} className="px-1.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[9px] font-semibold cursor-pointer">✕</button>
+                      </div>
+                      <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {['Novo', 'Em Contato', 'Proposta', 'Fechado', 'Perdido'].filter(s => s !== stage).map(s => (
+                          <button key={s} onClick={() => handleUpdateCRMLead(lead.nome, 'stage', s)}
+                            className="px-1 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[8px] text-gray-400 cursor-pointer truncate">
+                            → {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {stageLeads.length === 0 && (
+                    <div className="text-center py-8 text-gray-600 text-[11px]">Nenhum lead</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {crmViewMode === 'table' && filteredCrmLeads.length > CRM_PAGE_SIZE && (
         <div className="flex items-center justify-between pt-4 text-xs text-gray-500">
           <span>
             Mostrando {safeCrmPage * CRM_PAGE_SIZE + 1}–{Math.min((safeCrmPage + 1) * CRM_PAGE_SIZE, filteredCrmLeads.length)} de {filteredCrmLeads.length}
