@@ -1815,7 +1815,7 @@ const allEnrichedLeads: any[] = [];
   const leadsParaSegundaPassagem = allEnrichedLeads.filter(l =>
     (l.telefone === 'Não informado' || !l.site || l.site === 'Sem site') && l.placeUrl
   );
-    const BATCH_SIZE = 2;
+    const BATCH_SIZE = 5;
     const MAX_SECOND_PASS = leadsParaSegundaPassagem.length;
     for (let i = 0; i < MAX_SECOND_PASS; i += BATCH_SIZE) {
       if (await checkCancelled()) break;
@@ -1825,94 +1825,105 @@ const allEnrichedLeads: any[] = [];
         let tab: any = null;
         try {
           tab = await context.newPage();
-          const mapsExtraData = await extractMapsPlaceDetails(tab, lead.placeUrl);
-          if (mapsExtraData.telefone) lead.telefone = normalizePhone(mapsExtraData.telefone);
-          if (mapsExtraData.site && (!lead.site || lead.site === 'Sem site')) lead.site = mapsExtraData.site;
-          if (mapsExtraData.instagram && !lead.instagram) lead.instagram = mapsExtraData.instagram;
-          if (mapsExtraData.facebook && !lead.facebook) lead.facebook = mapsExtraData.facebook;
-          if (mapsExtraData.tiktok && !lead.tiktok) lead.tiktok = mapsExtraData.tiktok;
-          if (mapsExtraData.endereco && !lead.endereco) lead.endereco = mapsExtraData.endereco;
-          if (mapsExtraData.horarios && !lead.horarios) lead.horarios = mapsExtraData.horarios;
-          const extraData = (!mapsExtraData.telefone || (!mapsExtraData.site && (!lead.site || lead.site === 'Sem site')))
-            ? await tab.evaluate(() => {
-            const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
+          // Tenta carregamento completo primeiro, fallback para domcontentloaded
+          try {
+            await tab.goto(withMapsLocale(lead.placeUrl), {
+              waitUntil: 'load', timeout: 12000,
+              referer: 'https://www.google.com/maps'
+            });
+          } catch {
+            try {
+              await tab.goto(withMapsLocale(lead.placeUrl), {
+                waitUntil: 'domcontentloaded', timeout: 8000,
+                referer: 'https://www.google.com/maps'
+              });
+            } catch {}
+          }
+          await tab.waitForTimeout(2000);
+
+          const extraData = await tab.evaluate(() => {
+            const r: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
             const text = document.body?.innerText || '';
             const html = document.body?.innerHTML || '';
 
-            // 1. Tenta extrair de LD+JSON (structured data) — mais confiável
-            const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-            for (const script of scripts) {
+            // 1. LD+JSON
+            for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
               try {
-                const data = JSON.parse(script.textContent || '{}');
-                const items = Array.isArray(data) ? data : [data];
+                const d = JSON.parse(s.textContent || '{}');
+                const items = Array.isArray(d) ? d : [d];
                 for (const item of items) {
-                  if (item.telephone && !result.telefone) result.telefone = item.telephone;
-                  if (item.url && !result.site && !item.url.includes('google.com')) result.site = item.url;
-                  if (item.sameAs && Array.isArray(item.sameAs)) {
-                    for (const url of item.sameAs) {
-                      if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
-                      if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
-                      if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
-                    }
+                  if (item.telephone && !r.telefone) r.telefone = item.telephone;
+                  if (item.url && !r.site && !item.url.includes('google.com')) r.site = item.url;
+                  if (item.sameAs) for (const url of item.sameAs) {
+                    if (url.includes('instagram.com')) r.instagram = url;
+                    if (url.includes('facebook.com') || url.includes('fb.com')) r.facebook = url;
+                    if (url.includes('tiktok.com')) r.tiktok = url;
                   }
-                  if (item.address?.streetAddress && !result.endereco) {
-                    result.endereco = item.address.streetAddress;
-                    if (item.address.addressLocality) result.endereco += ', ' + item.address.addressLocality;
-                    if (item.address.addressRegion) result.endereco += ' - ' + item.address.addressRegion;
-                    if (item.address.postalCode) result.endereco += ', ' + item.address.postalCode;
+                  if (item.address?.streetAddress) {
+                    let addr = item.address.streetAddress;
+                    if (item.address.addressLocality) addr += ', ' + item.address.addressLocality;
+                    if (item.address.addressRegion) addr += ' - ' + item.address.addressRegion;
+                    if (item.address.postalCode) addr += ', ' + item.address.postalCode;
+                    r.endereco = addr;
                   }
                 }
               } catch {}
             }
 
-            // 2. Fallback: selectors DOM tradicionais
-            if (!result.telefone) {
-              const phoneSel = [
+            // 2. DOM selectors — telefone
+            if (!r.telefone) {
+              for (const sel of [
                 'button[data-item-id*="phone"]', 'a[data-item-id*="phone"]', 'a[href^="tel:"]',
                 '[data-phone-number]', 'button[aria-label*="telefone"]', 'button[aria-label*="phone"]',
-                '[data-tooltip*="telefone"]', '[data-tooltip*="phone"]', 'button[aria-label*="Ligar"]',
-              ];
-              for (const sel of phoneSel) {
+                '[data-tooltip*="telefone"]', 'button[aria-label*="Ligar"]',
+                'button[aria-label*="call"]', 'a[aria-label*="telefone"]',
+              ]) {
                 const el = document.querySelector(sel);
                 if (!el) continue;
                 const v = el.getAttribute('aria-label') || el.getAttribute('data-phone-number') ||
                           el.getAttribute('href')?.replace('tel:', '') || el.getAttribute('data-value') ||
                           (el as HTMLElement).innerText;
-                if (v) { const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/); if (m) { result.telefone = m[1].trim(); break; } }
+                if (v) { const m = v.match(/(\+?\d[\d\s\-\(\)]{8,18}\d)/); if (m) { r.telefone = m[1].trim(); break; } }
               }
             }
-            if (!result.telefone) {
-              for (const pat of [/(\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/g, /\+?\d{2}[\s-]?\d{2}[\s-]?\d{4,5}[\s-]?\d{4}/g, /\(?\d{2,3}\)?\s?\d{4,5}[\s-]?\d{4}/g]) {
+
+            // 3. Regex no text
+            if (!r.telefone) {
+              for (const pat of [/(\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/g, /\+?\d{2}[\s-]?\d{2}[\s-]?\d{4,5}[\s-]?\d{4}/g]) {
                 const ms = text.match(pat);
-                if (ms && ms.length > 0) { result.telefone = ms[0].trim(); break; }
+                if (ms && ms.length > 0) { r.telefone = ms[0].trim(); break; }
               }
             }
 
-            if (!result.site) {
-              const siteEl = document.querySelector('a[data-item-id*="authority"], a[href^="http"]:not([href*="google"]):not([href*="maps"])');
-              if (siteEl) { const h = siteEl.getAttribute('href') || ''; if (h && !h.includes('google.com')) result.site = h; }
-            }
-
-            if (!result.instagram && !result.facebook && !result.tiktok) {
-              for (const m of html.matchAll(/https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi)) {
-                const url = m[0].replace(/["'<>].*$/, '');
-                if (url.includes('instagram.com') && !result.instagram) result.instagram = url;
-                if ((url.includes('facebook.com') || url.includes('fb.com')) && !result.facebook) result.facebook = url;
-                if (url.includes('tiktok.com') && !result.tiktok) result.tiktok = url;
+            // 4. Site
+            if (!r.site) {
+              for (const sel of ['a[data-item-id*="authority"]', 'a[href^="http"]:not([href*="google"]):not([href*="maps"])']) {
+                const el = document.querySelector(sel);
+                if (el) { const h = el.getAttribute('href') || ''; if (h && !h.includes('google.com')) { r.site = h; break; } }
               }
             }
 
-            if (!result.endereco) {
+            // 5. Redes sociais via link href
+            for (const m of html.matchAll(/https?:\/\/(?:www\.)?(instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi)) {
+              const url = m[0].replace(/["'<>].*$/, '');
+              if (url.includes('instagram.com') && !r.instagram) r.instagram = url;
+              if ((url.includes('facebook.com') || url.includes('fb.com')) && !r.facebook) r.facebook = url;
+              if (url.includes('tiktok.com') && !r.tiktok) r.tiktok = url;
+            }
+
+            // 6. Endereço
+            if (!r.endereco) {
               const addrEl = document.querySelector('[data-item-id*="address"]');
-              if (addrEl) result.endereco = (addrEl as HTMLElement).innerText?.trim() || '';
+              if (addrEl) r.endereco = (addrEl as HTMLElement).innerText?.trim() || '';
             }
 
+            // 7. Horários
             const hMatch = text.match(/(Aberto|Fechado)(?:\s*⋅\s*)(.+?)(?:\.|$)/i);
-            if (hMatch) result.horarios = hMatch[0].trim();
+            if (hMatch) r.horarios = hMatch[0].trim();
 
-            return result;
-            })
-            : emptyMapsPlaceExtraData();
+            return r;
+          });
+
           if (extraData.telefone) lead.telefone = normalizePhone(extraData.telefone);
           if (extraData.site && (!lead.site || lead.site === 'Sem site')) lead.site = extraData.site;
           if (extraData.instagram && !lead.instagram) lead.instagram = extraData.instagram;
