@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { FeatureKey } from '@/lib/plans';
 import type { DashboardTab } from './dashboard-constants';
 import { waMessagePresets, waTemplateTags } from './dashboard-constants';
@@ -130,6 +131,10 @@ export function WhatsAppSection({
   handleLoadCampaigns,
   handleCreateCampaign,
 }: WhatsAppSectionProps) {
+  const [followupDelays, setFollowupDelays] = useState<string>('1,3,7');
+  const [followupEnabled, setFollowupEnabled] = useState(false);
+  const [followupMessage, setFollowupMessage] = useState('Olá {Nome}! Tudo bem? Passando pra saber se teve chance de ver minha mensagem anterior. Qualquer dúvida, fico à disposição!');
+
   return (
     <div className="space-y-5 animate-slide-up">
       {/* Métricas */}
@@ -410,6 +415,35 @@ export function WhatsAppSection({
             className="w-full py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 cursor-pointer transition-all">
             📌 Agendar Campanha
           </button>
+        </div>
+
+        {/* FOLLOW-UP SEQUENCE */}
+        <div className="p-4 rounded-xl bg-green-950/20 border border-green-500/20 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-green-300 flex items-center gap-1">🔄 Sequência de Follow-up</span>
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={followupEnabled} onChange={e => setFollowupEnabled(e.target.checked)}
+                className="rounded border-white/20 bg-black/40 text-green-500 cursor-pointer h-3.5 w-3.5" />
+              Ativar
+            </label>
+          </div>
+          {followupEnabled && (
+            <div className="space-y-2">
+              <div>
+                <label className="text-[10px] text-gray-500 block mb-1">Intervalos em dias (separados por vírgula)</label>
+                <input type="text" value={followupDelays} onChange={e => setFollowupDelays(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-green-500 font-mono"
+                  placeholder="1,3,7" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 block mb-1">Mensagem de follow-up</label>
+                <textarea rows={2} value={followupMessage} onChange={e => setFollowupMessage(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-green-500 resize-none"
+                  placeholder="Olá {Nome}!..." />
+              </div>
+              <p className="text-[9px] text-gray-600">Tags: {'{Nome}'} {'{Cidade}'} {'{Nicho}'}</p>
+            </div>
+          )}
         </div>
 
             {isSendingBulk ? (
