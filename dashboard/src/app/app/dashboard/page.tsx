@@ -1044,6 +1044,7 @@ export default function Home() {
             handleToggleSelectAllCrmLeads={handleToggleSelectAllCrmLeads} handleRemoveSelectedFromCRM={handleRemoveSelectedFromCRM}
             handleBulkStageChange={handleBulkStageChange} handleReEnrichSelected={handleReEnrichSelected}
             handleReEnrichSingle={handleReEnrichSingle} handleUpdateCRMLead={handleUpdateCRMLead} openWhatsApp={openWhatsApp}
+            waSentMessages={waSentMessages}
           />
         )}
 

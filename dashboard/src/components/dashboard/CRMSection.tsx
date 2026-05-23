@@ -1,6 +1,21 @@
 import { useState } from 'react';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
 
+function exportCrmToCsv(leads: any[], filename: string) {
+  const cols = ['Nome', 'Telefone', 'Email', 'Site', 'Instagram', 'Facebook', 'TikTok', 'CNPJ', 'Estagio', 'Tags', 'Anotacoes', 'Cidade', 'Nicho', 'Avaliacao'];
+  const rows = leads.map(l => cols.map(c => {
+    const val = l[c.toLowerCase()] ?? '';
+    const str = Array.isArray(val) ? val.join('; ') : String(val);
+    return `"${str.replace(/"/g, '""')}"`;
+  }).join(','));
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + cols.join(',') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export interface CRMSectionProps {
   crmLeads: any[];
   crmSearch: string;
@@ -26,6 +41,7 @@ export interface CRMSectionProps {
   handleReEnrichSingle: (lead: any) => Promise<void>;
   handleUpdateCRMLead: (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => void;
   openWhatsApp: (lead: any) => void;
+  waSentMessages?: any[];
 }
 
 const CRM_PAGE_SIZE = 25;
@@ -56,7 +72,9 @@ export default function CRMSection({
   handleReEnrichSingle,
   handleUpdateCRMLead,
   openWhatsApp,
+  waSentMessages,
 }: CRMSectionProps) {
+  const waSentNames = new Set((waSentMessages || []).map((m: any) => m.lead_name).filter(Boolean));
   const [crmFilterTag, setCrmFilterTag] = useState('all');
   const [crmSortField, setCrmSortField] = useState('nome');
   const [crmSortDir, setCrmSortDir] = useState<'asc' | 'desc'>('asc');
@@ -206,6 +224,14 @@ export default function CRMSection({
               {allUsedTags.map((t: string) => <option key={t} value={t}>{t}</option>)}
             </select>
           )}
+          {filteredCrmLeads.length > 0 && (
+            <button
+              onClick={() => exportCrmToCsv(filteredCrmLeads, `geoleads-crm-${new Date().toISOString().slice(0,10)}.csv`)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
+            >
+              📥 Exportar CSV ({filteredCrmLeads.length})
+            </button>
+          )}
         </div>
       </div>
 
@@ -325,10 +351,17 @@ export default function CRMSection({
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-2">
+                    {waSentNames.has(lead.nome) && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold" title="WhatsApp já enviado">✅ Enviado</span>
+                    )}
                     {lead.telefone && lead.telefone !== 'Não informado' && (
                       <button
                         onClick={() => openWhatsApp(lead)}
-                        className="p-2 rounded bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 transition-colors text-xs font-semibold cursor-pointer"
+                        className={`p-2 rounded border transition-colors text-xs font-semibold cursor-pointer ${
+                          waSentNames.has(lead.nome)
+                            ? 'bg-green-500/10 hover:bg-green-500/20 border-green-500/20 text-green-400'
+                            : 'bg-green-500/10 hover:bg-green-500/20 border-green-500/20 text-green-400'
+                        }`}
                       >
                         💬 Contatar
                       </button>
@@ -474,6 +507,9 @@ export default function CRMSection({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2 border-t border-white/5 pt-3">
+                {waSentNames.has(lead.nome) && (
+                  <span className="text-[10px] px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold inline-flex items-center gap-1 w-fit">✅ WhatsApp Enviado</span>
+                )}
                 {lead.telefone && lead.telefone !== 'Não informado' && (
                   <button
                     onClick={() => openWhatsApp(lead)}
