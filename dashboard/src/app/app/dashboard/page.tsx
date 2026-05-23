@@ -70,6 +70,12 @@ export default function Home() {
   const [waSendingViaBot, setWaSendingViaBot] = useState<Record<string, boolean>>({});
   const [waSentMessages, setWaSentMessages] = useState<any[]>([]);
   const [waSentMessagesLoading, setWaSentMessagesLoading] = useState(false);
+  const [waStats, setWaStats] = useState<any>(null);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
 
   const [chatbotEnabled, setChatbotEnabled] = useState(true);
   const [chatbotBusinessName, setChatbotBusinessName] = useState('GeoLeads');
@@ -77,6 +83,8 @@ export default function Home() {
   const [chatbotFallbackMessage, setChatbotFallbackMessage] = useState('Recebi sua mensagem. Um atendente vai continuar por aqui em breve.');
   const [chatbotRules, setChatbotRules] = useState(defaultChatbotRules);
   const [chatbotSession, setChatbotSession] = useState<any>({ status: 'idle', repliedCount: 0 });
+  const [chatbotAutoCapture, setChatbotAutoCapture] = useState(false);
+  const [chatbotStats, setChatbotStats] = useState<any>(null);
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [chatbotMessage, setChatbotMessage] = useState('');
   const [chatbotPhoneNumber, setChatbotPhoneNumber] = useState('');
@@ -226,6 +234,8 @@ export default function Home() {
           welcome_message: config.welcomeMessage, fallback_message: config.fallbackMessage, rules: config.rules
         }, { onConflict: 'user_id' });
       if (error) { console.warn('Chatbot config cloud sync failed:', error.message); cloudSyncFailed = true; }
+      // Save auto-capture setting
+      await supabase.from('profiles').update({ chatbot_auto_capture: chatbotAutoCapture }).eq('id', user.id);
     }
     if (user?.id && ['connected', 'qr', 'connecting'].includes(chatbotSession.status)) {
       try { await callChatbotApi('update-config', config); } catch (error: any) { runtimeSyncFailed = true; }
@@ -349,12 +359,15 @@ export default function Home() {
         setUser(session.user);
         let profileData: any = null;
         const { data, error } = await supabase
-          .from('profiles').select('tokens, plan_id').eq('id', session.user.id).single();
+          .from('profiles').select('tokens, plan_id, chatbot_auto_capture').eq('id', session.user.id).single();
         if (error) {
           const fallback = await supabase.from('profiles').select('tokens').eq('id', session.user.id).single();
           profileData = fallback.data;
         } else { profileData = data; }
-        if (profileData) await refreshProfile(session.user.id);
+        if (profileData) {
+          await refreshProfile(session.user.id);
+          if (profileData.chatbot_auto_capture !== undefined) setChatbotAutoCapture(profileData.chatbot_auto_capture);
+        }
       }
       const params = new URLSearchParams(window.location.search);
       const checkoutState = params.get('checkout');
@@ -689,6 +702,74 @@ export default function Home() {
       const json = await res.json();
       if (json.success) setWaSentMessages(json.messages || []);
     } catch {} finally { setWaSentMessagesLoading(false); }
+  };
+
+  const handleLoadWaStats = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/chatbot/stats', { headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json();
+      if (json.success) setWaStats(json.stats);
+    } catch {}
+  };
+
+  const handleLoadCampaigns = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/chatbot/campaign', { headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json();
+      if (json.success) setCampaigns(json.campaigns || []);
+    } catch {}
+  };
+
+  const handleCreateCampaign = async () => {
+    if (!scheduleDate || !scheduleTime || !waTemplate) { showToast('Preencha data, hora e mensagem.', 'warning'); return; }
+    const selected = selectedWaDispatchableLeads;
+    if (selected.length === 0) { showToast('Selecione leads para a campanha.', 'warning'); return; }
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
+      const res = await fetch('/api/chatbot/campaign', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'create', name: `Campanha ${new Date().toLocaleDateString('pt-BR')}`, messageTemplate: waTemplate, leadKeys: selected.map(getLeadKey), scheduledAt }),
+      });
+      const json = await res.json();
+      if (json.success) { showToast('Campanha agendada!', 'success'); handleLoadCampaigns(); }
+      else showToast(json.error || 'Erro ao criar campanha.', 'error');
+    } catch {}
+  };
+
+  const handleLoadConversations = async () => {
+    if (!user) return;
+    setConversationsLoading(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/chatbot/conversations?limit=30', { headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json();
+      if (json.success) setConversations(json.conversations || []);
+    } catch {} finally { setConversationsLoading(false); }
+  };
+
+  const handleLoadChatbotStats = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const res = await fetch('/api/chatbot/stats', { headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json();
+      if (json.success) setChatbotStats(json.stats);
+    } catch {}
   };
 
   const handleUpdateCRMLead = (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => {
@@ -1113,6 +1194,10 @@ export default function Home() {
             generateWaAiTemplates={generateWaAiTemplates} appendWaTag={appendWaTag}
             getSafeBulkDelay={getSafeBulkDelay} renderWhatsAppMessage={renderWhatsAppMessage} getLeadKey={getLeadKey}
             waPreviewLead={waPreviewLead} selectedWaCount={selectedWaCount} activeBulkLeadKey={activeBulkLeadKey}
+            waStats={waStats} campaigns={campaigns} scheduleDate={scheduleDate} setScheduleDate={setScheduleDate}
+            scheduleTime={scheduleTime} setScheduleTime={setScheduleTime}
+            handleLoadWaStats={handleLoadWaStats} handleLoadCampaigns={handleLoadCampaigns}
+            handleCreateCampaign={handleCreateCampaign}
           />
         )}
 
@@ -1128,6 +1213,9 @@ export default function Home() {
             user={user} handleConnectChatbot={handleConnectChatbot} handleDisconnectChatbot={handleDisconnectChatbot}
             handlePairChatbot={handlePairChatbot} saveChatbotConfig={saveChatbotConfig}
             updateChatbotRule={updateChatbotRule} addChatbotRule={addChatbotRule} removeChatbotRule={removeChatbotRule}
+            chatbotAutoCapture={chatbotAutoCapture} setChatbotAutoCapture={setChatbotAutoCapture}
+            chatbotStats={chatbotStats} conversations={conversations} conversationsLoading={conversationsLoading}
+            handleLoadConversations={handleLoadConversations} handleLoadChatbotStats={handleLoadChatbotStats}
           />
         )}
 

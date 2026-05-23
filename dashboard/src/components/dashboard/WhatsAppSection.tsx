@@ -56,6 +56,16 @@ export interface WhatsAppSectionProps {
   waPreviewLead: any;
   selectedWaCount: number;
   activeBulkLeadKey: string | null;
+  // Enriquecimentos
+  waStats: any;
+  campaigns: any[];
+  scheduleDate: string;
+  setScheduleDate: (v: string) => void;
+  scheduleTime: string;
+  setScheduleTime: (v: string) => void;
+  handleLoadWaStats: () => Promise<void>;
+  handleLoadCampaigns: () => Promise<void>;
+  handleCreateCampaign: () => Promise<void>;
 }
 
 export function WhatsAppSection({
@@ -110,9 +120,56 @@ export function WhatsAppSection({
   waPreviewLead,
   selectedWaCount,
   activeBulkLeadKey,
+  waStats,
+  campaigns,
+  scheduleDate,
+  setScheduleDate,
+  scheduleTime,
+  setScheduleTime,
+  handleLoadWaStats,
+  handleLoadCampaigns,
+  handleCreateCampaign,
 }: WhatsAppSectionProps) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
+    <div className="space-y-5 animate-slide-up">
+      {/* Métricas */}
+      <div className="app-card p-5 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="text-lg font-semibold">📊 Métricas de Envio</h3>
+          <button type="button" onClick={() => { handleLoadWaStats(); handleLoadCampaigns(); }}
+            className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 cursor-pointer">
+            Atualizar
+          </button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { label: 'Total Enviadas', value: waStats?.totalSent ?? 0, color: 'text-blue-400' },
+            { label: 'Falhas', value: waStats?.totalFailed ?? 0, color: 'text-red-400' },
+            { label: 'Taxa de Sucesso', value: `${waStats?.successRate ?? 100}%`, color: 'text-green-400' },
+            { label: 'Enviadas Hoje', value: waStats?.todaySent ?? 0, color: 'text-cyan-400' },
+            { label: 'Campanhas', value: campaigns.length, color: 'text-purple-400' },
+          ].map(s => (
+            <div key={s.label} className="p-3 rounded-xl bg-black/30 border border-white/5 text-center">
+              <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">{s.label}</div>
+            </div>
+          ))}
+        </div>
+        {/* Campanhas agendadas */}
+        {campaigns.filter((c: any) => c.status === 'scheduled').length > 0 && (
+          <div className="mt-4 space-y-2">
+            <span className="text-xs text-gray-500 font-bold">📅 Campanhas Agendadas</span>
+            {campaigns.filter((c: any) => c.status === 'scheduled').map((c: any) => (
+              <div key={c.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/15 text-xs">
+                <span className="text-gray-300 truncate">{c.name}</span>
+                <span className="text-amber-300 whitespace-nowrap font-mono">{c.scheduled_at ? new Date(c.scheduled_at).toLocaleString('pt-BR') : '—'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20">
 
       {/* CONFIGURAÇÃO DO DISPARO */}
       <div className="lg:col-span-1 space-y-5">
@@ -339,6 +396,21 @@ export function WhatsAppSection({
               <span className="font-bold flex items-center gap-1">⚠️ AVISO DE RISCO DE BLOQUEIO</span>
               O WhatsApp limita automações de envio. Use a fila para abordagens legítimas, com contexto, personalização e opção de não receber novas mensagens.
             </div>
+
+        {/* AGENDAMENTO */}
+        <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-3">
+          <span className="text-xs font-bold text-purple-300 flex items-center gap-1">📅 Agendar Disparo</span>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)}
+              className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 [color-scheme:dark]" />
+            <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
+              className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 [color-scheme:dark]" />
+          </div>
+          <button type="button" onClick={handleCreateCampaign}
+            className="w-full py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 cursor-pointer transition-all">
+            📌 Agendar Campanha
+          </button>
+        </div>
 
             {isSendingBulk ? (
               <button
@@ -687,6 +759,7 @@ export function WhatsAppSection({
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

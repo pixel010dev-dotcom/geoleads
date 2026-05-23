@@ -203,7 +203,7 @@ const pickResponse = (text: string, config: ChatbotConfig) => {
     return rule.enabled && keywordMatchesText(text, rule.keyword);
   });
 
-  return matched?.response || config.fallbackMessage;
+  return { text: matched?.response || config.fallbackMessage, ruleId: matched?.id || null };
 };
 
 const getOrCreateSession = (userId: string, config?: Partial<ChatbotConfig>) => {
@@ -377,8 +377,57 @@ const startBotSession = async (session: BotSession) => {
           continue;
         }
 
-        const senderName = message.pushName || 'tudo bem';
+        const senderName = message.pushName || 'Contato';
         const lowerText = normalizeText(text);
+        const contactPhone = jid.split('@')[0];
+        const supabaseAdmin = createAdminSupabaseClient();
+
+        // Store incoming message
+        (async () => {
+          try {
+            await supabaseAdmin.from('chatbot_conversations').insert({
+              user_id: session.userId,
+              contact_jid: jid,
+              contact_name: senderName,
+              contact_phone: contactPhone,
+              message_text: text,
+              direction: 'incoming',
+              rule_id: null,
+            });
+          } catch {}
+        })();
+
+        // Auto-capture lead if enabled
+        if (session.config.enabled) {
+          (async () => {
+            try {
+              const { data: profileData } = await supabaseAdmin
+                .from('profiles').select('chatbot_auto_capture, chatbot_capture_stage')
+                .eq('id', session.userId).single();
+              if (profileData?.chatbot_auto_capture) {
+                const stage = profileData.chatbot_capture_stage || 'Novo';
+                const key = senderName + contactPhone.slice(-4);
+                const { data: existing } = await supabaseAdmin.from('crm_leads')
+                  .select('id').eq('user_id', session.userId).eq('lead_key', key).maybeSingle();
+                if (!existing) {
+                  await supabaseAdmin.from('crm_leads').insert({
+                    user_id: session.userId,
+                    lead_key: key,
+                    nome: senderName,
+                    telefone: contactPhone,
+                    stage,
+                    cidade: 'WhatsApp',
+                    nicho: 'Chatbot',
+                    notes: 'Capturado automaticamente pelo Chatbot',
+                    saved_at: new Date().toISOString(),
+                    tags: [],
+                    payload: { source: 'chatbot', jid },
+                  });
+                }
+              }
+            } catch {}
+          })();
+        }
 
         if (lowerText.includes('sair') || lowerText.includes('parar') || lowerText.includes('cancelar')) {
           const optOutText = 'Combinado. Nao vou enviar novas respostas automaticas por aqui.';
@@ -403,19 +452,34 @@ const startBotSession = async (session: BotSession) => {
           continue;
         }
 
-        const response = pickResponse(text, session.config);
-        if (!response) {
+        const { text: responseText, ruleId: matchedRuleId } = pickResponse(text, session.config);
+        if (!responseText) {
           session.lastIgnoredReason = 'Nenhuma resposta configurada para essa mensagem.';
           continue;
         }
 
-        const replyText = renderResponse(response, {
+        const replyText = renderResponse(responseText, {
           nome: senderName,
           mensagem: text,
           empresa: session.config.businessName
         });
 
         await socket.sendMessage(jid, { text: replyText });
+
+        // Store outgoing reply
+        (async () => {
+          try {
+            await supabaseAdmin.from('chatbot_conversations').insert({
+              user_id: session.userId,
+              contact_jid: jid,
+              contact_name: senderName,
+              contact_phone: contactPhone,
+              message_text: replyText,
+              direction: 'outgoing',
+              rule_id: matchedRuleId,
+            });
+          } catch {}
+        })();
 
         session.replyThrottle.set(jid, now);
         session.lastReplyAt = new Date().toISOString();

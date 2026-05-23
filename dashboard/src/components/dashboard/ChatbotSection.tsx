@@ -24,6 +24,14 @@ export interface ChatbotSectionProps {
   updateChatbotRule: (id: string, field: 'keyword' | 'response' | 'enabled', value: string | boolean) => void;
   addChatbotRule: () => void;
   removeChatbotRule: (id: string) => void;
+  // Enriquecimentos
+  chatbotAutoCapture: boolean;
+  setChatbotAutoCapture: (v: boolean) => void;
+  chatbotStats: any;
+  conversations: any[];
+  conversationsLoading: boolean;
+  handleLoadConversations: () => Promise<void>;
+  handleLoadChatbotStats: () => Promise<void>;
 }
 
 export function ChatbotSection({
@@ -50,6 +58,13 @@ export function ChatbotSection({
   updateChatbotRule,
   addChatbotRule,
   removeChatbotRule,
+  chatbotAutoCapture,
+  setChatbotAutoCapture,
+  chatbotStats,
+  conversations,
+  conversationsLoading,
+  handleLoadConversations,
+  handleLoadChatbotStats,
 }: ChatbotSectionProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20 animate-slide-up">
@@ -347,6 +362,81 @@ export function ChatbotSection({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Analytics */}
+        <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h3 className="text-xl font-semibold">📊 Analytics do Bot</h3>
+            <button type="button" onClick={handleLoadChatbotStats}
+              className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 cursor-pointer">
+              Atualizar
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: 'Conversas', value: chatbotStats?.totalConversations ?? 0, color: 'text-emerald-400' },
+              { label: 'Enviadas (bot)', value: chatbotStats?.totalSent ?? 0, color: 'text-blue-400' },
+              { label: 'Hoje', value: chatbotStats?.todaySent ?? 0, color: 'text-cyan-400' },
+              { label: 'Sucesso', value: `${chatbotStats?.successRate ?? 100}%`, color: 'text-green-400' },
+            ].map(s => (
+              <div key={s.label} className="p-3 rounded-xl bg-black/30 border border-white/5 text-center">
+                <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Lead Capture */}
+        <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold">👤 Captura Automática de Leads</h3>
+              <p className="text-xs text-gray-500 mt-1">Novos contatos que chamarem o bot são salvos automaticamente no CRM.</p>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-gray-300 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer whitespace-nowrap">
+              <input type="checkbox" checked={chatbotAutoCapture} onChange={(e) => setChatbotAutoCapture(e.target.checked)}
+                className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-4 w-4" />
+              Ativo
+            </label>
+          </div>
+        </div>
+
+        {/* Conversation History */}
+        <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-xl font-semibold">💬 Conversas Recentes</h3>
+              <p className="text-xs text-gray-500 mt-1">Últimas mensagens recebidas e respostas do bot.</p>
+            </div>
+            <button type="button" onClick={handleLoadConversations} disabled={conversationsLoading}
+              className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 cursor-pointer disabled:opacity-50">
+              {conversationsLoading ? '...' : 'Atualizar'}
+            </button>
+          </div>
+          {conversations.length > 0 ? (
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+              {conversations.map((conv: any) => (
+                <div key={conv.id} className={`p-3 rounded-xl text-xs border ${conv.direction === 'incoming' ? 'bg-white/5 border-white/10' : 'bg-emerald-500/5 border-emerald-500/15'}`}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-bold text-gray-200 truncate">{conv.contact_name || conv.contact_phone || 'Desconhecido'}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${conv.direction === 'incoming' ? 'bg-blue-500/10 text-blue-300' : 'bg-emerald-500/10 text-emerald-300'}`}>
+                      {conv.direction === 'incoming' ? 'Recebida' : 'Resposta'}
+                    </span>
+                  </div>
+                  <div className="text-gray-400 line-clamp-2">{conv.message_text}</div>
+                  <div className="text-[10px] text-gray-600 mt-1">
+                    {conv.created_at ? new Date(conv.created_at).toLocaleString('pt-BR') : '—'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 text-xs">
+              {conversationsLoading ? 'Carregando...' : 'Nenhuma conversa registrada ainda.'}
+            </div>
+          )}
         </div>
       </div>
     </div>
