@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
+import { showToast } from '@/components/Toast';
 
 function exportCrmToCsv(leads: any[], filename: string) {
   const cols = ['Nome', 'Telefone', 'Email', 'Site', 'Instagram', 'Facebook', 'TikTok', 'CNPJ', 'Estagio', 'Tags', 'Anotacoes', 'Cidade', 'Nicho', 'Avaliacao'];
@@ -689,7 +690,7 @@ export default function CRMSection({
                       formData.append('file', importFile);
                       const { data: { session } } = await (await import('@/lib/supabase')).supabase.auth.getSession();
                       const token = session?.access_token;
-                      if (!token) { alert('Faça login novamente.'); return; }
+                      if (!token) { showToast('Faça login novamente.', 'error'); return; }
                       const res = await fetch('/api/import/csv', { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } });
                       const data = await res.json();
                       if (data.success) {
@@ -698,7 +699,7 @@ export default function CRMSection({
                         setImportUnmapped(data.unmappedColumns || []);
                         setImportCsvHeaders(data.csvHeaders);
                       } else throw new Error(data.error);
-                    } catch (err: any) { alert('Erro: ' + err.message); }
+                    } catch (err: any) { showToast('Erro: ' + err.message, 'error'); }
                     finally { setImportLoading(false); }
                   }}
                   disabled={!importFile || importLoading}
@@ -717,17 +718,18 @@ export default function CRMSection({
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
                     <p className="text-xs text-amber-400 font-semibold mb-1">Colunas não reconhecidas:</p>
                     <p className="text-[11px] text-amber-300">{importUnmapped.join(', ')}</p>
+                    <p className="text-[11px] text-amber-400/70 mt-1">Dica: use cabeçalhos como Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
                   </div>
                 )}
                 <div className="max-h-52 overflow-y-auto border border-white/5 rounded-xl bg-black/30">
                   <table className="w-full text-xs">
                     <thead className="bg-white/5 text-gray-400 sticky top-0">
-                      <tr>{importCsvHeaders.filter(h => importColumnMap[h]).map(h => <th key={h} className="px-3 py-2 text-left">{importColumnMap[h]}</th>)}</tr>
+                      <tr>{(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <th key={h} className="px-3 py-2 text-left">{importColumnMap[h] || h}</th>)}</tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {importPreview.slice(0, 10).map((lead: any, i: number) => (
                         <tr key={i} className="hover:bg-white/[0.02]">
-                          {importCsvHeaders.filter(h => importColumnMap[h]).map(h => <td key={h} className="px-3 py-2 text-gray-400 truncate max-w-[120px]">{lead[importColumnMap[h]] || '—'}</td>)}
+                          {(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <td key={h} className="px-3 py-2 text-gray-400 truncate max-w-[120px]">{lead[importColumnMap[h] || h] || '—'}</td>)}
                         </tr>
                       ))}
                     </tbody>

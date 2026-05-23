@@ -3,24 +3,47 @@ import { getAuthUser } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
-  return lines.slice(1).map(line => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (const ch of line) {
-      if (ch === '"') { inQuotes = !inQuotes; continue; }
-      if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ''; continue; }
-      current += ch;
+function splitCsvLine(line: string, delimiter: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; continue; }
+      inQuotes = !inQuotes;
+      continue;
     }
-    values.push(current.trim());
+    if (ch === delimiter && !inQuotes) { values.push(current.trim()); current = ''; continue; }
+    current += ch;
+  }
+  values.push(current.trim());
+  return values;
+}
+
+function detectDelimiter(firstLine: string): string {
+  const quoteCount = (firstLine.match(/"/g) || []).length;
+  const commas = firstLine.split(',').length - 1;
+  const semicolons = firstLine.split(';').length - 1;
+  const tabs = firstLine.split('\t').length - 1;
+  if (commas >= semicolons && commas >= tabs) return ',';
+  if (semicolons >= tabs) return ';';
+  return '\t';
+}
+
+function parseCsv(text: string): { rows: Record<string, string>[]; delimiter: string } {
+  let cleaned = text.replace(/^\uFEFF/, '');
+  const lines = cleaned.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return { rows: [], delimiter: ',' };
+  const delimiter = detectDelimiter(lines[0]);
+  const headers = splitCsvLine(lines[0], delimiter).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+  const rows = lines.slice(1).map(line => {
+    const values = splitCsvLine(line, delimiter);
     const row: Record<string, string> = {};
     headers.forEach((h, i) => { if (values[i]) row[h] = values[i].replace(/""/g, '"'); });
     return row;
   });
+  return { rows, delimiter };
 }
 
 function detectColumn(col: string): string | null {
@@ -58,8 +81,8 @@ export async function POST(request: Request) {
     if (!file) return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
 
     const text = await file.text();
-    const rows = parseCsv(text);
-    if (rows.length === 0) return NextResponse.json({ error: 'CSV vazio ou formato inválido' }, { status: 400 });
+    const { rows, delimiter } = parseCsv(text);
+    if (rows.length === 0) return NextResponse.json({ error: 'CSV vazio ou formato inválido. Verifique se o arquivo tem cabeçalho e pelo menos uma linha de dados.' }, { status: 400 });
 
     const csvHeaders = Object.keys(rows[0]);
     const columnMap: Record<string, string> = {};
@@ -88,13 +111,16 @@ export async function POST(request: Request) {
       return lead;
     });
 
+    const unmappedColumns = csvHeaders.filter(h => !columnMap[h]);
+
     return NextResponse.json({
       success: true,
       leads,
       total: leads.length,
       columnMap,
       csvHeaders,
-      unmappedColumns: csvHeaders.filter(h => !columnMap[h]),
+      delimiter,
+      unmappedColumns,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Erro ao processar CSV' }, { status: 500 });
