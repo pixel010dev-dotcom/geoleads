@@ -478,21 +478,6 @@ function decodeMapsPayloadText(raw: string) {
   return text;
 }
 
-function collectStringLeaves(value: unknown, output: string[], depth = 0) {
-  if (output.length >= 1200 || depth > 8 || value == null) return;
-  if (typeof value === 'string') {
-    if (value.length > 1) output.push(value);
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) collectStringLeaves(item, output, depth + 1);
-    return;
-  }
-  if (typeof value === 'object') {
-    for (const item of Object.values(value as Record<string, unknown>)) collectStringLeaves(item, output, depth + 1);
-  }
-}
-
 function isValidBrazilianPhone(raw: string) {
   const digits = raw.replace(/\D/g, '');
   const local = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
@@ -505,22 +490,6 @@ function isValidBrazilianPhone(raw: string) {
     (ddd >= 51 && ddd <= 59) || (ddd >= 61 && ddd <= 69) ||
     (ddd >= 71 && ddd <= 79) || (ddd >= 81 && ddd <= 89) ||
     (ddd >= 91 && ddd <= 99);
-}
-
-function pickPhoneFromMapsText(text: string) {
-  const patterns = [
-    /\+55\s?\(?\d{2}\)?\s?9?\d{4}[\s-]?\d{4}/g,
-    /\(?\d{2}\)?\s?9?\d{4}[\s-]?\d{4}/g,
-  ];
-
-  for (const pattern of patterns) {
-    for (const match of text.matchAll(pattern)) {
-      const phone = match[0].trim();
-      if (isValidBrazilianPhone(phone)) return phone;
-    }
-  }
-
-  return '';
 }
 
 function cleanMapsUrlCandidate(rawUrl: string) {
@@ -770,11 +739,35 @@ function leadNeedsMapsPlaceDetails(lead: any) {
 function applyMapsPlaceExtraDataToLead(lead: any, extraData: MapsPlaceExtraData) {
   let changed = false;
 
-  if (extraData.telefone && lead.telefone === 'Não informado') {
+  if (extraData.telefone && isValidBrazilianPhone(extraData.telefone) && lead.telefone === 'Não informado') {
     lead.telefone = normalizePhone(extraData.telefone);
     changed = true;
   }
-  if (extraData.site && (!lead.site || lead.site === 'Sem site')) {
+
+  if (extraData.site) {
+    const contactUrl = extraData.site;
+    if (contactUrl.includes('instagram.com') && !lead.instagram) {
+      lead.instagram = contactUrl;
+      changed = true;
+    }
+    if ((contactUrl.includes('facebook.com') || contactUrl.includes('fb.com')) && !lead.facebook) {
+      lead.facebook = contactUrl;
+      changed = true;
+    }
+    if (contactUrl.includes('tiktok.com') && !lead.tiktok) {
+      lead.tiktok = contactUrl;
+      changed = true;
+    }
+    if ((contactUrl.includes('wa.me') || contactUrl.includes('whatsapp.com')) && lead.telefone === 'Não informado') {
+      const phoneMatch = contactUrl.match(/\d{10,15}/);
+      if (phoneMatch && isValidBrazilianPhone(phoneMatch[0])) {
+        lead.telefone = normalizePhone(phoneMatch[0]);
+        changed = true;
+      }
+    }
+  }
+
+  if (extraData.site && isBusinessWebsiteCandidate(extraData.site) && (!lead.site || lead.site === 'Sem site')) {
     lead.site = extraData.site;
     changed = true;
   }
@@ -979,11 +972,11 @@ function applySignalsToLead(lead: any, html: string, baseUrl: string) {
 const enrichCache = new Map<string, { email: string; cnpj: string; instagram: string; facebook: string; tiktok: string }>();
 
 async function enrichLead(lead: any) {
-  lead.email = '';
-  lead.instagram = '';
-  lead.facebook = '';
-  lead.tiktok = '';
-  lead.cnpj = '';
+  lead.email = lead.email || '';
+  lead.instagram = lead.instagram || '';
+  lead.facebook = lead.facebook || '';
+  lead.tiktok = lead.tiktok || '';
+  lead.cnpj = lead.cnpj || '';
 
   if (!lead.site || lead.site === 'Sem site') return lead;
 
@@ -1006,11 +999,11 @@ async function enrichLead(lead: any) {
     // 1. Tenta cache
     if (domain && enrichCache.has(domain)) {
       const cached = enrichCache.get(domain)!;
-      lead.email = cached.email;
-      lead.cnpj = cached.cnpj;
-      lead.instagram = cached.instagram;
-      lead.facebook = cached.facebook;
-      lead.tiktok = cached.tiktok;
+      if (!lead.email) lead.email = cached.email;
+      if (!lead.cnpj) lead.cnpj = cached.cnpj;
+      if (!lead.instagram) lead.instagram = cached.instagram;
+      if (!lead.facebook) lead.facebook = cached.facebook;
+      if (!lead.tiktok) lead.tiktok = cached.tiktok;
       return lead;
     }
 
