@@ -34,7 +34,9 @@ export async function GET(
         leads_count: data.leads_count,
         scanned: data.scanned,
         cities_scanned: data.cities_scanned,
-        search_time_seconds: data.search_time_seconds,
+        search_time_seconds: data.status === 'running' && data.started_at
+          ? Math.floor((Date.now() - new Date(data.started_at).getTime()) / 1000)
+          : data.search_time_seconds,
         message: data.message,
         error: data.error,
         leads: data.leads || [],
