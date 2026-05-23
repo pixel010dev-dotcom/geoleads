@@ -1115,11 +1115,11 @@ export default function Home() {
           </div>
           <DashboardCharts userId={user?.id || ''} refreshKey={chartRefreshKey} />
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-6">
-            <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold w-fit">
+          <div className="flex items-center gap-2 sm:gap-3 mb-6 overflow-x-auto max-w-full">
+            <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold flex-shrink-0">
               🎁 Indique e Ganhe
             </button>
-            <div className="app-tabs dashboard-tabs flex gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0">
+            <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 no-scrollbar">
             {(['extractor', 'enrich', 'crm', 'whatsapp', 'chatbot', 'ia', 'support'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
