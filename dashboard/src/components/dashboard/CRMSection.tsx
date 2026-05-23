@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
 import { showToast } from '@/components/Toast';
+import dynamic from 'next/dynamic';
+
+const HackMap = dynamic(() => import('@/components/HackMap'), { ssr: false, loading: () => <div className="h-[320px] sm:h-[400px] rounded-2xl bg-black/50 border border-green-500/20 flex items-center justify-center text-green-400/50 text-sm font-mono">INICIALIZANDO MAPA...</div> });
 
 function exportCrmToCsv(leads: any[], filename: string) {
   const cols = ['Nome', 'Telefone', 'Email', 'Site', 'Instagram', 'Facebook', 'TikTok', 'CNPJ', 'Estagio', 'Tags', 'Anotacoes', 'Cidade', 'Nicho', 'Avaliacao'];
@@ -83,7 +86,7 @@ export default function CRMSection({
   const [crmSortDir, setCrmSortDir] = useState<'asc' | 'desc'>('asc');
   const [tagInputs, setTagInputs] = useState<Record<string, string>>({});
   const [showTagMenu, setShowTagMenu] = useState<Record<string, boolean>>({});
-  const [crmViewMode, setCrmViewMode] = useState<'table' | 'kanban'>('table');
+  const [crmViewMode, setCrmViewMode] = useState<'table' | 'kanban' | 'map'>('table');
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[] | null>(null);
@@ -248,12 +251,12 @@ export default function CRMSection({
             📥 Importar CSV
           </button>
           <button
-            onClick={() => setCrmViewMode(v => v === 'table' ? 'kanban' : 'table')}
+            onClick={() => setCrmViewMode(v => v === 'table' ? 'kanban' : v === 'kanban' ? 'map' : 'table')}
             className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap border ${
-              crmViewMode === 'kanban' ? 'bg-purple-600 border-purple-500/30 text-white' : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+              crmViewMode === 'kanban' ? 'bg-purple-600 border-purple-500/30 text-white' : crmViewMode === 'map' ? 'bg-green-700 border-green-500/30 text-white' : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
             }`}
           >
-            {crmViewMode === 'kanban' ? '📋 Ver Tabela' : '📊 Kanban'}
+            {crmViewMode === 'table' ? '📊 Kanban' : crmViewMode === 'kanban' ? '🗺️ Mapa' : '📋 Tabela'}
           </button>
         </div>
       </div>
@@ -636,6 +639,13 @@ export default function CRMSection({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* MAP VIEW */}
+      {crmViewMode === 'map' && (
+        <div className="mt-4">
+          <HackMap leads={filteredCrmLeads} />
         </div>
       )}
 
