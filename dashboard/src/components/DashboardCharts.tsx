@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useMemo } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
 
 const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
@@ -13,83 +12,39 @@ const STAGE_LABELS: Record<string, string> = {
   Perdido: 'Perdido',
 };
 
-export default function DashboardCharts({ userId, refreshKey = 0 }: { userId: string; refreshKey?: number }) {
-  const [leadsByMonth, setLeadsByMonth] = useState<{ month: string; leads: number }[]>([]);
-  const [leadsByStage, setLeadsByStage] = useState<{ name: string; value: number }[]>([]);
-  const [totalLeads, setTotalLeads] = useState(0);
-  const [tokenBalance, setTokenBalance] = useState(0);
-  const [loading, setLoading] = useState(true);
+export default function DashboardCharts({ tokens, leads }: { tokens: number; leads: any[] }) {
+  const totalLeads = leads.length;
 
-  useEffect(() => {
-    if (!userId) return;
+  const leadsByStage = useMemo(() => {
+    const stages: Record<string, number> = {};
+    for (const lead of leads) {
+      const stage = lead.stage || 'Novo';
+      stages[stage] = (stages[stage] || 0) + 1;
+    }
+    return Object.entries(stages)
+      .map(([name, value]) => ({ name: STAGE_LABELS[name] || name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [leads]);
 
-    const fetchData = async () => {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('tokens')
-          .eq('id', userId)
-          .single();
-        setTokenBalance(profile?.tokens ?? 0);
-
-        const { data: leads } = await supabase
-          .from('crm_leads')
-          .select('stage, saved_at')
-          .eq('user_id', userId);
-
-        if (!leads) return;
-
-        setTotalLeads(leads.length);
-
-        const stages: Record<string, number> = {};
-        const months: Record<string, number> = {};
-        const now = new Date();
-
-        for (const lead of leads) {
-          const stage = lead.stage || 'Novo';
-          stages[stage] = (stages[stage] || 0) + 1;
-
-          if (lead.saved_at) {
-            const d = new Date(lead.saved_at);
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            months[key] = (months[key] || 0) + 1;
-          }
-        }
-
-        const stageData = Object.entries(stages)
-          .map(([name, value]) => ({ name: STAGE_LABELS[name] || name, value }))
-          .sort((a, b) => b.value - a.value);
-        setLeadsByStage(stageData);
-
-        const last6 = [];
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-          const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace(/\./g, '');
-          last6.push({ month: label, leads: months[key] || 0 });
-        }
-        setLeadsByMonth(last6);
-      } finally {
-        setLoading(false);
+  const leadsByMonth = useMemo(() => {
+    const months: Record<string, number> = {};
+    const now = new Date();
+    for (const lead of leads) {
+      if (lead.savedAt || lead.saved_at) {
+        const d = new Date(lead.savedAt || lead.saved_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        months[key] = (months[key] || 0) + 1;
       }
-    };
-
-    fetchData();
-  }, [userId, refreshKey]);
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="app-card p-5 rounded-2xl animate-pulse">
-            <div className="h-4 bg-white/5 rounded w-1/2 mb-3" />
-            <div className="h-8 bg-white/5 rounded w-1/3 mb-2" />
-            <div className="h-24 bg-white/5 rounded" />
-          </div>
-        ))}
-      </div>
-    );
-  }
+    }
+    const last6 = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace(/\./g, '');
+      last6.push({ month: label, leads: months[key] || 0 });
+    }
+    return last6;
+  }, [leads]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -99,14 +54,14 @@ export default function DashboardCharts({ userId, refreshKey = 0 }: { userId: st
           <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Saldo de Tokens</span>
           <span className="text-lg">🪙</span>
         </div>
-        <div className="text-3xl font-extrabold text-white mb-2">{tokenBalance.toLocaleString('pt-BR')}</div>
+        <div className="text-3xl font-extrabold text-white mb-2">{tokens.toLocaleString('pt-BR')}</div>
         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all"
-            style={{ width: `${Math.min(100, (tokenBalance / 2400) * 100)}%` }}
+            style={{ width: `${Math.min(100, (tokens / 2400) * 100)}%` }}
           />
         </div>
-        <p className="text-[10px] text-gray-500 mt-2">Baseado no plano Agency (2.400 tokens)</p>
+        <p className="text-[10px] text-gray-500 mt-2">Plano Agency • {tokens.toLocaleString('pt-BR')} de 2.400 tokens</p>
       </div>
 
       {/* Total Leads */}
