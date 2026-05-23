@@ -52,8 +52,9 @@ export default function HackMap({ leads }: { leads: any[] }) {
     const map = L.map(mapRef.current, {
       center: [-14.235, -51.9253],
       zoom: 4,
-      zoomControl: false,
+      zoomControl: true,
       attributionControl: false,
+      scrollWheelZoom: false,
     });
     L.tileLayer(DARK_TILES, { maxZoom: 18 }).addTo(map);
     mapInstance.current = map;
