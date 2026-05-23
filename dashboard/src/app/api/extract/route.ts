@@ -2018,6 +2018,31 @@ const allEnrichedLeads: any[] = [];
       completed_at: new Date().toISOString(),
     });
 
+    // Bônus de indicação: se o usuário foi indicado e gastou 10+ tokens no total
+    try {
+      const supabase = createAdminSupabaseClient();
+      const { data: profile } = await supabase.from('profiles').select('referred_by, referral_bonus_paid').eq('id', auth.user.id).maybeSingle();
+      if (profile?.referred_by && !profile?.referral_bonus_paid) {
+        // Soma total de tokens já gastos pelo usuário
+        const { data: historyRows } = await supabase.from('extraction_history').select('tokens_spent').eq('user_id', auth.user.id);
+        const totalSpent = (historyRows || []).reduce((sum: number, r: any) => sum + (r.tokens_spent || 0), 0);
+        if (totalSpent >= 11 && gastos > 0) {
+          // Credita 100 tokens ao referenciador
+          try {
+            await supabase.rpc('add_tokens', { p_user_id: profile.referred_by, p_amount: 100 });
+          } catch {
+            const { data: refProfile } = await supabase.from('profiles').select('tokens').eq('id', profile.referred_by).maybeSingle();
+            if (refProfile) {
+              await supabase.from('profiles').update({ tokens: (refProfile.tokens || 0) + 100 }).eq('id', profile.referred_by);
+            }
+          }
+          // Marca bônus como pago
+          await supabase.from('profiles').update({ referral_bonus_paid: true }).eq('id', auth.user.id);
+          console.log(`Bônus de indicação: 100 tokens para ${profile.referred_by} (indicado ${auth.user.id} gastou ${totalSpent} tokens)`);
+        }
+      }
+    } catch {}
+
   } catch (err: any) {
     console.error('Extraction error:', err);
     if (updateTimer) clearInterval(updateTimer);

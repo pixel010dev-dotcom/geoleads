@@ -94,6 +94,8 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [showReferral, setShowReferral] = useState(false);
+  const [referralBonus, setReferralBonus] = useState<number | null>(null);
 
   const [proofIndex, setProofIndex] = useState(0);
   const [proofVisible, setProofVisible] = useState(true);
@@ -403,6 +405,17 @@ export default function Home() {
       setSelectedWaLeads(dispatchable);
     };
     loadData();
+
+    // Pending referral from signup
+    const pendingRef = localStorage.getItem('pending_ref');
+    if (pendingRef) {
+      localStorage.removeItem('pending_ref');
+      (async () => {
+        const h = await getAuthedJsonHeaders();
+        if (!h) return;
+        await fetch('/api/referral/link', { method: 'POST', headers: h, body: JSON.stringify({ ref: pendingRef }) });
+      })();
+    }
   }, []);
 
   useEffect(() => {
@@ -997,7 +1010,11 @@ export default function Home() {
           </div>
           <DashboardCharts userId={user?.id || ''} />
 
-          <div className="app-tabs dashboard-tabs flex gap-2 mb-6 max-w-full overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-3 mb-6">
+            <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold">
+              🎁 Indique e Ganhe
+            </button>
+            <div className="app-tabs dashboard-tabs flex gap-2 max-w-full overflow-x-auto no-scrollbar">
             {(['extractor', 'crm', 'whatsapp', 'chatbot', 'ia', 'support'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
@@ -1009,6 +1026,7 @@ export default function Home() {
                 {tab === 'support' && '🙋‍♀️ Suporte & Avaliação'}
               </button>
             ))}
+          </div>
           </div>
         </header>
 
@@ -1105,6 +1123,30 @@ export default function Home() {
       </main>
 
       <SocialProofWidget proofIndex={proofIndex} proofVisible={proofVisible} />
+
+      {showReferral && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowReferral(false)}>
+          <div className="app-card w-full max-w-md p-6 sm:p-8 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/60 border border-white/10 shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+            <button onClick={() => setShowReferral(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white cursor-pointer text-lg">&times;</button>
+            <h2 className="text-xl font-bold mb-2">🎁 Indique e Ganhe</h2>
+            <p className="text-sm text-gray-400 mb-6">Compartilhe seu link e ganhe <strong className="text-amber-400">100 tokens</strong> para cada amigo que criar conta e extrair <strong className="text-amber-400">11+ leads</strong>!</p>
+            <div className="bg-black/40 border border-white/10 rounded-xl p-4 mb-4">
+              <label className="text-xs text-gray-500 block mb-1.5">Seu link de indicação</label>
+              <div className="flex gap-2">
+                <input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}/login?ref=${user?.id || ''}`} className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none" onClick={e => (e.target as HTMLInputElement).select()} />
+                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/login?ref=${user?.id || ''}`); showToast('Link copiado!', 'success'); }} className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold cursor-pointer">Copiar</button>
+              </div>
+            </div>
+            {referralBonus !== null && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-sm text-green-400 text-center">
+                🎉 Você já ganhou <strong>{referralBonus}</strong> tokens em bônus de indicação!
+              </div>
+            )}
+            <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">O bônus é creditado automaticamente após a primeira extração de 11+ leads do seu indicado.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

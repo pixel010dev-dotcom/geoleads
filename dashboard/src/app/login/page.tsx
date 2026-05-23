@@ -19,6 +19,8 @@ export default function Login() {
     const params = new URLSearchParams(window.location.search);
     const next = params.get('next') || '/app/dashboard';
     const plan = params.get('plan');
+    const ref = params.get('ref');
+    if (ref) localStorage.setItem('pending_ref', ref);
     return plan ? `${next}?plan=${encodeURIComponent(plan)}` : next;
   };
 
