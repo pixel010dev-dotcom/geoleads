@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Globe from '@/components/Globe';
@@ -14,6 +15,7 @@ export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const getRedirectPath = () => {
     const params = new URLSearchParams(window.location.search);
@@ -147,10 +149,27 @@ export default function Login() {
             />
           </div>
           
+          {!isLogin && (
+            <label className="flex items-start gap-2 text-sm text-gray-400 mt-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-1 accent-blue-500"
+                required
+              />
+              <span>
+                Aceito os{' '}
+                <Link href="/terms" className="text-blue-400 hover:underline" target="_blank">Termos de Uso</Link>
+                {' '}e a{' '}
+                <Link href="/privacy" className="text-blue-400 hover:underline" target="_blank">Política de Privacidade</Link>
+              </span>
+            </label>
+          )}
           <button 
             type="submit"
-            disabled={loading}
-            className="w-full py-3.5 mt-4 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 hover:-translate-y-1 transition-all duration-200 flex justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+            disabled={loading || (!isLogin && !termsAccepted)}
+            className="w-full py-3.5 mt-4 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 hover:-translate-y-1 transition-all duration-200 flex justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             {loading ? 'Processando...' : isLogin ? 'Entrar na Plataforma' : 'Criar Conta e Ganhar Tokens'}
           </button>

@@ -213,6 +213,8 @@ export default async function LandingPage() {
           <span>&copy; {new Date().getFullYear()} GeoLeads. Todos os direitos reservados.</span>
           <div className="flex items-center gap-4">
             <a href="mailto:pixel010dev@gmail.com?subject=Contato%20GeoLeads" className="hover:text-gray-300 transition-colors">Suporte</a>
+            <Link href="/privacy" className="hover:text-gray-300 transition-colors">Privacidade</Link>
+            <Link href="/terms" className="hover:text-gray-300 transition-colors">Termos</Link>
             <Link href="/pricing" className="hover:text-gray-300 transition-colors">Preços</Link>
             <Link href="/login" className="hover:text-gray-300 transition-colors">Entrar</Link>
           </div>
