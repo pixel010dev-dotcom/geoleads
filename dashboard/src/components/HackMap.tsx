@@ -22,7 +22,7 @@ async function geocodeCity(city: string): Promise<[number, number] | null> {
   return null;
 }
 
-const DARK_TILES = 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png';
+const DARK_TILES = 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
 export default function HackMap({ leads }: { leads: any[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -32,6 +32,11 @@ export default function HackMap({ leads }: { leads: any[] }) {
   const [leaflet, setLeaflet] = useState<any>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
     import('leaflet').then((L) => {
       setLeaflet(L);
     });
