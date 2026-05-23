@@ -665,9 +665,9 @@ export default function CRMSection({
 
       {/* IMPORT CSV MODAL */}
       {showImport && (
-        <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.6)',padding:'1rem',overflowY:'auto'}}
+        <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'flex-start',justifyContent:'center',background:'rgba(0,0,0,0.6)',padding:'0.5rem 1rem 2rem',overflowY:'auto'}}
           onClick={() => { setShowImport(false); setImportPreview(null); }}>
-          <div style={{width:'100%',maxWidth:'42rem',maxHeight:'90vh',background:'#111',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'1.5rem',padding:'1.5rem',boxShadow:'0 25px 50px rgba(0,0,0,0.5)',overflow:'auto',marginTop:'auto',marginBottom:'auto'}}
+          <div style={{width:'100%',maxWidth:'42rem',maxHeight:'85vh',background:'#111',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'1.5rem',padding:'1.5rem',boxShadow:'0 25px 50px rgba(0,0,0,0.5)',overflow:'auto'}}
             onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem'}}>
               <h3 style={{fontSize:'1.125rem',fontWeight:700}}>📥 Importar Leads (CSV)</h3>
