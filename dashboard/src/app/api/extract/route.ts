@@ -1439,7 +1439,10 @@ const allEnrichedLeads: any[] = [];
     } else if (targetLimit >= 150) {
       const cityBairros = getCityBairros(location);
       if (cityBairros.length > 1) {
-        searchLocations = [location, ...shuffleArray(cityBairros)];
+        // Bairros precisam do nome da cidade junto para o Maps entender
+        const mainCity = location.replace(/,?\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/i, '').trim();
+        const bairroQueries = cityBairros.map(b => `${b}, ${mainCity}`);
+        searchLocations = [location, ...shuffleArray(bairroQueries)];
       } else {
         searchLocations = [location];
       }
@@ -1447,7 +1450,7 @@ const allEnrichedLeads: any[] = [];
       searchLocations = [location];
     }
     // Scroll por cidade/bairro baseado na demanda e tempo disponível
-    const maxScrollPerCity = isBroadRegion ? 10 : Math.max(15, Math.min(80, targetLimit));
+    const maxScrollPerCity = isBroadRegion ? 15 : Math.max(20, Math.min(200, targetLimit * 2));
 
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
@@ -1477,9 +1480,16 @@ const allEnrichedLeads: any[] = [];
 
       // Verifica se o feed carregou
       try {
-        await page.waitForSelector('div[role="feed"]', { timeout: 5000 });
+        await page.waitForSelector('div[role="feed"], div[role="main"]', { timeout: 12000 });
       } catch {
         continue; // Sem resultados nesta cidade, tenta próxima
+      }
+      // Aguarda cards carregarem de fato
+      await page.waitForTimeout(1500 + Math.random() * 1000);
+      try {
+        await page.waitForSelector('a[href*="/maps/place"]', { timeout: 5000 });
+      } catch {
+        // Pode não ter resultados, continua mesmo assim
       }
 
       await page.waitForTimeout(1000 + Math.random() * 500);
@@ -1680,7 +1690,7 @@ const allEnrichedLeads: any[] = [];
 
       if (newLeads.length === 0) {
         emptyScrolls++;
-        if (emptyScrolls >= 8) break; // Sem mais resultados
+        if (emptyScrolls >= (targetLimit <= 100 ? 8 : 20)) break; // Sem mais resultados
       } else {
         emptyScrolls = 0;
       }
