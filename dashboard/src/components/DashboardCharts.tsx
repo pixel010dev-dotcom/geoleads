@@ -13,7 +13,7 @@ const STAGE_LABELS: Record<string, string> = {
   Perdido: 'Perdido',
 };
 
-export default function DashboardCharts({ userId }: { userId: string }) {
+export default function DashboardCharts({ userId, refreshKey = 0 }: { userId: string; refreshKey?: number }) {
   const [leadsByMonth, setLeadsByMonth] = useState<{ month: string; leads: number }[]>([]);
   const [leadsByStage, setLeadsByStage] = useState<{ name: string; value: number }[]>([]);
   const [totalLeads, setTotalLeads] = useState(0);
@@ -75,7 +75,7 @@ export default function DashboardCharts({ userId }: { userId: string }) {
     };
 
     fetchData();
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   if (loading) {
     return (

@@ -43,6 +43,7 @@ export default function Home() {
   const [crmSyncStatus, setCrmSyncStatus] = useState<'local' | 'syncing' | 'cloud' | 'error'>('local');
   const [crmSyncMessage, setCrmSyncMessage] = useState('CRM local');
   const [crmPage, setCrmPage] = useState(0);
+  const [chartRefreshKey, setChartRefreshKey] = useState(0);
   const [bulkStageLoading, setBulkStageLoading] = useState(false);
   const [bulkStageTarget, setBulkStageTarget] = useState('Novo');
   const [enrichLoading, setEnrichLoading] = useState(false);
@@ -719,12 +720,37 @@ export default function Home() {
             message: j.message,
           });
           if (j.status === 'completed') {
-            setLeads(j.leads || []);
+            const newLeads = j.leads || [];
+            setLeads(newLeads);
             setIsExtracting(false);
             setHasSearched(true);
             if (pollRef.current) clearInterval(pollRef.current);
             localStorage.removeItem('lastJobId');
             if (tokens !== null && j.leads_count > 0) setTokens(Math.max(0, tokens - j.leads_count));
+            // Auto-salva leads no CRM
+            if (newLeads.length > 0) {
+              setCrmLeads(prev => {
+                const existing = new Set(prev.map((l: any) => getLeadKey(l)));
+                const toAdd = newLeads.filter((l: any) => !existing.has(getLeadKey(l))).map((l: any) => ({
+                  ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
+                  nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
+                }));
+                if (toAdd.length === 0) return prev;
+                const updated = [...toAdd, ...prev];
+                localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead)));
+                const userId = user?.id;
+                if (userId) {
+                  const rows = updated.map(lead => crmLeadToRow(lead, userId));
+                  supabase.from('crm_leads').upsert(rows, { onConflict: 'user_id,lead_key' }).then(({ error }) => {
+                    if (error) console.warn('CRM auto-sync failed:', error.message);
+                    else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
+                  });
+                }
+                showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
+                setChartRefreshKey(k => k + 1);
+                return updated;
+              });
+            }
           } else if (j.status === 'running') {
             // Entrega incremental: mostra leads já encontrados durante a extração
             if (j.leads && j.leads.length > 0) {
@@ -1009,7 +1035,7 @@ export default function Home() {
             </div>
             <LeadGuideWidget user={user} currentPlan={currentPlan} tokens={tokens} onNavigate={setActiveTab} />
           </div>
-          <DashboardCharts userId={user?.id || ''} />
+          <DashboardCharts userId={user?.id || ''} refreshKey={chartRefreshKey} />
 
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold">
