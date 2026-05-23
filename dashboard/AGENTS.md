@@ -367,4 +367,58 @@ Botão "🔄 Re-enriquecer" no CRM: abre o SITE do lead e busca email, CNPJ, Ins
 
 ### Changelog
 - AGENTS.md atualizado com esta entrada
+
+## Últimas alterações (22/05/2026) — nona leva: Dashboard repaginado + Maps Enrichment robusto
+
+### Visual — Repaginação geral das seções
+- **EnrichSection**: overview cards (total/completos/precisam de dados/com site), gradient header purple-pink, "🚀 Enriquecer Todos", progresso por lead
+- **ExtractorSection**: stat cards (leads, tempo, scanned, cidades), gradient header blue-cyan nas tabelas, badge count nos resultados
+- **AICopySection**: overview cards (modelos gerados, tom atual, status), gradient headers, scroll area com layout limpo
+- **SupportSection**: overview cards (status avaliação, nota, e-mail, tempo resposta), layout consistente com as outras abas
+
+### DashboardCharts refatorado
+- Gráfico de barras horizontal: leads por estágio (Novo, Em Contato, Proposta, Fechado, Cliente)
+- Gráfico de área: leads/mês (últimos 6 meses a partir do savedAt)
+- Token bar base corrigida: 10.000 → **2.400** (Agency plan)
+- `refreshKey` prop para re-renderizar após auto-save de leads
+- Estado vazio com mensagem "Nenhum lead no CRM"
+- Margens e offset corrigidos (hardcoded `confirmedDataKeys` removido)
+
+### Maps Enrichment — Estratégia robusta
+- `/api/lead-enrich/route.ts`:
+  - Agora parseia **todos** os scripts LD+JSON da página (não só o primeiro)
+  - Aceita `@type` variados: LocalBusiness, Organization, Place, Restaurant, Store, Hospital, Clinic, School
+  - Fallback HTML: meta tags (telephone, og:url), `tel:` links, `mailto:` links
+  - User-Agent realístico mobile (Pixel 8 Pro Chrome 125) para Maps
+  - User-Agent desktop realístico para sites
+  - `Accept-Language: pt-BR,pt;q=0.9` para conteúdo localizado
+  - Content-type flexível: aceita `text/html` e `application/json` (LD+JSON pode vir sem HTML wrapper)
+  - Extrai imagem do LD+JSON (`item.image`)
+  - Se Maps forneceu `site`, usa esse site (em vez do original) na segunda passagem
+
+### Auto-save leads no CRM
+- `startPolling()`: quando `j.status === 'completed'`, leads são inseridos em `crmLeads` + upsert no Supabase `crm_leads`
+- `crmLeadToRow()` com `lead_key` (nome + telefone) para dedup
+- Dispara `setChartRefreshKey(k => k + 1)` para charts refletirem dados novos
+
+### Chats/Disparador — Features completas
+- `/api/chatbot/stats` — GET: totalSent, totalFailed, successRate, totalConversations, todaySent, weekIncoming/Outgoing
+- `/api/chatbot/conversations` — GET (list) + POST (store) para histórico de conversas
+- `/api/chatbot/campaign` — CRUD para `whatsapp_campaigns` (create, update status, delete)
+- Chatbot route (`/api/chatbot/route.ts`) armazena mensagens in/out em `chatbot_conversations` + captura leads se `chatbot_auto_capture = true`
+- `pickResponse` retorna `{ text, ruleId }` para rastreamento
+- WhatsAppSection: métricas (total enviados, falhas, sucesso, hoje, campanhas), scheduling UI (date/time picker)
+- ChatbotSection: analytics cards (stats), toggle lead capture, lista de conversas
+- SQL Migration (`migration_chatbot_plus.sql`): tabelas `chatbot_conversations`, `whatsapp_campaigns` + colunas `chatbot_auto_capture`/`chatbot_capture_stage` em `profiles`
+
+### Fixes
+- `dashboard/page.tsx`: `confirm()` removido do CRM — deleta direto + showToast
+- `pricing/page.tsx`: `window.location.href` → `router.push()` (SPA)
+- `account/page.tsx`: "Voltar ao Dashboard" link `/` → `/app/dashboard`
+- `SupportSection`: abas com `overflow-x-auto` + container `flex-col sm:flex-row` para não cortar em telas pequenas
+- `HackerRadar.tsx`: safety limit 50s → 600s
+- `sitemap.ts`: adicionado `/account`
+
+### TypeScript
+- `npx tsc --noEmit`: 0 erros em todas as alterações
 <!-- END:geoleads-changelog -->
