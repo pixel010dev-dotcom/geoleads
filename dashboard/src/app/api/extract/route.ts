@@ -1445,12 +1445,27 @@ const allEnrichedLeads: any[] = [];
     // Scroll por cidade/bairro baseado na demanda e tempo disponível
     const maxScrollPerCity = isBroadRegion ? 15 : Math.max(20, Math.min(200, targetLimit * 2));
 
+    // Para targets grandes, gera variações de busca (Maps retorna diferentes resultados)
+    const searchVariations = (kw: string, loc: string) => {
+      const base = `${kw} em ${loc}`;
+      const alt = `${kw} ${loc}`;
+      if (targetLimit <= 100) return [base];
+      // Com variações, algumas academias que não aparecem numa busca aparecem em outra
+      return [base, alt, `${kw} no ${loc}`, `${kw} - ${loc}`];
+    };
+
     for (const searchLoc of searchLocations) {
       if (validLeads.length >= targetLimit) break;
       if ((Date.now() - startTime) >= MAX_TIME) break;
       if (await checkCancelled()) break;
 
-      const cityQuery = encodeURIComponent(`${keyword} em ${searchLoc}`);
+      const queries = searchVariations(keyword, searchLoc);
+      for (const query of queries) {
+        if (validLeads.length >= targetLimit) break;
+        if ((Date.now() - startTime) >= MAX_TIME) break;
+        if (await checkCancelled()) break;
+
+      const cityQuery = encodeURIComponent(query);
       await page.goto(`https://www.google.com/maps/search/${cityQuery}`, {
         waitUntil: 'domcontentloaded',
         timeout: 15000
@@ -1734,6 +1749,7 @@ const allEnrichedLeads: any[] = [];
       }
       cityScrolls++;
     }
+    } // fim for (const query of queries)
     citiesDone++;
     // Salva ALL enriched leads incrementalmente (entrega em tempo real)
     // O usuário já vê os leads aparecendo enquanto a extração continua rodando
