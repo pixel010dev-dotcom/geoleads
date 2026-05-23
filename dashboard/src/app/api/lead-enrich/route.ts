@@ -16,14 +16,17 @@ const EMAIL_FALLBACK_PATTERNS = [
   (d: string) => `contato@www.${d}`,
 ];
 
-async function fetchHtml(url: string) {
+const MAPS_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36';
+const SITE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+async function fetchHtml(url: string, ua: string = SITE_UA) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
   try {
-    const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' });
+    const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': ua, 'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7' }, redirect: 'follow' });
     if (!res.ok) return '';
     const ct = res.headers.get('content-type') || '';
-    if (ct && !ct.includes('text/html')) return '';
+    if (ct && !ct.includes('text/html') && !ct.includes('application/json')) return '';
     return await res.text();
   } catch { return '' } finally { clearTimeout(timeout); }
 }
@@ -80,27 +83,64 @@ function pickSocialLinks(html: string, baseUrl: string) {
   return socials;
 }
 
-function pickMapsLdJson(html: string) {
-  const ldMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/i);
-  if (!ldMatch) return {};
-  try {
-    const parsed = JSON.parse(ldMatch[1]);
-    const data = parsed['@graph'] ? parsed['@graph'].find((g: any) => g['@type'] === 'LocalBusiness') : parsed;
-    if (!data) return {};
-    const result: any = {};
-    if (data.telephone) result.telefone = data.telephone;
-    if (data.url) result.site = data.url;
-    if (data.sameAs && Array.isArray(data.sameAs)) {
-      for (const url of data.sameAs) {
-        const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
-        if (host.includes('instagram')) result.instagram = url;
-        else if (host.includes('facebook')) result.facebook = url;
-        else if (host.includes('tiktok')) result.tiktok = url;
+function pickMapsData(html: string) {
+  const result: any = {};
+
+  // 1. Parse ALL LD+JSON scripts
+  const ldRegex = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
+  let ldMatch: RegExpExecArray | null;
+  while ((ldMatch = ldRegex.exec(html)) !== null) {
+    try {
+      const parsed = JSON.parse(ldMatch[1]);
+      const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
+      for (const item of items) {
+        if (!item || !item['@type']) continue;
+        const types = Array.isArray(item['@type']) ? item['@type'] : [item['@type']];
+        const isBusiness = types.some((t: string) => /LocalBusiness|Organization|Place|Restaurant|Store|Hospital|Clinic|School/i.test(t));
+        if (!isBusiness) continue;
+        if (item.telephone && !result.telefone) result.telefone = item.telephone;
+        if (item.url && !result.site) result.site = item.url;
+        if (item.email && !result.email) result.email = item.email;
+        if (item.image) {
+          const imgs = Array.isArray(item.image) ? item.image : [item.image];
+          for (const img of imgs) {
+            const src = typeof img === 'string' ? img : img.url;
+            if (src && src.startsWith('http')) { result.image = src; break; }
+          }
+        }
+        if (item.sameAs && Array.isArray(item.sameAs)) {
+          for (const url of item.sameAs) {
+            try {
+              const host = new URL(url).hostname.replace('www.', '');
+              if (host.startsWith('instagram') && !result.instagram) result.instagram = url;
+              else if ((host.startsWith('facebook') || host.startsWith('fb.com')) && !result.facebook) result.facebook = url;
+              else if (host.startsWith('tiktok') && !result.tiktok) result.tiktok = url;
+            } catch {}
+          }
+        }
       }
-    }
-    if (data.email) result.email = data.email;
-    return result;
-  } catch { return {}; }
+    } catch {}
+  }
+
+  // 2. HTML meta/link fallbacks (when LD+JSON doesn't have everything)
+  if (!result.telefone) {
+    const phoneMeta = html.match(/<meta[^>]+(?:name|property)="?(?:telephone|phone|telefone|contact|dados-de-contato)"?[^>]+content="?([^">]+)"?/i);
+    if (phoneMeta) result.telefone = phoneMeta[1].trim();
+  }
+  if (!result.telefone) {
+    const phoneAnchor = html.match(/<a[^>]+href="tel:([^"]+)"[^>]*>/i);
+    if (phoneAnchor) result.telefone = phoneAnchor[1];
+  }
+  if (!result.site) {
+    const ogUrl = html.match(/<meta[^>]+property="?og:url"?[^>]+content="?([^">]+)"?/i);
+    if (ogUrl) result.site = ogUrl[1];
+  }
+  if (!result.email) {
+    const emailLink = html.match(/<a[^>]+href="mailto:([^"]+)"[^>]*>/i);
+    if (emailLink) result.email = emailLink[1];
+  }
+
+  return result;
 }
 
 export async function POST(request: Request) {
@@ -111,24 +151,26 @@ export async function POST(request: Request) {
     const { nome, site, cidade, placeUrl } = await request.json();
     let enriched: any = {};
 
-    // 1. Enrich from Maps placeUrl (LD+JSON)
+    // 1. Enrich from Maps placeUrl (LD+JSON + HTML fallbacks)
     if (placeUrl && !placeUrl.includes('Sem site')) {
-      const mapsHtml = await fetchHtml(placeUrl);
+      const mapsHtml = await fetchHtml(placeUrl, MAPS_UA);
       if (mapsHtml) {
-        const mapsData = pickMapsLdJson(mapsHtml);
+        const mapsData = pickMapsData(mapsHtml);
         if (mapsData.telefone) enriched.telefone = mapsData.telefone;
         if (mapsData.site && (!site || site === 'Sem site')) enriched.site = mapsData.site;
         if (mapsData.email) enriched.email = mapsData.email;
         if (mapsData.instagram) enriched.instagram = mapsData.instagram;
         if (mapsData.facebook) enriched.facebook = mapsData.facebook;
         if (mapsData.tiktok) enriched.tiktok = mapsData.tiktok;
+        if (mapsData.image) enriched.image = mapsData.image;
       }
     }
 
     // 2. Enrich from site (if available and different from Maps)
-    if (site && site !== 'Sem site') {
-      const domain = (() => { try { const u = new URL(site); return u.hostname.replace(/^www\./, '').toLowerCase(); } catch { return null; } })();
-      const html = await fetchHtml(site);
+    const finalSite = enriched.site || site;
+    if (finalSite && finalSite !== 'Sem site') {
+      const domain = (() => { try { const u = new URL(finalSite); return u.hostname.replace(/^www\./, '').toLowerCase(); } catch { return null; } })();
+      const html = await fetchHtml(finalSite, SITE_UA);
       if (html) {
         const email = pickEmail(html);
         const cnpj = pickCnpj(html);
