@@ -15,7 +15,7 @@ interface Props {
 export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleReEnrichSelected, enrichLoading, selectedCrmLeads, setSelectedCrmLeads, openWhatsApp, showToast }: Props) {
   const [enrichStatus, setEnrichStatus] = useState<Record<string, string>>({});
 
-  const leadsToEnrich = crmLeads.filter(l => l.site && l.site !== 'Sem site');
+  const leadsToEnrich = crmLeads.filter(l => (l.site && l.site !== 'Sem site') || l.placeUrl);
 
   const enrichedLeads = crmLeads.filter(l => l.email || l.instagram || l.facebook || l.tiktok);
   const needsEnrichment = crmLeads.filter(l => !l.email && !l.instagram && !l.facebook && !l.tiktok);
@@ -82,6 +82,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
         <div className="bg-purple-500/5 border border-purple-500/15 rounded-xl p-4 mb-6">
           <h3 className="text-sm font-bold text-purple-300 mb-2">⚡ Como funciona</h3>
           <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+            <li>Se o lead tem URL do Maps, extraímos telefone, site e redes do Google Maps (LD+JSON)</li>
             <li>Visitamos o site do lead e extraímos email, CNPJ e redes sociais</li>
             <li>Buscamos links do Instagram, Facebook e TikTok nas páginas do site</li>
             <li>Geramos email por padrão (contato@, comercial@) quando necessário</li>

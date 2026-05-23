@@ -80,45 +80,80 @@ function pickSocialLinks(html: string, baseUrl: string) {
   return socials;
 }
 
+function pickMapsLdJson(html: string) {
+  const ldMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/i);
+  if (!ldMatch) return {};
+  try {
+    const parsed = JSON.parse(ldMatch[1]);
+    const data = parsed['@graph'] ? parsed['@graph'].find((g: any) => g['@type'] === 'LocalBusiness') : parsed;
+    if (!data) return {};
+    const result: any = {};
+    if (data.telephone) result.telefone = data.telephone;
+    if (data.url) result.site = data.url;
+    if (data.sameAs && Array.isArray(data.sameAs)) {
+      for (const url of data.sameAs) {
+        const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
+        if (host.includes('instagram')) result.instagram = url;
+        else if (host.includes('facebook')) result.facebook = url;
+        else if (host.includes('tiktok')) result.tiktok = url;
+      }
+    }
+    if (data.email) result.email = data.email;
+    return result;
+  } catch { return {}; }
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUser(request);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    const { nome, site, cidade } = await request.json();
-    if (!site || site === 'Sem site') {
-      return NextResponse.json({ error: 'Lead sem site para enriquecer.' }, { status: 400 });
+    const { nome, site, cidade, placeUrl } = await request.json();
+    let enriched: any = {};
+
+    // 1. Enrich from Maps placeUrl (LD+JSON)
+    if (placeUrl && !placeUrl.includes('Sem site')) {
+      const mapsHtml = await fetchHtml(placeUrl);
+      if (mapsHtml) {
+        const mapsData = pickMapsLdJson(mapsHtml);
+        if (mapsData.telefone) enriched.telefone = mapsData.telefone;
+        if (mapsData.site && (!site || site === 'Sem site')) enriched.site = mapsData.site;
+        if (mapsData.email) enriched.email = mapsData.email;
+        if (mapsData.instagram) enriched.instagram = mapsData.instagram;
+        if (mapsData.facebook) enriched.facebook = mapsData.facebook;
+        if (mapsData.tiktok) enriched.tiktok = mapsData.tiktok;
+      }
     }
 
-    const domain = (() => { try { const u = new URL(site); return u.hostname.replace(/^www\./, '').toLowerCase(); } catch { return null; } })();
-
-    const html = await fetchHtml(site);
-    if (!html) {
-      // Fallback de email por padrões
-      if (domain) {
+    // 2. Enrich from site (if available and different from Maps)
+    if (site && site !== 'Sem site') {
+      const domain = (() => { try { const u = new URL(site); return u.hostname.replace(/^www\./, '').toLowerCase(); } catch { return null; } })();
+      const html = await fetchHtml(site);
+      if (html) {
+        const email = pickEmail(html);
+        const cnpj = pickCnpj(html);
+        const socials = pickSocialLinks(html, site);
+        if (email) enriched.email = email;
+        if (cnpj) enriched.cnpj = cnpj;
+        if (socials.instagram) enriched.instagram = socials.instagram;
+        if (socials.facebook) enriched.facebook = socials.facebook;
+        if (socials.tiktok) enriched.tiktok = socials.tiktok;
+        // Email fallback
+        if (!enriched.email && domain) {
+          for (const fn of EMAIL_FALLBACK_PATTERNS) {
+            const e = fn(domain);
+            if (!BAD_EMAIL_REGEX.test(e)) { enriched.email = e; break; }
+          }
+        }
+      } else if (domain && !enriched.email) {
         for (const fn of EMAIL_FALLBACK_PATTERNS) {
           const e = fn(domain);
-          if (!BAD_EMAIL_REGEX.test(e)) return NextResponse.json({ success: true, enriched: { email: e, cnpj: '', instagram: '', facebook: '', tiktok: '' } });
+          if (!BAD_EMAIL_REGEX.test(e)) { enriched.email = e; break; }
         }
       }
-      return NextResponse.json({ error: 'Site não respondeu.' }, { status: 502 });
     }
 
-    const email = pickEmail(html);
-    const cnpj = pickCnpj(html);
-    const socials = pickSocialLinks(html, site);
-
-    // Email fallback se não encontrou
-    let finalEmail = email;
-    if (!finalEmail && domain) {
-      for (const fn of EMAIL_FALLBACK_PATTERNS) { const e = fn(domain); if (!BAD_EMAIL_REGEX.test(e)) { finalEmail = e; break; } }
-    }
-
-    return NextResponse.json({
-      success: true,
-      enriched: { email: finalEmail, cnpj, ...socials },
-      site,
-    });
+    return NextResponse.json({ success: true, enriched, site, placeUrl });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Erro interno' }, { status: 500 });
   }

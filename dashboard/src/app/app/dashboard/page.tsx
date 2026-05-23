@@ -572,13 +572,13 @@ export default function Home() {
   };
 
   const handleReEnrichSingle = async (lead: any) => {
-    if (!lead.site || lead.site === 'Sem site') { showToast('Lead sem site para enriquecer.', 'warning'); return; }
+    if ((!lead.site || lead.site === 'Sem site') && !lead.placeUrl) { showToast('Lead sem site ou URL do Maps para enriquecer.', 'warning'); return; }
     try {
       const headers = await getAuthedJsonHeaders();
       if (!headers) return;
       const res = await fetch('/api/lead-enrich', {
         method: 'POST', headers,
-        body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade })
+        body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade, placeUrl: lead.placeUrl })
       });
       const data = await res.json();
       if (data.success && data.enriched) {

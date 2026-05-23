@@ -72,6 +72,23 @@ export default function ExtractorSection({
 }: ExtractorSectionProps) {
   return (
     <>
+      {/* Overview Cards */}
+      {hasSearched && !isExtracting && leads.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 animate-slide-up">
+          {[
+            { label: 'Leads Encontrados', value: leads.length, color: 'text-blue-400' },
+            { label: 'Tempo de Busca', value: `${extractStats?.time || 0}s`, color: 'text-cyan-400' },
+            { label: 'Empresas Mapeadas', value: extractStats?.scanned || 0, color: 'text-green-400' },
+            { label: 'Cidades', value: extractStats?.cities_scanned || 1, color: 'text-purple-400' },
+          ].map(s => (
+            <div key={s.label} className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
+              <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8 relative z-20">
         {/* PAINEL DE BUSCA */}
         <div className="lg:col-span-1 animate-slide-up" style={{ animationDelay: '0.1s' }}>
@@ -232,18 +249,20 @@ export default function ExtractorSection({
 
         {/* PAINEL DE RESULTADOS */}
         <div className="lg:col-span-2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 h-full min-h-[400px] flex flex-col shadow-2xl">
+          <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 h-full min-h-[400px] flex flex-col shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
             
             {/* Header dos resultados */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
-                <h2 className="text-xl font-semibold">
-                  {isExtracting ? '⏳ Extraindo...' : leads.length > 0 ? `✅ ${leads.length} Leads Encontrados!` : 'Vitrine de Resultados'}
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  {isExtracting ? '⏳ Extraindo...' : leads.length > 0 ? '✅ Leads Encontrados' : '🔍 Vitrine de Resultados'}
+                  {leads.length > 0 && <span className="text-sm px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold">{leads.length}</span>}
                 </h2>
                 {extractStats && (
                   <div className="mt-1 space-y-0.5 animate-fade-in">
                     <p className="text-xs text-gray-500">
-                      Mapeou {extractStats.scanned} empresas em {extractStats.time} segundos.
+                      Mapeou <strong className="text-gray-300">{extractStats.scanned}</strong> empresas em <strong className="text-gray-300">{extractStats.time}s</strong>
                     </p>
                     {extractStats.correctedKeyword && (
                       <p className="text-xs text-blue-400 font-medium">
