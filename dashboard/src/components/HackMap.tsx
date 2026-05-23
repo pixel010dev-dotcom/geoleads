@@ -33,7 +33,7 @@ export default function HackMap({ leads }: { leads: any[] }) {
   const citiesKeyRef = useRef('');
   const [pointCount, setPointCount] = useState(0);
   const [leaflet, setLeaflet] = useState<any>(null);
-  const hasTiles = useRef(false);
+  const resizeObserver = useRef<ResizeObserver | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -52,13 +52,17 @@ export default function HackMap({ leads }: { leads: any[] }) {
     const map = L.map(mapRef.current, {
       center: [-14.235, -51.9253],
       zoom: 4,
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: false,
-      scrollWheelZoom: false,
+      scrollWheelZoom: true,
     });
     L.tileLayer(DARK_TILES, { maxZoom: 18 }).addTo(map);
     mapInstance.current = map;
     markersLayer.current = L.layerGroup().addTo(map);
+    map.invalidateSize();
+    const ro = new ResizeObserver(() => { map.invalidateSize(); });
+    ro.observe(mapRef.current);
+    resizeObserver.current = ro;
   }, [leaflet]);
 
   useEffect(() => {
