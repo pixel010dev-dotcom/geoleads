@@ -33,13 +33,15 @@ export async function createPixPayment({
   userId,
   payerEmail,
   externalReference,
-  metadata
+  metadata,
+  notificationUrl
 }: {
   plan: { id: PlanId; name: string; tokens: number; price: number };
   userId: string;
   payerEmail: string;
   externalReference?: string;
   metadata?: Record<string, unknown>;
+  notificationUrl?: string;
 }): Promise<PixCheckoutResult> {
   const { client, isSandbox, isSimulated, isConfigured } = getMpConfig();
 
@@ -75,7 +77,7 @@ export async function createPixPayment({
         payment_method_id: 'pix',
         external_reference: externalRef,
         date_of_expiration: expiration,
-        ...(isSandbox ? {} : { notification_url: mercadoPagoWebhookUrl }),
+        ...(isSandbox ? {} : { notification_url: notificationUrl || mercadoPagoWebhookUrl }),
         metadata: {
           plan_id: plan.id,
           tokens: plan.tokens,

@@ -11,6 +11,11 @@ function getAutoVendasPrice(leadsAlvo?: number | null) {
   return (leadsAlvo || 50) * 0.5;
 }
 
+function getWebhookUrl(request: Request) {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '');
+  return `${appUrl}/api/mercado-pago/webhook`;
+}
+
 export async function POST(request: Request) {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Nao autorizado.' }, { status: 401 });
@@ -74,6 +79,7 @@ export async function POST(request: Request) {
         plan_id: 'autovendas',
         campaign_id: campaign.id,
       },
+      notificationUrl: getWebhookUrl(request),
     });
 
     const { data, error: updateError } = await supabase

@@ -11,6 +11,11 @@ const client = new MercadoPagoConfig({
   accessToken: token || 'dummy'
 });
 
+function getWebhookUrl(request: Request) {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '');
+  return `${appUrl}/api/mercado-pago/webhook`;
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUser(request);
@@ -72,7 +77,8 @@ export async function POST(request: Request) {
     const pix = await createPixPayment({
       plan,
       userId: user.id,
-      payerEmail
+      payerEmail,
+      notificationUrl: getWebhookUrl(request)
     });
 
     return NextResponse.json({
