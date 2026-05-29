@@ -1,9 +1,10 @@
-export type DashboardTab = 'extractor' | 'enrich' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support' | 'facebook';
+export type DashboardTab = 'extractor' | 'autovendas' | 'crm' | 'enrich' | 'whatsapp' | 'chatbot' | 'ia' | 'support' | 'facebook';
 
 export const tabFeatureMap: Record<DashboardTab, string | null> = {
   extractor: null,
-  enrich: null,
+  autovendas: 'autovendas',
   crm: 'crm',
+  enrich: null,
   whatsapp: 'whatsappSender',
   chatbot: 'chatbot',
   ia: 'aiCopy',
@@ -27,6 +28,10 @@ export const tabUpgradeCopy: Record<string, { title: string; description: string
   ia: {
     title: 'Copys com IA liberadas no Pro',
     description: 'Gere abordagens comerciais para WhatsApp e e-mail nos planos com IA.'
+  },
+  autovendas: {
+    title: 'AutoVendas liberado no Pro',
+    description: 'Campanhas automáticas de lead gen com extração + disparo integrados.'
   }
 };
 

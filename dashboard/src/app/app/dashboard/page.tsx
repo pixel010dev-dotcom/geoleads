@@ -18,6 +18,7 @@ import AICopySection from '@/components/dashboard/AICopySection';
 import EnrichSection from '@/components/dashboard/EnrichSection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import FacebookAds from '@/components/dashboard/FacebookAds';
+import AutoVendasSection from '@/components/dashboard/AutoVendasSection';
 import SocialProofWidget from '@/components/dashboard/SocialProofWidget';
 import { generatePdfReport } from '@/lib/pdf-report';
 
@@ -1125,20 +1126,50 @@ export default function Home() {
               className="text-[11px] px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold flex-shrink-0">
               📄 Relatório PDF
             </button>
-            <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 no-scrollbar">
-            {(['extractor', 'enrich', 'crm', 'whatsapp', 'chatbot', 'ia', 'support', 'facebook'] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                {tab === 'extractor' && '🚀 Motor Extrator'}
-                {tab === 'enrich' && '🔍 Buscar Dados'}
-                {tab === 'crm' && <>📋 CRM de Leads{!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}{crmLeads.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>}</>}
-                {tab === 'whatsapp' && <>⚡ Disparador WhatsApp{!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}</>}
-                {tab === 'chatbot' && <>🤖 Chatbot WhatsApp{!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}</>}
-                {tab === 'ia' && <>🤖 Gerador de Copys IA{!requireFeature('aiCopy') && <span className="text-[10px] text-amber-300">🔒</span>}</>}
-                {tab === 'support' && '🙋‍♀️ Suporte & Avaliação'}
-                {tab === 'facebook' && '📢 Anúncios Facebook'}
+            <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 no-scrollbar items-center">
+              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mr-1">Captura</span>
+              <button onClick={() => setActiveTab('extractor')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                🚀 Extrator
               </button>
-            ))}
+              <button onClick={() => setActiveTab('autovendas')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'autovendas' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                🤖 AutoVendas{!requireFeature('autovendas') && <span className="text-[10px] text-amber-300">🔒</span>}
+              </button>
+
+              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-3 mr-1">Gestão</span>
+              <button onClick={() => setActiveTab('crm')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                📋 CRM{!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}{crmLeads.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>}
+              </button>
+              <button onClick={() => setActiveTab('enrich')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'enrich' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                🔍 Dados
+              </button>
+
+              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-3 mr-1">WhatsApp</span>
+              <button onClick={() => setActiveTab('whatsapp')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                ⚡ Disparo{!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}
+              </button>
+              <button onClick={() => setActiveTab('chatbot')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                💬 Auto-Resposta{!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}
+              </button>
+
+              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-3 mr-1">Mais</span>
+              <button onClick={() => setActiveTab('ia')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                🤖 IA{!requireFeature('aiCopy') && <span className="text-[10px] text-amber-300">🔒</span>}
+              </button>
+              <button onClick={() => setActiveTab('facebook')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'facebook' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                📢 Facebook
+              </button>
+              <button onClick={() => setActiveTab('support')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                🙋‍♀️ Suporte
+              </button>
           </div>
           </div>
         </header>
@@ -1264,6 +1295,10 @@ export default function Home() {
             supportSubmitted={supportSubmitted} setSupportSubmitted={setSupportSubmitted}
             hoveredStar={hoveredStar} setHoveredStar={setHoveredStar} user={user} showToast={showToast}
           />
+        )}
+
+        {activeTab === 'autovendas' && !activeTabLocked && (
+          <AutoVendasSection />
         )}
 
         {activeTab === 'facebook' && (

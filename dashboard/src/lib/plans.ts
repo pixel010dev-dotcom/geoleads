@@ -9,6 +9,7 @@ export type FeatureKey =
   | 'whatsappSender'
   | 'aiCopy'
   | 'chatbot'
+  | 'autovendas'
   | 'prioritySupport'
   | 'cnpjEnrichment';
 
@@ -77,7 +78,8 @@ export const plans: Record<PlanId, Plan> = {
       'Tudo do plano Inicial',
       'Instagram, Facebook e TikTok quando encontrados',
       'Disparador WhatsApp assistido com fila inteligente',
-      'Gerador de mensagens de vendas com IA'
+      'Gerador de mensagens de vendas com IA',
+      'AutoVendas — campanhas automáticas de lead gen'
     ],
     featureKeys: [
       'extractor',
@@ -87,6 +89,7 @@ export const plans: Record<PlanId, Plan> = {
       'socialEnrichment',
       'whatsappSender',
       'aiCopy',
+      'autovendas',
       'cnpjEnrichment'
     ]
   },
@@ -167,6 +170,7 @@ export const allFeatureKeys: FeatureKey[] = [
   'whatsappSender',
   'aiCopy',
   'chatbot',
+  'autovendas',
   'prioritySupport'
 ];
 
@@ -180,5 +184,6 @@ export const featureLabels: Record<FeatureKey, string> = {
   whatsappSender: 'Disparador WhatsApp',
   aiCopy: 'Copys com IA',
   chatbot: 'Chatbot WhatsApp',
+  autovendas: 'AutoVendas',
   prioritySupport: 'Suporte Prioritário'
 };
