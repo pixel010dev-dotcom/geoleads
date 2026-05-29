@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { getPlanIdFromTokens, getPlanLevel, hasFeature, type FeatureKey, type PlanId } from '@/lib/plans';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project-url.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -53,8 +53,10 @@ export async function getAuthUser(request: Request): Promise<AuthResult | null> 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) return null;
 
-  const userSupabase = createAuthedSupabaseClient(token);
-  const { data: profile } = await userSupabase
+  const profileSupabase = hasSupabaseServiceRole()
+    ? createAdminSupabaseClient()
+    : createAuthedSupabaseClient(token);
+  const { data: profile } = await profileSupabase
     .from('profiles')
     .select('tokens, plan_id')
     .eq('id', data.user.id)

@@ -270,7 +270,7 @@ export default function AutoVendasSection() {
                           </div>
                         </div>
                       )}
-                      {campaign.status === 'draft' && (
+                      {(campaign.status === 'draft' || campaign.status === 'pending_payment') && (
                         <button onClick={() => handleAction(campaign.id, 'delete')} className="px-3 py-1.5 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 text-[10px] font-bold cursor-pointer">
                           Excluir
                         </button>

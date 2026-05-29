@@ -342,14 +342,45 @@ export default function Home() {
     return () => { clearInterval(interval); timeoutIds.forEach(clearTimeout); };
   }, [socialProofMsgs.length]);
 
+  const applyProfileData = (profileData: any) => {
+    const profileTokens = typeof profileData?.tokens === 'number'
+      ? profileData.tokens
+      : Number(profileData?.tokens || 10);
+    setTokens(profileTokens);
+    const savedPlanId = getPlanById(profileData?.planId || profileData?.plan_id).id;
+    const inferredPlanId = getPlanIdFromTokens(profileTokens);
+    setPlanId(plans[savedPlanId].tokens >= plans[inferredPlanId].tokens ? savedPlanId : inferredPlanId);
+
+    const chatbotAutoCaptureValue = profileData?.chatbotAutoCapture ?? profileData?.chatbot_auto_capture;
+    if (chatbotAutoCaptureValue !== undefined && chatbotAutoCaptureValue !== null) {
+      setChatbotAutoCapture(Boolean(chatbotAutoCaptureValue));
+    }
+  };
+
   const refreshProfile = async (userId: string) => {
+    try {
+      const headers = await getAuthedJsonHeaders();
+      if (headers) {
+        const res = await fetch('/api/profile', { headers, cache: 'no-store' });
+        const payload = await res.json().catch(() => null);
+        if (res.ok && payload?.success && payload.profile) {
+          applyProfileData(payload.profile);
+          return payload.profile;
+        }
+        if (payload?.error) console.warn('Profile API failed:', payload.error);
+      }
+    } catch (error: any) {
+      console.warn('Profile API request failed:', error.message);
+    }
+
     const { data: profileData, error } = await supabase
       .from('profiles').select('tokens, plan_id').eq('id', userId).single();
-    if (error || !profileData) return;
-    setTokens(profileData.tokens);
-    const savedPlanId = getPlanById(profileData.plan_id).id;
-    const inferredPlanId = getPlanIdFromTokens(profileData.tokens);
-    setPlanId(plans[savedPlanId].tokens >= plans[inferredPlanId].tokens ? savedPlanId : inferredPlanId);
+    if (error || !profileData) {
+      if (error) console.warn('Profile RLS fallback failed:', error.message);
+      return null;
+    }
+    applyProfileData(profileData);
+    return profileData;
   };
 
   useEffect(() => {
@@ -360,17 +391,7 @@ export default function Home() {
       if (session?.user) {
         sessionUserId = session.user.id;
         setUser(session.user);
-        let profileData: any = null;
-        const { data, error } = await supabase
-          .from('profiles').select('tokens, plan_id, chatbot_auto_capture').eq('id', session.user.id).single();
-        if (error) {
-          const fallback = await supabase.from('profiles').select('tokens').eq('id', session.user.id).single();
-          profileData = fallback.data;
-        } else { profileData = data; }
-        if (profileData) {
-          await refreshProfile(session.user.id);
-          if (profileData.chatbot_auto_capture !== undefined) setChatbotAutoCapture(profileData.chatbot_auto_capture);
-        }
+        await refreshProfile(session.user.id);
       }
       const params = new URLSearchParams(window.location.search);
       const checkoutState = params.get('checkout');
