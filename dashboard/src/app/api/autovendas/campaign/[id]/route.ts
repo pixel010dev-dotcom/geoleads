@@ -28,10 +28,10 @@ export async function PATCH(
   const action = body.action;
 
   if (action === 'start') {
-    if (campaign.payment_status !== 'paid' && campaign.payment_status !== 'pending') {
-      return NextResponse.json({ error: 'Pagamento pendente.' }, { status: 400 });
+    if (campaign.payment_status !== 'paid') {
+      return NextResponse.json({ error: 'Pagamento ainda não aprovado.' }, { status: 400 });
     }
-    update = { status: 'running', started_at: new Date().toISOString(), payment_status: 'paid' };
+    update = { status: 'running', started_at: new Date().toISOString() };
   } else if (action === 'pause') {
     update = { status: 'paused' };
   } else if (action === 'cancel') {

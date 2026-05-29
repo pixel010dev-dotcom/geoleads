@@ -10,6 +10,7 @@ const supabase = createAdminSupabaseClient();
 
 export type CreditPaymentResult =
   | { ok: true; duplicated?: boolean; userId: string; planId: PlanId; newTokens: number; addedTokens: number }
+  | { ok: true; duplicated?: boolean; userId: string; campaignId: string; action: 'autovendas_paid' }
   | { ok: false; status: number; error: string };
 
 export async function creditApprovedMercadoPagoPayment(paymentId: string): Promise<CreditPaymentResult> {
@@ -36,9 +37,53 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
   const tokensFromRef = externalRef.split(':')[2] ? Number(externalRef.split(':')[2]) : null;
   const userIdFromRef = externalRef.split(':')[3] || '';
 
-  const planId = ((metadata?.plan_id as string) || planIdFromRef) as PlanId;
+  const planIdRaw = (metadata?.plan_id as string) || planIdFromRef || '';
+  const planId = planIdRaw as PlanId;
   const tokens = (metadata?.tokens as number) ?? tokensFromRef;
   const userId = (metadata?.user_id as string) || userIdFromRef;
+  const source = String(metadata?.source || '');
+  const campaignId = String(metadata?.campaign_id || externalRef.split(':')[2] || '');
+
+  if (source === 'autovendas_campaign' || planIdRaw === 'autovendas') {
+    if (!campaignId || !userId) {
+      console.error('Webhook AutoVendas: campanha ou usuario ausente', { campaignId, userId });
+      return { ok: false, status: 400, error: 'Campanha ou usuario ausente' };
+    }
+
+    const { data: campaign } = await supabase
+      .from('autovendas_campaigns')
+      .select('id, payment_status')
+      .eq('id', campaignId)
+      .eq('user_id', userId)
+      .eq('payment_id', String(paymentId))
+      .maybeSingle();
+
+    if (!campaign) {
+      console.error('Webhook AutoVendas: campanha nao encontrada para pagamento', paymentId);
+      return { ok: false, status: 404, error: 'Campanha nao encontrada' };
+    }
+
+    if (campaign.payment_status === 'paid') {
+      return { ok: true, duplicated: true, userId, campaignId, action: 'autovendas_paid' };
+    }
+
+    const { error: updateError } = await supabase
+      .from('autovendas_campaigns')
+      .update({
+        payment_status: 'paid',
+        status: 'paid'
+      })
+      .eq('id', campaignId)
+      .eq('user_id', userId)
+      .eq('payment_id', String(paymentId));
+
+    if (updateError) {
+      console.error('Webhook AutoVendas: erro ao aprovar campanha', updateError.message);
+      return { ok: false, status: 500, error: 'Erro ao aprovar campanha' };
+    }
+
+    return { ok: true, userId, campaignId, action: 'autovendas_paid' };
+  }
 
   if (!planId || !paidPlanIds.includes(planId)) {
     console.error('Webhook: plano invalido', planId);

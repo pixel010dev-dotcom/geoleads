@@ -104,6 +104,7 @@ export const plans: Record<PlanId, Plan> = {
     features: [
       '2.400 tokens de extração',
       'Tudo do plano Profissional',
+      'AutoVendas — campanhas automáticas de lead gen',
       'Chatbot WhatsApp por QR Code com regras automáticas',
       'Fluxos de resposta personalizáveis',
       'Suporte prioritário com atendimento humano'
@@ -116,6 +117,7 @@ export const plans: Record<PlanId, Plan> = {
       'socialEnrichment',
       'whatsappSender',
       'aiCopy',
+      'autovendas',
       'chatbot',
       'prioritySupport',
       'cnpjEnrichment'

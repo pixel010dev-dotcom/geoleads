@@ -23,25 +23,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });
   }
 
-  const price = (campaign.leads_alvo || 50) / 10; // R$0.50 per lead
+  const price = (campaign.leads_alvo || 50) * 0.5;
 
   try {
     const pix = await createPixPayment({
       plan: {
-        id: 'autovendas' as any,
+        id: 'pro',
         name: `AutoVendas - ${campaign.nicho}`,
         tokens: campaign.leads_alvo,
         price,
       },
       userId: auth.user.id,
       payerEmail: auth.user.email || 'cliente@email.com',
+      externalReference: `geoleads:autovendas:${campaign.id}:${auth.user.id}`,
+      metadata: {
+        source: 'autovendas_campaign',
+        plan_id: 'autovendas',
+        campaign_id: campaign.id,
+      },
     });
 
     const { error: updateError } = await supabase
       .from('autovendas_campaigns')
       .update({
         payment_status: 'pending',
-        payment_id: pix.paymentId,
+        payment_id: String(pix.paymentId),
         payment_pix_code: pix.qrCode,
         payment_pix_qr: pix.qrCodeBase64 ? `data:image/png;base64,${pix.qrCodeBase64}` : null,
         status: 'pending_payment',

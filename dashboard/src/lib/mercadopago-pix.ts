@@ -31,11 +31,15 @@ export type PixCheckoutResult = {
 export async function createPixPayment({
   plan,
   userId,
-  payerEmail
+  payerEmail,
+  externalReference,
+  metadata
 }: {
   plan: { id: PlanId; name: string; tokens: number; price: number };
   userId: string;
   payerEmail: string;
+  externalReference?: string;
+  metadata?: Record<string, unknown>;
 }): Promise<PixCheckoutResult> {
   const { client, isSandbox, isSimulated, isConfigured } = getMpConfig();
 
@@ -45,7 +49,7 @@ export async function createPixPayment({
     );
   }
 
-  const externalRef = `geoleads:${plan.id}:${plan.tokens}:${userId}`;
+  const externalRef = externalReference || `geoleads:${plan.id}:${plan.tokens}:${userId}`;
   const expiration = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
   if (isSimulated) {
@@ -76,7 +80,8 @@ export async function createPixPayment({
           plan_id: plan.id,
           tokens: plan.tokens,
           user_id: userId,
-          source: 'geoleads_pix_checkout'
+          source: 'geoleads_pix_checkout',
+          ...metadata
         },
         payer: {
           email: payerEmail,

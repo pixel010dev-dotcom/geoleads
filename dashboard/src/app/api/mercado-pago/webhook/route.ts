@@ -22,10 +22,17 @@ async function handlePaymentNotification(paymentId: string) {
     success: true,
     duplicated: result.duplicated || false,
     userId: result.userId,
-    planId: result.planId,
-    newTokens: result.newTokens,
-    addedTokens: result.addedTokens,
-    action: result.duplicated ? 'already_credited' : 'tokens_credited'
+    ...('campaignId' in result
+      ? {
+        campaignId: result.campaignId,
+        action: result.duplicated ? 'already_paid' : result.action
+      }
+      : {
+        planId: result.planId,
+        newTokens: result.newTokens,
+        addedTokens: result.addedTokens,
+        action: result.duplicated ? 'already_credited' : 'tokens_credited'
+      })
   });
 }
 

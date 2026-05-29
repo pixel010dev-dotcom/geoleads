@@ -13,9 +13,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Service Role Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13bnB3cnp3Z3dycXFsb21xaHV4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzODgyNCwiZXhwIjoyMDk0ODE0ODI0fQ.YVZQ3cPMJaPjBnggkEV4SxNeh4Y-PVisP2ST5YF0rl8
 
 ## Users
-- Admin: pixel010dev@gmail.com / 04092008we (senha tbm pode ser 1.2.3.4.5.6.7.8.9.10)
-- Dev: pixel010dev@gmail.com / 04092008we (senha tbm pode ser 1.2.3.4.5.6.7.8.9.10)
-- Supabase user ID (admin): c3c7478e-e93e-499d-9742-de15ac37e2c0
+- pixel010dev@gmail.com / 04092008we — Agency / 100.000 tokens ✅
+- diogopfeifer0@gmail.com / 04092008we — Agency / 100.000 tokens ✅
+- Supabase user IDs: pixel010dev=9136f43c..., diogopfeifer0=c3c7478e...
 
 ## Mercado Pago
 - Access Token (prod): APP_USR-5707742565758256-051921-c508cef03e6602e38ec037568bd6a7c2-3414579388
@@ -44,12 +44,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Auto-disparo via /api/chatbot/send (requer bot conectado)
 - Historico em `whatsapp_messages`
 - Custom auth state: src/lib/baileys-auth-supabase.ts
-- Feature keys: whatsappSender (Pro+), chatbot (Max+)
+- Feature keys: whatsappSender (Pro+), chatbot (Max+), autovendas (Pro+)
+- Chatbot renomeado no frontend para "Auto-Resposta" (evita confusao com AutoVendas)
 
 ## SQL aplicado
 - supabase/migration_whatsapp_persist.sql ✓
 - supabase/migration_testimonials.sql ✓
-- supabase/migration_extraction_jobs.sql ✓ (rodado via supabase db push)
+- supabase/migration_extraction_jobs.sql ✓
+- supabase/migration_autovendas.sql ✓ (tabelas: autovendas_campaigns, autovendas_leads com RLS)
+- Migrations gerenciadas via `supabase db push --linked`
 <!-- END:geoleads-credentials -->
 
 <!-- BEGIN:geoleads-changelog -->
@@ -421,4 +424,29 @@ Botão "🔄 Re-enriquecer" no CRM: abre o SITE do lead e busca email, CNPJ, Ins
 
 ### TypeScript
 - `npx tsc --noEmit`: 0 erros em todas as alterações
+
+## Últimas alterações (29/05/2026) — AutoVendas + Dashboard Reorganizado
+
+### Nova feature: AutoVendas
+- **Conceito:** campanhas automáticas de lead gen — usuário escolhe nicho/região, paga PIX, sistema extrai + dispara + escuta respostas
+- **Componente:** `src/components/dashboard/AutoVendasSection.tsx` — overview cards, criar campanha, listagem com status/expansão, PIX tooltip
+- **API routes:**
+  - `POST/GET /api/autovendas/campaign` — criar/listar campanhas
+  - `PATCH/DELETE /api/autovendas/campaign/[id]` — iniciar/pausar/cancelar/excluir
+  - `GET /api/autovendas/campaign/[id]/leads` — leads da campanha
+  - `POST /api/autovendas/payment` — gerar PIX Mercado Pago (reutiliza lib existente)
+  - `POST /api/autovendas/webhook` — receber respostas WhatsApp e atualizar contadores
+- **SQL Migration:** `supabase/migration_autovendas.sql` — tabelas `autovendas_campaigns` + `autovendas_leads` com RLS policies
+- **Plans:** feature `autovendas` adicionada ao `FeatureKey`, plans Pro e Max, `featureLabels`
+
+### Dashboard reorganizado com seções visuais
+- Abas agora agrupadas em seções: **CAPTURA** (Extrator, AutoVendas), **GESTÃO** (CRM, Dados), **WHATSAPP** (Disparo, Auto-Resposta), **MAIS** (IA, Facebook, Suporte)
+- Chatbot renomeado para **"Auto-Resposta"** nas abas (evita confusão com AutoVendas)
+- `DashboardTab` type: `'autovendas'` adicionado ao union type
+- `tabFeatureMap`: autovendas mapeado para feature `'autovendas'`
+- `tabUpgradeCopy`: entrada nova para autovendas
+
+### Contas liberadas
+- pixel010dev@gmail.com → Agency / 100.000 tokens ✅
+- diogopfeifer0@gmail.com → Agency / 100.000 tokens ✅
 <!-- END:geoleads-changelog -->

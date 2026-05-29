@@ -115,6 +115,7 @@ export default function AutoVendasSection() {
       if (data.success && data.pix) {
         setCampaigns(prev => prev.map(c => c.id === campaignId ? {
           ...c,
+          status: 'pending_payment',
           payment_status: 'pending',
           payment_pix_code: data.pix.code,
           payment_pix_qr: data.pix.qr
@@ -217,10 +218,10 @@ export default function AutoVendasSection() {
               <label className="text-xs text-gray-400 block mb-1">Leads Alvo</label>
               <input type="number" value={leadsAlvo} onChange={e => setLeadsAlvo(Number(e.target.value))} min={10} max={200} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
             </div>
-            <p className="text-xs text-gray-500 self-end pb-2">R$ {(leadsAlvo / 10).toFixed(2)} · R$0,50 por lead</p>
+            <p className="text-xs text-gray-500 self-end pb-2">R$ {(leadsAlvo * 0.5).toFixed(2)} · R$0,50 por lead</p>
           </div>
           <button type="submit" disabled={creating} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white text-sm font-bold cursor-pointer disabled:opacity-50 transition-all">
-            {creating ? 'Criando...' : `Criar Campanha — R$ ${(leadsAlvo / 10).toFixed(2)}`}
+            {creating ? 'Criando...' : `Criar Campanha — R$ ${(leadsAlvo * 0.5).toFixed(2)}`}
           </button>
         </form>
       )}
@@ -250,9 +251,9 @@ export default function AutoVendasSection() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {campaign.status === 'draft' && (
+                  {(campaign.status === 'draft' || campaign.status === 'pending_payment') && (
                     <>
-                      {!campaign.payment_pix_code ? (
+                      {campaign.status === 'draft' && !campaign.payment_pix_code ? (
                         <button onClick={() => handleGeneratePayment(campaign.id)} className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold cursor-pointer">
                           Gerar PIX
                         </button>
@@ -269,9 +270,11 @@ export default function AutoVendasSection() {
                           </div>
                         </div>
                       )}
-                      <button onClick={() => handleAction(campaign.id, 'delete')} className="px-3 py-1.5 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 text-[10px] font-bold cursor-pointer">
-                        Excluir
-                      </button>
+                      {campaign.status === 'draft' && (
+                        <button onClick={() => handleAction(campaign.id, 'delete')} className="px-3 py-1.5 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 text-[10px] font-bold cursor-pointer">
+                          Excluir
+                        </button>
+                      )}
                     </>
                   )}
                   {campaign.status === 'paid' && (
