@@ -32,6 +32,10 @@ export const tabUpgradeCopy: Record<string, { title: string; description: string
   autovendas: {
     title: 'AutoVendas liberado no Pro',
     description: 'Campanhas automáticas de lead gen com extração + disparo integrados.'
+  },
+  facebook: {
+    title: 'Anúncios Facebook liberado no Max',
+    description: 'Acompanhe e gerencie suas campanhas do Facebook Ads diretamente do GeoLeads.'
   }
 };
 

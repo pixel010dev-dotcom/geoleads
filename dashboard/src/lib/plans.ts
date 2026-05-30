@@ -11,7 +11,8 @@ export type FeatureKey =
   | 'chatbot'
   | 'autovendas'
   | 'prioritySupport'
-  | 'cnpjEnrichment';
+  | 'cnpjEnrichment'
+  | 'facebook';
 
 export type Plan = {
   id: PlanId;
@@ -120,7 +121,8 @@ export const plans: Record<PlanId, Plan> = {
       'autovendas',
       'chatbot',
       'prioritySupport',
-      'cnpjEnrichment'
+      'cnpjEnrichment',
+      'facebook'
     ]
   }
 };
@@ -173,7 +175,8 @@ export const allFeatureKeys: FeatureKey[] = [
   'aiCopy',
   'chatbot',
   'autovendas',
-  'prioritySupport'
+  'prioritySupport',
+  'facebook'
 ];
 
 export const featureLabels: Record<FeatureKey, string> = {
@@ -187,5 +190,6 @@ export const featureLabels: Record<FeatureKey, string> = {
   aiCopy: 'Copys com IA',
   chatbot: 'Chatbot WhatsApp',
   autovendas: 'AutoVendas',
-  prioritySupport: 'Suporte Prioritário'
+  prioritySupport: 'Suporte Prioritário',
+  facebook: 'Anúncios Facebook'
 };
