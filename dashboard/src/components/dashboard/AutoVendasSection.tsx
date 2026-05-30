@@ -384,6 +384,11 @@ export default function AutoVendasSection() {
                         Cancelar
                       </button>
                     )}
+                    {campaign.status === 'cancelled' && (
+                      <button onClick={() => handleAction(campaign.id, 'delete')} className="px-3 py-1.5 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 text-[10px] font-bold cursor-pointer">
+                        Excluir
+                      </button>
+                    )}
                     <button onClick={() => toggleExpanded(campaign.id)} className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-[10px] cursor-pointer">
                       {expandedCampaign === campaign.id ? 'Ocultar' : 'Ver'} leads
                     </button>
