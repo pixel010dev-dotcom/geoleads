@@ -1323,7 +1323,7 @@ export default function Home() {
         )}
 
         {activeTab === 'facebook' && (
-          <FacebookAds showToast={showToast} />
+          <FacebookAds showToast={showToast} crmLeads={crmLeads} onUpdateCRM={saveCrm} />
         )}
       </main>
 
