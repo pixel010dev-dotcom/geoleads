@@ -155,6 +155,28 @@ export default async function LandingPage() {
           </ScrollReveal>
         </section>
 
+        {/* TRUST BADGES */}
+        <section className="app-container py-12 sm:py-16">
+          <ScrollReveal>
+            <div className="max-w-4xl mx-auto text-center">
+              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-xs sm:text-sm text-gray-400">
+                  <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  Dados criptografados via Supabase
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-xs sm:text-sm text-gray-400">
+                  <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                  Pagamentos via Mercado Pago
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-xs sm:text-sm text-gray-400">
+                  <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>
+                  Ambiente 100% SSL / HTTPS
+                </div>
+              </div>
+            </div>
+          </ScrollReveal>
+        </section>
+
         {/* TESTIMONIALS */}
         <section className="app-container py-16 sm:py-24">
           <ScrollReveal>
@@ -209,14 +231,32 @@ export default async function LandingPage() {
       </main>
 
       <footer className="border-t border-white/5 bg-black/20">
-        <div className="app-container py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
-          <span>&copy; {new Date().getFullYear()} GeoLeads. Todos os direitos reservados.</span>
-          <div className="flex items-center gap-4">
-            <a href="mailto:pixel010dev@gmail.com?subject=Contato%20GeoLeads" className="hover:text-gray-300 transition-colors">Suporte</a>
-            <Link href="/privacy" className="hover:text-gray-300 transition-colors">Privacidade</Link>
-            <Link href="/terms" className="hover:text-gray-300 transition-colors">Termos</Link>
-            <Link href="/pricing" className="hover:text-gray-300 transition-colors">Preços</Link>
-            <Link href="/login" className="hover:text-gray-300 transition-colors">Entrar</Link>
+        <div className="app-container py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8 text-xs text-gray-500">
+            <div>
+              <div className="font-extrabold text-base text-white mb-3">Geo<span className="text-blue-400">Leads</span></div>
+              <p className="leading-relaxed">Motor de extração de leads B2B via Google Maps. CNPJ, e-mail, WhatsApp e redes sociais validados em um fluxo só.</p>
+            </div>
+            <div>
+              <div className="font-bold text-sm text-gray-300 mb-3">Links</div>
+              <div className="flex flex-col gap-2">
+                <Link href="/pricing" className="hover:text-gray-300 transition-colors">Planos e Preços</Link>
+                <Link href="/privacy" className="hover:text-gray-300 transition-colors">Política de Privacidade</Link>
+                <Link href="/terms" className="hover:text-gray-300 transition-colors">Termos de Uso</Link>
+                <Link href="/login" className="hover:text-gray-300 transition-colors">Entrar / Criar Conta</Link>
+              </div>
+            </div>
+            <div>
+              <div className="font-bold text-sm text-gray-300 mb-3">Contato</div>
+              <div className="flex flex-col gap-2">
+                <a href="mailto:pixel010dev@gmail.com" className="hover:text-gray-300 transition-colors">pixel010dev@gmail.com</a>
+                <span>Responsável: Guilherme Oliveira</span>
+                <span>São Paulo, Brasil</span>
+              </div>
+            </div>
+          </div>
+          <div className="text-center text-xs text-gray-600 pt-6 border-t border-white/5">
+            &copy; {new Date().getFullYear()} GeoLeads. Todos os direitos reservados.
           </div>
         </div>
       </footer>
