@@ -1147,7 +1147,7 @@ export default function Home() {
               className="text-[11px] px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold flex-shrink-0">
               📄 Relatório PDF
             </button>
-            <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 no-scrollbar items-center">
+            <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 items-center">
               <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mr-1">Captura</span>
               <button onClick={() => setActiveTab('extractor')}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
