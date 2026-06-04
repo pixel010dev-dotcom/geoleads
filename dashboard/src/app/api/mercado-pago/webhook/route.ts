@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     // Valida assinatura do webhook
-    if (!verifyMercadoPagoSignature(request, rawBody)) {
+    if (!verifyMercadoPagoSignature(request, bodyText)) {
       console.warn('Webhook: assinatura invalida rejeitada');
       return NextResponse.json({ error: 'invalid_signature' }, { status: 401 });
     }

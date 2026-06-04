@@ -20,6 +20,7 @@ export interface ChatbotSectionProps {
   handleConnectChatbot: () => Promise<void>;
   handleDisconnectChatbot: () => Promise<void>;
   handlePairChatbot: () => Promise<void>;
+  handleResetSession: () => Promise<void>;
   saveChatbotConfig: (silent?: boolean) => Promise<void>;
   updateChatbotRule: (id: string, field: 'keyword' | 'response' | 'enabled', value: string | boolean) => void;
   addChatbotRule: () => void;
@@ -54,6 +55,7 @@ export function ChatbotSection({
   handleConnectChatbot,
   handleDisconnectChatbot,
   handlePairChatbot,
+  handleResetSession,
   saveChatbotConfig,
   updateChatbotRule,
   addChatbotRule,
@@ -228,10 +230,14 @@ export function ChatbotSection({
             >
               Salvar Configuração
             </button>
-            <div className="mt-3 p-3 rounded-xl bg-amber-500/15 border border-amber-500/25">
-              <p className="text-xs text-amber-300 font-bold text-center">⚠ Salve as configurações primeiro!</p>
-              <p className="text-[11px] text-amber-400/70 text-center mt-1">O QR Code só aparece depois de salvar</p>
-            </div>
+            <button
+              type="button"
+              disabled={chatbotLoading}
+              onClick={handleResetSession}
+              className="w-full py-2 rounded-xl font-bold text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 cursor-pointer disabled:opacity-60 text-xs"
+            >
+              🔄 Resetar Sessão (limpa credenciais e começa do zero)
+            </button>
           </div>
         </div>
 

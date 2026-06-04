@@ -291,6 +291,16 @@ export default function Home() {
     finally { setChatbotLoading(false); }
   };
 
+  const handleResetSession = async () => {
+    setChatbotLoading(true);
+    setChatbotMessage('');
+    try {
+      await callChatbotApi('reset_session');
+      setChatbotMessage('Sessão resetada. Conecte novamente.');
+    } catch (error: any) { setChatbotMessage(error.message); }
+    finally { setChatbotLoading(false); }
+  };
+
   const handlePairChatbot = async () => {
     if (!requireFeature('chatbot')) { setActiveTab('chatbot'); return; }
     const number = chatbotPhoneNumber.replace(/\D/g, '');
@@ -1305,7 +1315,7 @@ export default function Home() {
             chatbotSession={chatbotSession} chatbotLoading={chatbotLoading} chatbotMessage={chatbotMessage}
             chatbotPhoneNumber={chatbotPhoneNumber} setChatbotPhoneNumber={setChatbotPhoneNumber}
             user={user} handleConnectChatbot={handleConnectChatbot} handleDisconnectChatbot={handleDisconnectChatbot}
-            handlePairChatbot={handlePairChatbot} saveChatbotConfig={saveChatbotConfig}
+            handlePairChatbot={handlePairChatbot} handleResetSession={handleResetSession} saveChatbotConfig={saveChatbotConfig}
             updateChatbotRule={updateChatbotRule} addChatbotRule={addChatbotRule} removeChatbotRule={removeChatbotRule}
             chatbotAutoCapture={chatbotAutoCapture} setChatbotAutoCapture={setChatbotAutoCapture}
             chatbotStats={chatbotStats} conversations={conversations} conversationsLoading={conversationsLoading}

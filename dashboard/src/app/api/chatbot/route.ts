@@ -296,6 +296,14 @@ const startBotSession = async (session: BotSession) => {
         session.qr = '';
         session.qrDataUrl = '';
         session.reconnectAttempts = 0;
+        // CRITICAL: limpa credenciais invalidas do Supabase para permitir nova conexao
+        try {
+          const supabase = createAdminSupabaseClient();
+          await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
+          console.log('[WAP] Credenciais invalidas removidas para usuario', session.userId);
+        } catch (cleanupErr: any) {
+          console.error('[WAP] Falha ao limpar credenciais:', cleanupErr.message);
+        }
         return;
       }
 
@@ -305,6 +313,14 @@ const startBotSession = async (session: BotSession) => {
         session.qr = '';
         session.qrDataUrl = '';
         session.reconnectAttempts = 0;
+        // CRITICAL: limpa credenciais corrompidas
+        try {
+          const supabase = createAdminSupabaseClient();
+          await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
+          console.log('[WAP] Credenciais corrompidas removidas para usuario', session.userId);
+        } catch (cleanupErr: any) {
+          console.error('[WAP] Falha ao limpar credenciais corrompidas:', cleanupErr.message);
+        }
         return;
       }
 
@@ -530,6 +546,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, session: getPublicSession(session) });
     }
 
+    // Limpa credenciais antigas para garantir QR Code fresco
+    try {
+      const supabase = createAdminSupabaseClient();
+      await supabase.from('whatsapp_sessions').delete().eq('user_id', auth.user.id);
+      console.log('[WAP] Credenciais antigas removidas antes de nova conexao para usuario', auth.user.id);
+    } catch (cleanupErr: any) {
+      console.error('[WAP] Falha ao limpar credenciais antes de conectar:', cleanupErr.message);
+    }
+
+    session.status = 'idle';
+    session.qr = '';
+    session.qrDataUrl = '';
+    session.lastError = '';
+
     await startBotSession(session);
     return NextResponse.json({ success: true, session: getPublicSession(session) });
   }
@@ -596,6 +626,13 @@ export async function POST(request: Request) {
           session.status = 'disconnected';
           session.lastError = 'Sessão encerrada. Conecte novamente.';
           session.reconnectAttempts = 0;
+          try {
+            const supabase = createAdminSupabaseClient();
+            await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
+            console.log('[WAP] Credenciais invalidas removidas (pair) para usuario', session.userId);
+          } catch (cleanupErr: any) {
+            console.error('[WAP] Falha ao limpar credenciais (pair):', cleanupErr.message);
+          }
           return;
         }
 
@@ -603,6 +640,13 @@ export async function POST(request: Request) {
           session.status = 'disconnected';
           session.lastError = 'Sessão inválida. Remova o dispositivo no WhatsApp e tente novamente.';
           session.reconnectAttempts = 0;
+          try {
+            const supabase = createAdminSupabaseClient();
+            await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
+            console.log('[WAP] Credenciais corrompidas removidas (pair) para usuario', session.userId);
+          } catch (cleanupErr: any) {
+            console.error('[WAP] Falha ao limpar credenciais corrompidas (pair):', cleanupErr.message);
+          }
           return;
         }
 
@@ -630,8 +674,15 @@ export async function POST(request: Request) {
     });
 
     // Request pairing code
-    const code = await socket.requestPairingCode(phoneNumber);
-    session.pairingCode = code;
+    try {
+      const code = await socket.requestPairingCode(phoneNumber);
+      session.pairingCode = code;
+    } catch (pairError: any) {
+      console.error('[WAP] Falha ao solicitar codigo de pareamento:', pairError.message);
+      session.status = 'error';
+      session.lastError = `Falha ao solicitar código de pareamento: ${pairError.message || 'erro desconhecido'}`;
+      return NextResponse.json({ success: true, session: getPublicSession(session) });
+    }
 
     return NextResponse.json({ success: true, session: getPublicSession(session) });
   }
