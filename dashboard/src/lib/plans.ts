@@ -52,7 +52,7 @@ export const plans: Record<PlanId, Plan> = {
     name: 'Inicial',
     shortName: 'Inicial',
     description: 'Para começar a prospectar com CRM, exportação e dados essenciais.',
-    price: 19.9,
+    price: 9.9,
     tokens: 400,
     cta: 'Escolher Inicial',
     features: [
@@ -69,7 +69,7 @@ export const plans: Record<PlanId, Plan> = {
     name: 'Profissional',
     shortName: 'Pro',
     description: 'Para prospecção recorrente com redes sociais, WhatsApp e IA.',
-    price: 49.9,
+    price: 24.9,
     tokens: 1200,
     cta: 'Escolher Profissional',
     badge: 'MAIS EQUILIBRADO',
@@ -99,7 +99,7 @@ export const plans: Record<PlanId, Plan> = {
     name: 'Profissional Max',
     shortName: 'Max',
     description: 'Para operação em volume com automação de atendimento e prioridade.',
-    price: 97,
+    price: 47,
     tokens: 2400,
     cta: 'Escolher Max',
     features: [
