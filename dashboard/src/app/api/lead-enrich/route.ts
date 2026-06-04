@@ -180,19 +180,14 @@ export async function POST(request: Request) {
         if (socials.instagram) enriched.instagram = socials.instagram;
         if (socials.facebook) enriched.facebook = socials.facebook;
         if (socials.tiktok) enriched.tiktok = socials.tiktok;
-        // Email fallback
+        // Email fallback — só se site respondeu mas não tinha email
         if (!enriched.email && domain) {
           for (const fn of EMAIL_FALLBACK_PATTERNS) {
             const e = fn(domain);
             if (!BAD_EMAIL_REGEX.test(e)) { enriched.email = e; break; }
           }
         }
-      } else if (domain && !enriched.email) {
-        for (const fn of EMAIL_FALLBACK_PATTERNS) {
-          const e = fn(domain);
-          if (!BAD_EMAIL_REGEX.test(e)) { enriched.email = e; break; }
-        }
-      }
+      } // else: site não respondeu — não inventar email falso
     }
 
     return NextResponse.json({ success: true, enriched, site, placeUrl });

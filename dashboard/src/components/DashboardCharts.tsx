@@ -58,10 +58,10 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all"
-            style={{ width: `${Math.min(100, (tokens / 2400) * 100)}%` }}
+            style={{ width: `${Math.min(100, (tokens / 2000) * 100)}%` }}
           />
         </div>
-        <p className="text-[10px] text-gray-500 mt-2">Plano Agency • {tokens.toLocaleString('pt-BR')} de 2.400 tokens</p>
+        <p className="text-[10px] text-gray-500 mt-2">Plano Max • {tokens.toLocaleString('pt-BR')} de 2.000 tokens</p>
       </div>
 
       {/* Total Leads */}

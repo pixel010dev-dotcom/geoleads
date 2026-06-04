@@ -1267,18 +1267,20 @@ export async function POST(request: Request) {
     }
 
     // Rate limit: máximo 2 extrações simultâneas por usuário, 10 global
-    const concurrent = getConcurrentExtractions(auth.user.id);
-    if (concurrent >= MAX_CONCURRENT_PER_USER) {
+    const current = activeExtractions.get(auth.user.id) || 0;
+    activeExtractions.set(auth.user.id, current + 1);
+    if (current >= MAX_CONCURRENT_PER_USER) {
+      activeExtractions.set(auth.user.id, current);
       return NextResponse.json({
-        error: `Você já tem ${concurrent} extrações em andamento. Aguarde uma finalizar antes de iniciar outra.`
+        error: `Você já tem ${current} extrações em andamento. Aguarde uma finalizar antes de iniciar outra.`
       }, { status: 429 });
     }
     if (getGlobalConcurrent() >= MAX_GLOBAL_CONCURRENT) {
+      activeExtractions.set(auth.user.id, current);
       return NextResponse.json({
         error: 'Sistema sobrecarregado. Tente novamente em alguns segundos.'
       }, { status: 503 });
     }
-    activeExtractions.set(auth.user.id, concurrent + 1);
 
     const { keyword: rawKeyword, location: rawLocation, limit, filterRule, existingLeadKeys } = await request.json();
     const requestSupabase = createRequestSupabaseClient(request);
@@ -1319,11 +1321,9 @@ export async function POST(request: Request) {
     const isBroadRegion = isBroadLocation(rawLocation) || isBroadLocation(correctedLocation);
     const requestedLimit = Math.max(1, Number(limit) || 10);
     const targetLimit = Math.min(requestedLimit, 200, auth.tokens);
-    if (requestedLimit > auth.tokens) {
+    if (targetLimit === 0) {
       done();
-      return NextResponse.json({
-        error: `Saldo insuficiente. Você pediu ${requestedLimit} leads, mas tem ${auth.tokens} tokens.`
-      }, { status: 402 });
+      return NextResponse.json({ error: 'Saldo insuficiente. Compre mais tokens.' }, { status: 402 });
     }
 
     // Cria job no Supabase e dispara extração em background
@@ -1404,18 +1404,23 @@ async function runExtraction({
   }
 
 const startTime = Date.now();
-    // Tempo proporcional ao targetLimit: ~3s por lead + margem. Mínimo 120s, máximo 30min.
+    // Tempo proporcional ao targetLimit: ~3s por lead + margem. Mínimo 45s, máximo 30min.
     const MAX_TIME = isBroadRegion
       ? Math.min(1800000, 15000 + targetLimit * 3000)
-      : Math.min(1800000, Math.max(120000, targetLimit * 3000));
+      : Math.min(1800000, Math.max(45000, targetLimit * 3000));
   const validLeads: any[] = [];
-  const scrapedNames = new Set<string>(existingLeadKeys);
-  const scrapedPhones = new Set<string>();
+  const scrapedKeys = new Set<string>(existingLeadKeys);
+  const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
+  const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
   let citiesDone = 0;
   let _cancelled = false;
 
+  let _lastCancelCheck = 0;
   async function checkCancelled(): Promise<boolean> {
     if (_cancelled) return true;
+    const now = Date.now();
+    if (now - _lastCancelCheck < 5000) return false;
+    _lastCancelCheck = now;
     try {
       const supabase = createAdminSupabaseClient();
       const { data } = await supabase.from('extraction_jobs').select('status').eq('id', jobId).single();
@@ -1472,7 +1477,7 @@ const allEnrichedLeads: any[] = [];
       searchLocations = [location];
     }
     // Scroll por cidade/bairro baseado na demanda e tempo disponível
-    const maxScrollPerCity = isBroadRegion ? 15 : Math.max(20, Math.min(200, targetLimit * 2));
+    const maxScrollPerCity = isBroadRegion ? 15 : Math.max(15, Math.min(100, targetLimit));
 
     // Para targets grandes, gera variações de nicho (Maps retorna resultados DIFERENTES)
     // Ex: "Academia" → "Personal Trainer", "Crossfit", "Musculação", "Ginástica"
@@ -1498,13 +1503,13 @@ const allEnrichedLeads: any[] = [];
     const keywordsToTry = nicheVariations(keyword);
 
     for (const searchLoc of searchLocations) {
-      if (validLeads.length >= targetLimit) break;
+      if (allEnrichedLeads.length >= targetLimit) break;
       if ((Date.now() - startTime) >= MAX_TIME) break;
       if (await checkCancelled()) break;
 
       // Para cada keyword variation, faz uma busca separada (Maps retorna leads diferentes)
       for (const kwVar of keywordsToTry) {
-        if (validLeads.length >= targetLimit) break;
+        if (allEnrichedLeads.length >= targetLimit) break;
         if ((Date.now() - startTime) >= MAX_TIME) break;
         if (await checkCancelled()) break;
 
@@ -1548,7 +1553,7 @@ const allEnrichedLeads: any[] = [];
       let cityScrolls = 0;
       let emptyScrolls = 0;
 
-      while (validLeads.length < targetLimit && allEnrichedLeads.length < targetLimit * 2 && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity && !(await checkCancelled())) {
+      while (allEnrichedLeads.length < targetLimit && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity && !(await checkCancelled())) {
       
       // 1. Extrai todos os cards visíveis da tela
       const rawChunk = await page.evaluate(() => {
@@ -1766,12 +1771,12 @@ const allEnrichedLeads: any[] = [];
           // 5. Acumula TODOS os leads enriquecidos (segunda passada roda antes do pós-filtro)
           for (const lead of enriched) {
             allEnrichedLeads.push(lead);
-            if (allEnrichedLeads.length >= targetLimit * 2) break;
+            if (allEnrichedLeads.length >= targetLimit) break;
           }
           // Salva leads recém-enriquecidos no Supabase (entrega em tempo real — cada lote aparece na tela)
           try {
             await updateJob(jobId, {
-              leads: allEnrichedLeads,
+              leads: allEnrichedLeads.slice(0, targetLimit),
               leads_count: allEnrichedLeads.length,
               scanned: scrapedNames.size,
               cities_scanned: citiesDone,
@@ -1783,7 +1788,7 @@ const allEnrichedLeads: any[] = [];
       }
 
       // Scroll para carregar mais resultados
-      if (allEnrichedLeads.length < targetLimit * 2) {
+      if (allEnrichedLeads.length < targetLimit) {
         await page.evaluate(() => {
           const feed = document.querySelector('div[role="feed"]');
           if (feed) feed.scrollBy(0, 1200 + Math.random() * 600);

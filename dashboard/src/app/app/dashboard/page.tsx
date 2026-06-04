@@ -479,7 +479,8 @@ export default function Home() {
 
   const handleAddToCRM = (lead: any) => {
     if (!requireFeature('crm')) { setActiveTab('crm'); return; }
-    const exists = crmLeads.some(l => l.nome === lead.nome);
+    const leadKey = getLeadKey(lead);
+    const exists = crmLeads.some(l => getLeadKey(l) === leadKey);
     if (exists) { showToast(`"${lead.nome}" já está no CRM.`, 'info'); return; }
     const newCrmLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: location || 'Geral' };
     const updated = [newCrmLead, ...crmLeads];
@@ -496,9 +497,10 @@ export default function Home() {
     if (leads.length === 0) return;
     let addedCount = 0;
     const updated = [...crmLeads];
+    const existingKeys = new Set(updated.map(getLeadKey));
     const newDispatchableKeys: string[] = [];
     leads.forEach(lead => {
-      const exists = updated.some(l => l.nome === lead.nome);
+      const exists = existingKeys.has(getLeadKey(lead));
       if (!exists) {
         const newLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: location || 'Geral' };
         updated.unshift(newLead);
@@ -513,14 +515,15 @@ export default function Home() {
     } else showToast('Todos esses leads já existem no CRM.', 'info');
   };
 
-  const handleRemoveFromCRM = (nome: string) => {
-    const removedLead = crmLeads.find(l => l.nome === nome);
-    const updated = crmLeads.filter(l => l.nome !== nome);
+  const handleRemoveFromCRM = (nome: string, telefone?: string, cidade?: string) => {
+    const removedLead = crmLeads.find(l => l.nome === nome && (!telefone || l.telefone === telefone) && (!cidade || l.cidade === cidade));
+    const targetKey = removedLead ? getLeadKey(removedLead) : `${nome}|${telefone || ''}|${cidade || ''}`;
+    const updated = crmLeads.filter(l => getLeadKey(l) !== targetKey);
     saveCrm(updated);
     setSelectedCrmLeads(prev => prev.filter(n => n !== nome));
     if (removedLead) {
-      setSelectedWaLeads(prev => prev.filter(key => key !== getLeadKey(removedLead)));
-      deleteCrmFromCloud([getLeadKey(removedLead)]);
+      setSelectedWaLeads(prev => prev.filter(key => key !== targetKey));
+      deleteCrmFromCloud([targetKey]);
     }
   };
 
@@ -793,8 +796,8 @@ export default function Home() {
     } catch {}
   };
 
-  const handleUpdateCRMLead = (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => {
-    const updated = crmLeads.map(l => l.nome === nome ? { ...l, [field]: field === 'tags' ? value.split(',').filter(Boolean) : value } : l);
+  const handleUpdateCRMLead = (nome: string, field: 'stage' | 'notes' | 'tags', value: string, telefone?: string, cidade?: string) => {
+    const updated = crmLeads.map(l => l.nome === nome && (!telefone || l.telefone === telefone) && (!cidade || l.cidade === cidade) ? { ...l, [field]: field === 'tags' ? value.split(',').filter(Boolean) : value } : l);
     saveCrm(updated);
   };
 
@@ -802,9 +805,11 @@ export default function Home() {
   const currentJobIdRef = useRef<string | null>(null);
 
   const startPolling = (jobId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
     currentJobIdRef.current = jobId;
     localStorage.setItem('lastJobId', jobId);
     pollRef.current = setInterval(async () => {
+      if (currentJobIdRef.current !== jobId) return;
       try {
         const headers = await getAuthedJsonHeaders();
         if (!headers) return;
@@ -828,21 +833,24 @@ export default function Home() {
             setHasSearched(true);
             if (pollRef.current) clearInterval(pollRef.current);
             localStorage.removeItem('lastJobId');
-            if (tokens !== null && j.leads_count > 0) setTokens(Math.max(0, tokens - j.leads_count));
+            setTokens(prev => prev !== null && j.leads_count > 0 ? Math.max(0, prev - j.leads_count) : prev);
             // Auto-salva leads no CRM
             if (newLeads.length > 0) {
-              setCrmLeads(prev => {
-                const existing = new Set(prev.map((l: any) => getLeadKey(l)));
-                const toAdd = newLeads.filter((l: any) => !existing.has(getLeadKey(l))).map((l: any) => ({
-                  ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
-                  nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
-                }));
-                if (toAdd.length === 0) return prev;
-                const updated = [...toAdd, ...prev];
-                localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead)));
-                const userId = user?.id;
+              const userId = user?.id;
+              // Calcula toAdd fora do updater (puro)
+              const toAdd = newLeads.filter((l: any) => {
+                const key = getLeadKey(l);
+                return !crmLeads.some((cl: any) => getLeadKey(cl) === key);
+              }).map((l: any) => ({
+                ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
+                nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
+              }));
+              if (toAdd.length > 0) {
+                const normalized = [...toAdd, ...crmLeads].map(normalizeCrmLead);
+                setCrmLeads(normalized);
+                localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
                 if (userId) {
-                  const rows = updated.map(lead => crmLeadToRow(lead, userId));
+                  const rows = normalized.map(lead => crmLeadToRow(lead, userId));
                   supabase.from('crm_leads').upsert(rows, { onConflict: 'user_id,lead_key' }).then(({ error }) => {
                     if (error) console.warn('CRM auto-sync failed:', error.message);
                     else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
@@ -850,8 +858,9 @@ export default function Home() {
                 }
                 showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
                 setChartRefreshKey(k => k + 1);
-                return updated;
-              });
+              } else if (newLeads.length > 0) {
+                showToast('Leads já existem no CRM.', 'info');
+              }
             }
           } else if (j.status === 'running') {
             // Entrega incremental: mostra leads já encontrados durante a extração
@@ -860,6 +869,7 @@ export default function Home() {
               setHasSearched(true);
             }
           } else if (j.status === 'failed' || j.status === 'cancelled') {
+            if (currentJobIdRef.current !== jobId) return;
             setIsExtracting(false);
             setHasSearched(true);
             if (pollRef.current) clearInterval(pollRef.current);
@@ -881,7 +891,7 @@ export default function Home() {
     }
     if (tokens !== null && Number(limit) > tokens) { showToast(`Saldo insuficiente! Pediu ${limit} leads mas tem ${tokens} tokens.`, 'error'); return; }
     setIsExtracting(true); setHasSearched(false); setLeads([]); setExtractStats(null);
-    const existingLeadKeys = crmLeads.map(l => l.nome).filter(Boolean);
+    const existingLeadKeys = crmLeads.map(l => getLeadKey(l)).filter(Boolean);
     try {
       const headers = await getAuthedJsonHeaders();
       if (!headers) return;
@@ -1229,16 +1239,21 @@ export default function Home() {
             handleReEnrichSingle={handleReEnrichSingle} handleUpdateCRMLead={handleUpdateCRMLead} openWhatsApp={openWhatsApp}
             waSentMessages={waSentMessages}
             onImportLeads={(importedLeads) => {
-              const updated = [...importedLeads.map(l => ({
+              const existingKeys = new Set(crmLeads.map(getLeadKey));
+              const newLeads = importedLeads.filter((l: any) => !existingKeys.has(getLeadKey(l)));
+              const formatted = newLeads.map(l => ({
                 ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
                 nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral',
-              })), ...crmLeads];
+              }));
+              const updated = [...formatted, ...crmLeads];
               saveCrm(updated);
               setSelectedWaLeads(prev => {
-                const newKeys = importedLeads.filter((l: any) => l.telefone && l.telefone !== 'Não informado').map((l: any) => getLeadKey(l));
+                const newKeys = formatted.filter((l: any) => l.telefone && l.telefone !== 'Não informado').map(getLeadKey);
                 return Array.from(new Set([...newKeys, ...prev]));
               });
-              showToast(`${importedLeads.length} leads importados!`, 'success');
+              const skipped = importedLeads.length - newLeads.length;
+              const msg = skipped > 0 ? `${newLeads.length} importados, ${skipped} duplicados ignorados` : `${formatted.length} leads importados!`;
+              showToast(msg, 'success');
             }}
           />
         )}

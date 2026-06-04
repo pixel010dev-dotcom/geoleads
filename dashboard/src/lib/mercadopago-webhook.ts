@@ -1,5 +1,5 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { getPlanById, paidPlanIds, type PlanId } from '@/lib/plans';
+import { getPlanById, getPlanLevel, paidPlanIds, type PlanId } from '@/lib/plans';
 import { createAdminSupabaseClient, hasSupabaseServiceRole } from '@/lib/server-auth';
 
 const client = new MercadoPagoConfig({
@@ -93,6 +93,7 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
   const plan = getPlanById(planId);
   const planTokens = typeof tokens === 'number' && tokens > 0 ? tokens : plan.tokens;
 
+  // Tenta inserir primeiro — se já existir, ON CONFLICT retorna sem creditar de novo
   const { data: existingPayment } = await supabase
     .from('payment_history')
     .select('id, user_id')
@@ -181,11 +182,16 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
   const previousTokens = profile?.tokens || 0;
   const newTokens = previousTokens + planTokens;
 
+  // Preserva o plan_id maior (nunca rebaixa)
+  const currentLevel = getPlanLevel((profile?.plan_id || 'free') as PlanId);
+  const newLevel = getPlanLevel(planId);
+  const finalPlanId = newLevel > currentLevel ? planId : (profile?.plan_id || planId);
+
   const { error: updateError } = await supabase
     .from('profiles')
     .update({
       tokens: newTokens,
-      plan_id: planId,
+      plan_id: finalPlanId,
       updated_at: new Date().toISOString()
     })
     .eq('id', targetUserId);
@@ -195,14 +201,14 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
     return { ok: false, status: 500, error: 'Erro ao atualizar tokens' };
   }
 
-  const { error: historyError } = await supabase.from('payment_history').insert({
+  const { error: historyError } = await supabase.from('payment_history').upsert({
     user_id: targetUserId,
     mp_payment_id: paymentId,
     plan_id: planId,
     tokens_added: planTokens,
     amount: payment.transaction_amount || plan.price,
     status: 'approved'
-  });
+  }, { onConflict: 'mp_payment_id', ignoreDuplicates: true });
 
   if (historyError) {
     console.error('Webhook: pagamento creditado, mas historico falhou', historyError.message);
