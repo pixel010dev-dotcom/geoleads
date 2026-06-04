@@ -50,7 +50,32 @@ export interface CRMSectionProps {
 }
 
 const CRM_PAGE_SIZE = 25;
-const ALL_TAGS = ['Quente', 'Morno', 'Frio', 'Agendar', 'Ligou', 'Não respondeu', 'Indicação'];
+
+const TAG_CONFIG: Record<string, { icon: string; color: string }> = {
+  'Quente': { icon: '🔥', color: 'bg-red-500/15 border-red-500/25 text-red-300' },
+  'Morno': { icon: '⚡', color: 'bg-amber-500/15 border-amber-500/25 text-amber-300' },
+  'Frio': { icon: '❄️', color: 'bg-blue-500/15 border-blue-500/25 text-blue-300' },
+  'Agendar': { icon: '📅', color: 'bg-purple-500/15 border-purple-500/25 text-purple-300' },
+  'Ligou': { icon: '📞', color: 'bg-green-500/15 border-green-500/25 text-green-300' },
+  'Não respondeu': { icon: '🔇', color: 'bg-gray-500/15 border-gray-500/25 text-gray-300' },
+  'Indicação': { icon: '👥', color: 'bg-orange-500/15 border-orange-500/25 text-orange-300' },
+};
+const ALL_TAGS = Object.keys(TAG_CONFIG);
+
+function TagBadge({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
+  const cfg = TAG_CONFIG[tag];
+  const base = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium';
+  const style = cfg?.color || 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300';
+  return (
+    <span className={`${base} ${style}`}>
+      {cfg?.icon && <span>{cfg.icon}</span>}
+      {tag}
+      {onRemove && (
+        <button onClick={onRemove} className="hover:text-white ml-0.5 cursor-pointer text-[13px] leading-none opacity-60 hover:opacity-100 transition-opacity">&times;</button>
+      )}
+    </span>
+  );
+}
 
 export default function CRMSection({
   crmLeads,
@@ -329,22 +354,35 @@ export default function CRMSection({
                   </div>
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5 items-center min-h-[28px]">
                     {(Array.isArray(lead.tags) ? lead.tags : []).map((tag: string) => (
-                      <span key={tag} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 text-[10px]">
-                        {tag}
-                        <button onClick={() => toggleTag(lead.nome, tag)} className="hover:text-white ml-0.5 cursor-pointer">&times;</button>
-                      </span>
+                      <TagBadge key={tag} tag={tag} onRemove={() => toggleTag(lead.nome, tag)} />
                     ))}
-                    <div className="relative">
-                      <button onClick={() => setShowTagMenu(s => ({ ...s, [lead.nome]: !s[lead.nome] }))} className="px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 hover:text-white border border-white/10 text-[10px] cursor-pointer">+</button>
-                      {showTagMenu[lead.nome] && (
-                        <div className="absolute top-6 left-0 z-20 bg-gray-900 border border-white/10 rounded-xl p-2 shadow-2xl min-w-[140px]" onMouseLeave={() => setShowTagMenu(s => ({ ...s, [lead.nome]: false }))}>
-                          {ALL_TAGS.filter(t => !(Array.isArray(lead.tags) ? lead.tags : []).includes(t)).map((tag: string) => (
-                            <button key={tag} onClick={() => { toggleTag(lead.nome, tag); setShowTagMenu(s => ({ ...s, [lead.nome]: false })); }} className="block w-full text-left px-2 py-1 text-xs text-gray-300 hover:bg-white/5 rounded-lg cursor-pointer">{tag}</button>
-                          ))}
-                        </div>
-                      )}
+                    <div className="flex items-center gap-1">
+                      <select
+                        value=""
+                        onChange={(e) => { if (e.target.value) { toggleTag(lead.nome, e.target.value); } }}
+                        style={{ colorScheme: 'dark' }}
+                        className="px-2 py-1 rounded-lg bg-black/50 border border-white/10 text-[11px] text-gray-400 focus:outline-none focus:border-blue-500 cursor-pointer w-[28px] appearance-none"
+                      >
+                        <option value="">+</option>
+                        {ALL_TAGS.filter(t => !(Array.isArray(lead.tags) ? lead.tags : []).includes(t)).map((tag: string) => (
+                          <option key={tag} value={tag}>{tag}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Nova..."
+                        value={tagInputs[lead.nome] || ''}
+                        onChange={(e) => setTagInputs(s => ({ ...s, [lead.nome]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && tagInputs[lead.nome]?.trim()) {
+                            toggleTag(lead.nome, tagInputs[lead.nome].trim());
+                            setTagInputs(s => ({ ...s, [lead.nome]: '' }));
+                          }
+                        }}
+                        className="w-16 bg-black/40 border border-white/5 rounded-lg px-1.5 py-1 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                      />
                     </div>
                   </div>
                 </td>
@@ -482,23 +520,38 @@ export default function CRMSection({
                 )}
               </div>
 
-              <div className="border-t border-white/5 pt-3 flex flex-wrap gap-1 items-center">
-                <span className="text-[11px] text-gray-500 font-medium mr-1">Tags:</span>
-                {(Array.isArray(lead.tags) ? lead.tags : []).map((tag: string) => (
-                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 text-[10px]">
-                    {tag}
-                    <button onClick={() => toggleTag(lead.nome, tag)} className="hover:text-white ml-0.5 cursor-pointer">&times;</button>
-                  </span>
-                ))}
-                <div className="relative inline-block">
-                  <button onClick={() => setShowTagMenu(s => ({ ...s, [lead.nome]: !s[lead.nome] }))} className="px-2 py-0.5 rounded-full bg-white/5 text-gray-400 hover:text-white border border-white/10 text-[10px] cursor-pointer">+ Tag</button>
-                  {showTagMenu[lead.nome] && (
-                    <div className="absolute top-6 left-0 z-20 bg-gray-900 border border-white/10 rounded-xl p-2 shadow-2xl min-w-[140px]" onMouseLeave={() => setShowTagMenu(s => ({ ...s, [lead.nome]: false }))}>
+              <div className="border-t border-white/5 pt-3">
+                <span className="text-[11px] text-gray-500 font-medium block mb-2">Tags:</span>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {(Array.isArray(lead.tags) ? lead.tags : []).map((tag: string) => (
+                    <TagBadge key={tag} tag={tag} onRemove={() => toggleTag(lead.nome, tag)} />
+                  ))}
+                  <div className="flex items-center gap-1">
+                    <select
+                      value=""
+                      onChange={(e) => { if (e.target.value) { toggleTag(lead.nome, e.target.value); } }}
+                      style={{ colorScheme: 'dark' }}
+                      className="px-2 py-1 rounded-lg bg-black/50 border border-white/10 text-[11px] text-gray-400 focus:outline-none focus:border-blue-500 cursor-pointer w-[28px] appearance-none"
+                    >
+                      <option value="">+</option>
                       {ALL_TAGS.filter(t => !(Array.isArray(lead.tags) ? lead.tags : []).includes(t)).map((tag: string) => (
-                        <button key={tag} onClick={() => { toggleTag(lead.nome, tag); setShowTagMenu(s => ({ ...s, [lead.nome]: false })); }} className="block w-full text-left px-2 py-1 text-xs text-gray-300 hover:bg-white/5 rounded-lg cursor-pointer">{tag}</button>
+                        <option key={tag} value={tag}>{TAG_CONFIG[tag]?.icon || ''} {tag}</option>
                       ))}
-                    </div>
-                  )}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Nova tag..."
+                      value={tagInputs[lead.nome] || ''}
+                      onChange={(e) => setTagInputs(s => ({ ...s, [lead.nome]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && tagInputs[lead.nome]?.trim()) {
+                          toggleTag(lead.nome, tagInputs[lead.nome].trim());
+                          setTagInputs(s => ({ ...s, [lead.nome]: '' }));
+                        }
+                      }}
+                      className="w-20 bg-black/40 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
@@ -612,7 +665,7 @@ export default function CRMSection({
                       {(Array.isArray(lead.tags) ? lead.tags : []).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {(Array.isArray(lead.tags) ? lead.tags : []).slice(0, 3).map((tag: string) => (
-                            <span key={tag} className="px-1 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 text-[9px]">{tag}</span>
+                            <TagBadge key={tag} tag={tag} />
                           ))}
                         </div>
                       )}
