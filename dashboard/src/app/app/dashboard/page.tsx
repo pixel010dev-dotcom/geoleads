@@ -375,12 +375,18 @@ export default function Home() {
 
     const { data: profileData, error } = await supabase
       .from('profiles').select('tokens, plan_id').eq('id', userId).single();
-    if (error || !profileData) {
-      if (error) console.warn('Profile RLS fallback failed:', error.message);
-      return null;
+    if (error || !profileData) return;
+    try {
+      const { data: availableTokens } = await supabase.rpc('get_available_tokens', {
+        p_user_id: userId
+      });
+      setTokens(typeof availableTokens === 'number' ? availableTokens : profileData.tokens);
+    } catch {
+      setTokens(profileData.tokens);
     }
-    applyProfileData(profileData);
-    return profileData;
+    const savedPlanId = getPlanById(profileData.plan_id).id;
+    const inferredPlanId = getPlanIdFromTokens(profileData.tokens);
+    setPlanId(plans[savedPlanId].tokens >= plans[inferredPlanId].tokens ? savedPlanId : inferredPlanId);
   };
 
   useEffect(() => {
@@ -827,47 +833,43 @@ export default function Home() {
             message: j.message,
           });
           if (j.status === 'completed') {
-            const newLeads = j.leads || [];
-            setLeads(newLeads);
-            setIsExtracting(false);
-            setHasSearched(true);
-            if (pollRef.current) clearInterval(pollRef.current);
-            localStorage.removeItem('lastJobId');
-            setTokens(prev => prev !== null && j.leads_count > 0 ? Math.max(0, prev - j.leads_count) : prev);
-            // Auto-salva leads no CRM
-            if (newLeads.length > 0) {
-              const userId = user?.id;
-              // Calcula toAdd fora do updater (puro)
-              const toAdd = newLeads.filter((l: any) => {
-                const key = getLeadKey(l);
-                return !crmLeads.some((cl: any) => getLeadKey(cl) === key);
-              }).map((l: any) => ({
-                ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
-                nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
-              }));
-              if (toAdd.length > 0) {
-                const normalized = [...toAdd, ...crmLeads].map(normalizeCrmLead);
-                setCrmLeads(normalized);
-                localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
-                if (userId) {
-                  const rows = normalized.map(lead => crmLeadToRow(lead, userId));
+            if (j.delivered) {
+              setLeads(j.leads || []);
+              setHasSearched(true);
+              const newLeads = j.leads || [];
+              // Auto-salva leads no CRM
+              if (newLeads.length > 0 && user?.id) {
+                const toAdd = newLeads.filter((l: any) => {
+                  const key = getLeadKey(l);
+                  return !crmLeads.some((cl: any) => getLeadKey(cl) === key);
+                }).map((l: any) => ({
+                  ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
+                  nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
+                }));
+                if (toAdd.length > 0) {
+                  const normalized = [...toAdd, ...crmLeads].map(normalizeCrmLead);
+                  setCrmLeads(normalized);
+                  localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
+                  const rows = normalized.map(lead => crmLeadToRow(lead, user.id!));
                   supabase.from('crm_leads').upsert(rows, { onConflict: 'user_id,lead_key' }).then(({ error }) => {
                     if (error) console.warn('CRM auto-sync failed:', error.message);
                     else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
                   });
+                  showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
+                  setChartRefreshKey(k => k + 1);
+                } else {
+                  showToast('Leads já existem no CRM.', 'info');
                 }
-                showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
-                setChartRefreshKey(k => k + 1);
-              } else if (newLeads.length > 0) {
-                showToast('Leads já existem no CRM.', 'info');
               }
-            }
-          } else if (j.status === 'running') {
-            // Entrega incremental: mostra leads já encontrados durante a extração
-            if (j.leads && j.leads.length > 0) {
-              setLeads(j.leads);
+            } else {
               setHasSearched(true);
             }
+            setIsExtracting(false);
+            if (pollRef.current) clearInterval(pollRef.current);
+            localStorage.removeItem('lastJobId');
+            if (user?.id) refreshProfile(user.id);
+          } else if (j.status === 'running') {
+            setHasSearched(false);
           } else if (j.status === 'failed' || j.status === 'cancelled') {
             if (currentJobIdRef.current !== jobId) return;
             setIsExtracting(false);
@@ -944,13 +946,22 @@ export default function Home() {
     try {
       const headers = await getAuthedJsonHeaders();
       if (!headers) return;
-      await fetch(`/api/extract/job/${jobId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'cancelled' }) });
+      const res = await fetch('/api/extract/cancel', {
+        method: 'POST', headers,
+        body: JSON.stringify({ jobId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Extração cancelada. Tokens reembolsados.', 'info');
+        if (user?.id) refreshProfile(user.id);
+      } else {
+        showToast(data.error || 'Erro ao cancelar extração.', 'error');
+      }
     } catch {}
     if (pollRef.current) clearInterval(pollRef.current);
     setIsExtracting(false);
     setHasSearched(true);
     localStorage.removeItem('lastJobId');
-    showToast('Extração cancelada.', 'info');
   };
 
   const logout = async () => { await supabase.auth.signOut(); router.push('/login'); };

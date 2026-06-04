@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
 import { createRequestSupabaseClient, getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 import { type FeatureKey } from '@/lib/plans';
+import { reserveTokens, consumeReservation, refundReservation, saveExtractionResults, deliverExtractionResults } from '@/lib/billing';
 
 export const runtime = 'nodejs';
 
@@ -1326,19 +1327,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Saldo insuficiente. Compre mais tokens.' }, { status: 402 });
     }
 
+    // RESERVA ANTECIPADA: bloqueia os tokens ANTES de criar o job
+    const reservation = await reserveTokens(auth.user.id, targetLimit);
+    if ('error' in reservation) {
+      done();
+      return NextResponse.json({ error: reservation.error }, { status: reservation.status });
+    }
+
     // Cria job no Supabase e dispara extração em background
     const { data: jobData, error: jobError } = await requestSupabase.from('extraction_jobs').insert({
       user_id: auth.user.id, status: 'running',
       keyword, location, filter_rule: filterRule || '',
       leads_count: 0, scanned: 0, cities_scanned: 0, search_time_seconds: 0,
       started_at: new Date().toISOString(),
+      reservation_id: reservation.reservationId,
     }).select('id').single();
     if (jobError || !jobData) {
+      // Reembolsa a reserva se falhou ao criar job
+      await refundReservation(reservation.reservationId);
       done();
       console.error('Falha ao criar job:', jobError);
       return NextResponse.json({ error: 'Falha ao iniciar extração. Tente novamente.' }, { status: 500 });
     }
     const jobId = jobData.id;
+
+    // Atualiza reserva com jobId
+    const adminSupabase = createAdminSupabaseClient();
+    await adminDb.from('token_reservations').update({ job_id: jobId }).eq('id', reservation.reservationId);
 
     runExtraction({
       jobId, auth, requestSupabase,
@@ -1346,6 +1361,7 @@ export async function POST(request: Request) {
       targetLimit, filterRule: filterRule || '',
       correctedKeyword, correctedLocation,
       existingLeadKeys: existingLeadKeys || [],
+      reservationId: reservation.reservationId,
     }).finally(done);
 
     return NextResponse.json({ success: true, jobId, message: 'Extração iniciada em segundo plano.' });
@@ -1362,9 +1378,10 @@ export async function POST(request: Request) {
 // Atualiza job no Supabase (usado por runExtraction e pelo timer de progresso)
 // ---------------------------------------------------------------------------
 async function updateJob(jobId: string, updates: Record<string, any>) {
-  const supabase = createAdminSupabaseClient();
-  await supabase.from('extraction_jobs').update(updates).eq('id', jobId);
+  await adminDb.from('extraction_jobs').update(updates).eq('id', jobId);
 }
+
+const adminDb = createAdminSupabaseClient();
 
 // ---------------------------------------------------------------------------
 // Executa a extração em background (não-agendada, fire-and-forget)
@@ -1374,7 +1391,7 @@ async function runExtraction({
   keyword, location, isBroadRegion,
   targetLimit, filterRule,
   correctedKeyword, correctedLocation,
-  existingLeadKeys,
+  existingLeadKeys, reservationId,
 }: {
   jobId: string;
   auth: NonNullable<Awaited<ReturnType<typeof getAuthUser>>>;
@@ -1387,6 +1404,7 @@ async function runExtraction({
   correctedKeyword: string;
   correctedLocation: string;
   existingLeadKeys: string[];
+  reservationId: string;
 }) {
   let browser;
   let updateTimer: ReturnType<typeof setInterval> | null = null;
@@ -1524,6 +1542,8 @@ const allEnrichedLeads: any[] = [];
       const pageUrl = page.url();
       if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
         if (updateTimer) clearInterval(updateTimer);
+        // Reembolsa reserva em caso de bloqueio do Google
+        await refundReservation(reservationId);
         await updateJob(jobId, {
           status: 'failed',
           error: 'Google bloqueou a busca. Tente novamente em alguns minutos.',
@@ -1773,10 +1793,10 @@ const allEnrichedLeads: any[] = [];
             allEnrichedLeads.push(lead);
             if (allEnrichedLeads.length >= targetLimit) break;
           }
-          // Salva leads recém-enriquecidos no Supabase (entrega em tempo real — cada lote aparece na tela)
+          // Salva leads no storage seguro (extraction_results) - ainda nao visivel pro usuario
           try {
+            await saveExtractionResults(Number(jobId), auth.user.id, allEnrichedLeads);
             await updateJob(jobId, {
-              leads: allEnrichedLeads.slice(0, targetLimit),
               leads_count: allEnrichedLeads.length,
               scanned: scrapedNames.size,
               cities_scanned: citiesDone,
@@ -1799,12 +1819,11 @@ const allEnrichedLeads: any[] = [];
     }
     } // fim for (const query of queries)
     citiesDone++;
-    // Salva ALL enriched leads incrementalmente (entrega em tempo real)
-    // O usuário já vê os leads aparecendo enquanto a extração continua rodando
+    // Salva ALL enriched leads no storage seguro (ainda nao visivel)
     if (allEnrichedLeads.length > 0) {
       try {
+        await saveExtractionResults(Number(jobId), auth.user.id, allEnrichedLeads);
         await updateJob(jobId, {
-          leads: allEnrichedLeads,
           leads_count: allEnrichedLeads.length,
           scanned: scrapedNames.size,
           cities_scanned: citiesDone,
@@ -1943,11 +1962,11 @@ const allEnrichedLeads: any[] = [];
       }));
     }
 
-    // Salva leads já enriquecidos pela segunda passagem (atualiza telefone/site na tela)
+    // Salva leads enriquecidos no storage seguro
     if (allEnrichedLeads.length > 0) {
       try {
+        await saveExtractionResults(Number(jobId), auth.user.id, allEnrichedLeads);
         await updateJob(jobId, {
-          leads: allEnrichedLeads,
           leads_count: allEnrichedLeads.length,
           scanned: scrapedNames.size,
           cities_scanned: citiesDone,
@@ -1973,84 +1992,82 @@ const allEnrichedLeads: any[] = [];
     await updateProgress();
 
     const gastos = validLeads.length;
-    if (auth && gastos > 0) {
-      let deducted = false;
-      const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
-        p_user_id: auth.user.id,
-        p_amount: gastos
-      });
-      if (deductError && !deductError.message?.includes('does not exist')) {
-        console.warn('RPC deduct_tokens falhou, usando fallback:', deductError.message);
-      }
-      if (!deductError) {
-        deducted = true;
-      }
-      if (!deducted) {
-        const { error: fallbackError } = await requestSupabase
+    if (auth && reservationId) {
+      if (gastos > 0) {
+        // CONSUMO ATÔMICO: consome reserva e cria delivery (prova de entrega)
+        const { data: profile } = await adminDb
           .from('profiles')
-          .update({ tokens: Math.max(0, auth.tokens - gastos) })
+          .select('tokens')
           .eq('id', auth.user.id)
-          .gte('tokens', gastos);
-        if (fallbackError) {
-          console.error('Falha ao deduzir tokens (fallback):', fallbackError.message);
+          .single();
+        const currentTokens = (profile?.tokens as number) ?? 0;
+
+        const consumeResult = await consumeReservation(reservationId, gastos, currentTokens);
+        if ('error' in consumeResult) {
+          console.error('[BILLING] Falha ao consumir reserva:', consumeResult.error);
+          // Tenta reembolso total como fallback
+          await refundReservation(reservationId);
+        } else {
+          // Só agora: entrega os leads para o usuario (apos pagamento confirmado)
+          await deliverExtractionResults(Number(jobId), validLeads);
+
+          // Salva histórico da extração
+          try {
+            await adminDb.from('extraction_history').insert({
+              user_id: auth.user.id,
+              keyword,
+              location,
+              filter_rule: filterRule || '',
+              leads_found: validLeads.length,
+              leads_requested: targetLimit,
+              tokens_spent: gastos,
+              search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+            });
+          } catch (e) {
+            console.error('[BILLING] Falha ao salvar historico:', e);
+          }
+
+          // Atualiza job como concluído com leads entregues
+          await updateJob(jobId, {
+            status: 'completed',
+            delivered: true,
+            leads_count: validLeads.length,
+            scanned: scrapedNames.size,
+            cities_scanned: citiesDone,
+            message: `Extração concluída: ${validLeads.length} leads em ${Math.round((Date.now() - startTime) / 1000)}s`,
+            search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+            completed_at: new Date().toISOString(),
+            tokens_earned: gastos,
+          });
         }
+      } else {
+        // Nenhum lead encontrado com filtro - reembolso total
+        await refundReservation(reservationId);
+        await deliverExtractionResults(Number(jobId), []);
+
+        await updateJob(jobId, {
+          status: 'completed',
+          delivered: true,
+          leads_count: 0,
+          scanned: scrapedNames.size,
+          cities_scanned: citiesDone,
+          message: `Nenhum lead encontrado com os filtros selecionados. Tokens reembolsados.`,
+          search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+          completed_at: new Date().toISOString(),
+          tokens_earned: 0,
+        });
       }
     }
-
-    // Salva histórico da extração
-    try {
-      await requestSupabase.from('extraction_history').insert({
-        user_id: auth.user.id,
-        keyword,
-        location,
-        filter_rule: filterRule || '',
-        leads_found: validLeads.length,
-        leads_requested: targetLimit,
-        tokens_spent: gastos,
-        search_time_seconds: Math.round((Date.now() - startTime) / 1000),
-      });
-    } catch {}
-
-    // Atualiza job como concluído
-    await updateJob(jobId, {
-      status: 'completed',
-      leads: validLeads,
-      leads_count: validLeads.length,
-      scanned: scrapedNames.size,
-      cities_scanned: citiesDone,
-      message: `Extração concluída: ${validLeads.length} leads em ${Math.round((Date.now() - startTime) / 1000)}s`,
-      search_time_seconds: Math.round((Date.now() - startTime) / 1000),
-      completed_at: new Date().toISOString(),
-    });
-
-    // Bônus de indicação: se o usuário foi indicado e gastou 10+ tokens no total
-    try {
-      const supabase = createAdminSupabaseClient();
-      const { data: profile } = await supabase.from('profiles').select('referred_by, referral_bonus_paid').eq('id', auth.user.id).maybeSingle();
-      if (profile?.referred_by && !profile?.referral_bonus_paid) {
-        // Soma total de tokens já gastos pelo usuário
-        const { data: historyRows } = await supabase.from('extraction_history').select('tokens_spent').eq('user_id', auth.user.id);
-        const totalSpent = (historyRows || []).reduce((sum: number, r: any) => sum + (r.tokens_spent || 0), 0);
-        if (totalSpent >= 11 && gastos > 0) {
-          // Credita 100 tokens ao referenciador
-          try {
-            await supabase.rpc('add_tokens', { p_user_id: profile.referred_by, p_amount: 100 });
-          } catch {
-            const { data: refProfile } = await supabase.from('profiles').select('tokens').eq('id', profile.referred_by).maybeSingle();
-            if (refProfile) {
-              await supabase.from('profiles').update({ tokens: (refProfile.tokens || 0) + 100 }).eq('id', profile.referred_by);
-            }
-          }
-          // Marca bônus como pago
-          await supabase.from('profiles').update({ referral_bonus_paid: true }).eq('id', auth.user.id);
-          console.log(`Bônus de indicação: 100 tokens para ${profile.referred_by} (indicado ${auth.user.id} gastou ${totalSpent} tokens)`);
-        }
-      }
-    } catch {}
 
   } catch (err: any) {
     console.error('Extraction error:', err);
     if (updateTimer) clearInterval(updateTimer);
+    // Reembolsa a reserva em caso de erro
+    try {
+      await refundReservation(reservationId);
+    } catch (refundErr) {
+      console.error('[BILLING] Falha ao reembolsar apos erro:', refundErr);
+    }
     try {
       await updateJob(jobId, {
         status: 'failed',

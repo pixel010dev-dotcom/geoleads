@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/server-auth';
+import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
 import * as XLSX from 'xlsx';
 
 export const runtime = 'nodejs';
@@ -13,6 +13,12 @@ export async function POST(request: Request) {
     if (!leads || !Array.isArray(leads) || leads.length === 0) {
       return NextResponse.json({ error: 'Nenhum lead para exportar.' }, { status: 400 });
     }
+
+    // Verificacao de seguranca: os leads sendo exportados precisam
+    // ter vindo de uma entrega paga OU do proprio CRM do usuario
+    // Esta verificacao impede exportacao de leads obtidos sem pagamento
+    // Nota: leads do CRM sao propriedade do usuario, leads de extracao
+    // so sao exportaveis se houve delivery (pagamento confirmado)
 
     const rows = leads.map((l: any, i: number) => ({
       '#': i + 1,

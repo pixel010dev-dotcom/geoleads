@@ -54,8 +54,8 @@ async function handlePaymentNotification(paymentId: string) {
 
 export async function POST(request: Request) {
   try {
-    const rawBody = await request.text();
-    const body = JSON.parse(rawBody);
+    const bodyText = await request.text();
+    const body = JSON.parse(bodyText);
     const event: MpEvent = body.data ? body : { action: body.action, data: { id: String(body.id || '') } };
 
     if (!event.data?.id) {
