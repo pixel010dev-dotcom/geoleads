@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import ScrollReveal from '@/components/ScrollReveal';
 import Globe from '@/components/Globe';
+import DashboardPreview from '@/components/DashboardPreview';
+import AnimatedStats from '@/components/AnimatedStats';
+import { IconSearch, IconPhone, IconBuilding, IconMail, IconCamera, IconWhatsApp, IconBot, IconChart, IconDownload } from '@/components/FeatureIcon';
 
 export default async function LandingPage() {
   const { data: realTestimonials } = await supabase
@@ -166,6 +169,8 @@ export default async function LandingPage() {
           </ScrollReveal>
         </section>
 
+        <DashboardPreview />
+
         <section className="app-container py-12 sm:py-24">
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
@@ -174,38 +179,24 @@ export default async function LandingPage() {
                 <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">Tudo que você precisa pra prospectar</h2>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                {features.map((f, i) => (
-                  <ScrollReveal key={i} delay={i * 60}>
-                    <div className="app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl hover:border-white/15 transition-all h-full">
-                      <span className="text-xl sm:text-2xl mb-2 sm:mb-3 block">{f.icon}</span>
-                      <h3 className="font-bold text-xs sm:text-sm mb-1">{f.title}</h3>
-                      <p className="text-[11px] sm:text-xs text-gray-500 leading-relaxed">{f.desc}</p>
-                    </div>
-                  </ScrollReveal>
-                ))}
+                {features.map((f, i) => {
+                  const Icon = f.iconSvg;
+                  return (
+                    <ScrollReveal key={i} delay={i * 60}>
+                      <div className="app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl hover:border-white/15 transition-all h-full flex flex-col items-start">
+                        {Icon && <Icon className="w-7 h-7 sm:w-8 sm:h-8 mb-2 sm:mb-3" />}
+                        <h3 className="font-bold text-xs sm:text-sm mb-1">{f.title}</h3>
+                        <p className="text-[11px] sm:text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+                      </div>
+                    </ScrollReveal>
+                  );
+                })}
               </div>
             </div>
           </ScrollReveal>
         </section>
 
-        <section className="app-container py-8 sm:py-12">
-          <ScrollReveal>
-            <div className="max-w-4xl mx-auto text-center">
-              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5">
-                {[
-                  { icon: '🔒', label: 'Dados criptografados (Supabase)' },
-                  { icon: '✅', label: 'Pagamento via Mercado Pago' },
-                  { icon: '🛡️', label: 'Conexão 100% segura (SSL)' },
-                ].map((badge, i) => (
-                  <div key={i} className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] sm:text-sm text-gray-400">
-                    <span>{badge.icon}</span>
-                    <span>{badge.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ScrollReveal>
-        </section>
+        <AnimatedStats />
 
         <section className="app-container py-12 sm:py-24">
           <ScrollReveal>
@@ -316,12 +307,12 @@ export default async function LandingPage() {
 }
 
 const features = [
-  { icon: '📞', title: 'Telefone e Site', desc: 'Priorize leads com contato disponível para abordagem imediata.' },
-  { icon: '🏢', title: 'CNPJ Validado', desc: 'Enriquece com dados da Receita Federal automaticamente.' },
-  { icon: '✉️', title: 'E-mail que funciona', desc: 'Descobre e-mails institucionais a partir do site oficial da empresa.' },
-  { icon: '📸', title: 'Redes Sociais', desc: 'Instagram, Facebook e TikTok quando disponíveis nos dados públicos.' },
-  { icon: '💬', title: 'Disparo WhatsApp', desc: 'Fila assistida com templates prontos e envio direto.' },
-  { icon: '🤖', title: 'Chatbot Automático', desc: 'Responde leads automaticamente com regras que você define.' },
-  { icon: '📊', title: 'CRM Integrado', desc: 'Gerencie leads em estágios (Novo, Contato, Proposta, Cliente).' },
-  { icon: '📥', title: 'Exportação CSV/Excel', desc: 'Exporte seus leads para usar onde quiser.' },
+  { iconSvg: IconPhone, title: 'Telefone e Site', desc: 'Priorize leads com contato disponível para abordagem imediata.' },
+  { iconSvg: IconBuilding, title: 'CNPJ Validado', desc: 'Enriquece com dados da Receita Federal automaticamente.' },
+  { iconSvg: IconMail, title: 'E-mail que funciona', desc: 'Descobre e-mails institucionais a partir do site oficial da empresa.' },
+  { iconSvg: IconCamera, title: 'Redes Sociais', desc: 'Instagram, Facebook e TikTok quando disponíveis nos dados públicos.' },
+  { iconSvg: IconWhatsApp, title: 'Disparo WhatsApp', desc: 'Fila assistida com templates prontos e envio direto.' },
+  { iconSvg: IconBot, title: 'Chatbot Automático', desc: 'Responde leads automaticamente com regras que você define.' },
+  { iconSvg: IconChart, title: 'CRM Integrado', desc: 'Gerencie leads em estágios (Novo, Contato, Proposta, Cliente).' },
+  { iconSvg: IconDownload, title: 'Exportação CSV/Excel', desc: 'Exporte seus leads para usar onde quiser.' },
 ];
