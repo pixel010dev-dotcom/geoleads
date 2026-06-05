@@ -1,4 +1,5 @@
-".env.local"  
-"build-log.txt"  
-"GEOLEADS_AI_CONTEXT.md"  
+.env.local
+build-log.txt
+GEOLEADS_AI_CONTEXT.md
+dashboard/AGENTS.md
 supabase/.temp/
