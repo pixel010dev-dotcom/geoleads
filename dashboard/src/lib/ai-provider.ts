@@ -160,6 +160,17 @@ const buildProviders = (): AIProviderConfig[] => {
     });
   }
 
+  if (process.env.GEMINI_API_KEY) {
+    providers.push({
+      name: 'Gemini',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      apiKey: process.env.GEMINI_API_KEY,
+      priority: 1,
+      timeout: 15000,
+    });
+  }
+
   providers.push({
     name: 'KeylessAI',
     baseUrl: 'https://keylessai.thryx.workers.dev/v1',
