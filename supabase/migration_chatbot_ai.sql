@@ -67,3 +67,8 @@ CREATE TRIGGER trg_chatbot_memory_updated
   BEFORE UPDATE ON chatbot_memory
   FOR EACH ROW
   EXECUTE FUNCTION update_chatbot_memory_timestamp();
+
+-- Add AI columns to chatbot_configs
+ALTER TABLE chatbot_configs
+  ADD COLUMN IF NOT EXISTS use_ai boolean not null default true,
+  ADD COLUMN IF NOT EXISTS ai_instructions text not null default 'Você é um assistente de vendas amigável e profissional. Ajude clientes com dúvidas sobre serviços, agende reuniões e colete informações de contato.';
