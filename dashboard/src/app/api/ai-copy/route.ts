@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, requireFeature } from '@/lib/server-auth';
+import { AIProvider } from '@/lib/ai-provider';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -114,21 +115,100 @@ const buildLocalCopies = ({
   return shuffle(pool).slice(0, 4);
 };
 
-const parseCopies = (text: string): CopyResult[] => {
-  const cleaned = text.trim().replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
-  const parsed = JSON.parse(cleaned);
-  const items = Array.isArray(parsed) ? parsed : parsed?.copies;
+const tryParseJSON = (text: string): CopyResult[] => {
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```json\s*/i, '');
+  cleaned = cleaned.replace(/^```\s*/i, '');
+  cleaned = cleaned.replace(/\s*```$/i, '');
+  cleaned = cleaned.trim();
 
-  if (!Array.isArray(items)) return [];
+  try {
+    const parsed = JSON.parse(cleaned);
+    const items = Array.isArray(parsed) ? parsed : parsed?.copies;
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((item: unknown) => ({
+        title: sanitize((item as Record<string, unknown>)?.title, 'Modelo de abordagem'),
+        desc: sanitize((item as Record<string, unknown>)?.desc, 'Copy gerada para prospecção.'),
+        text: sanitize((item as Record<string, unknown>)?.text)
+      }))
+      .filter((item) => item.title && item.desc && item.text)
+      .slice(0, 6);
+  } catch {
+    const braceMatch = cleaned.match(/(\[[\s\S]*?\])/);
+    if (braceMatch) {
+      try {
+        const parsed = JSON.parse(braceMatch[0]);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item: unknown) => ({
+              title: sanitize((item as Record<string, unknown>)?.title, 'Modelo'),
+              desc: sanitize((item as Record<string, unknown>)?.desc, ''),
+              text: sanitize((item as Record<string, unknown>)?.text)
+            }))
+            .filter((item) => item.title && item.text)
+            .slice(0, 6);
+        }
+      } catch { /* empty */ }
+    }
+    return [];
+  }
+};
 
-  return items
-    .map((item) => ({
-      title: sanitize(item?.title, 'Modelo de abordagem'),
-      desc: sanitize(item?.desc, 'Copy gerada para prospecção.'),
-      text: sanitize(item?.text)
-    }))
-    .filter((item) => item.title && item.desc && item.text)
-    .slice(0, 6);
+const buildCopyPrompt = ({
+  product, value, tone, channel, audience,
+  leadName, leadCompany, leadCity, leadNiche
+}: {
+  product: string; value: string; tone: string; channel: string; audience: string;
+  leadName?: string; leadCompany?: string; leadCity?: string; leadNiche?: string;
+}): string => {
+  const toneText = toneLabels[tone] || toneLabels.persuasive;
+  const channelText = channelLabels[channel] || channelLabels.mixed;
+
+  const leadContext = (leadName || leadCompany)
+    ? `\n\nCONTEXTO DO LEAD:\n- Nome: ${leadName || '—'}\n- Empresa: ${leadCompany || '—'}\n- Cidade: ${leadCity || '—'}\n- Nicho: ${leadNiche || audience}\n`
+    : `\n- Público alvo: ${audience}\n`;
+
+  return `Você é um copywriter B2B especialista em prospecção fria por ${channelText}.
+
+SUA OFERTA:
+- Produto/serviço: ${product}
+- Principal ganho prometido: ${value}${leadContext}
+- Tom: ${toneText}
+
+EXEMPLO DE COPY EXCELENTE (personalizada, específica, com contexto):
+{
+  "title": "WhatsApp: Abordagem consultiva com dado concreto",
+  "desc": "Primeiro contato personalizado que mostra pesquisa prévia.",
+  "text": "Olá {Nome}, vi que a {Empresa} tem um trabalho forte em {Nicho} em {Cidade}. Já ajudou empresas similares a {value}. Posso te mandar uma ideia rápida?"
+}
+
+EXEMPLO DE COPY RUIM (genérica, evite):
+{
+  "title": "WhatsApp: Genérica",
+  "desc": "Abordagem sem personalização.",
+  "text": "Olá, tudo bem? Gostaria de apresentar meu produto que é muito bom e vai ajudar sua empresa. Tem interesse?"
+}
+
+REGRAS OBRIGATÓRIAS:
+- PERSONALIZE para o lead sempre que possível.
+- Use abordagem ética, humana e sem promessa milagrosa.
+- Não diga que já conversou com o lead.
+- Varie abertura, ângulo, CTA e tamanho entre os modelos.
+- Use placeholders: ${tags}.
+- {Empresa} placeholder disponível para nome da empresa.
+- Para WhatsApp: máximo 300 caracteres, linguagem natural.
+- Para e-mail: máximo 500 caracteres, inclua assunto no campo "text" iniciando com "Assunto:".
+- Seja específico, não genérico. Evite frases como "vi seu perfil" sem contexto.
+- LGPD: não pareça spam, seja respeitoso.
+
+Responda SOMENTE JSON válido, como array de objetos.
+Cada objeto deve ter exatamente:
+- "title": string (título curto descritivo)
+- "desc": string (descrição de 1 linha)
+- "text": string (copy completa)
+
+Gere 4 modelos variados.`;
 };
 
 export async function POST(request: Request) {
@@ -148,85 +228,53 @@ export async function POST(request: Request) {
     const tone = sanitize(body.tone, 'persuasive');
     const channel = sanitize(body.channel, 'mixed');
     const audience = sanitize(body.audience, 'empresas locais');
+    const leadName = sanitize(body.leadName);
+    const leadCompany = sanitize(body.leadCompany);
+    const leadCity = sanitize(body.leadCity);
+    const leadNiche = sanitize(body.leadNiche);
 
     if (!product || !value) {
       return NextResponse.json({ error: 'Preencha o produto e a proposta de valor.' }, { status: 400 });
     }
 
     const localCopies = buildLocalCopies({ product, value, tone, channel, audience });
-    const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) {
-      return NextResponse.json({
-        success: true,
-        source: 'local_fallback',
-        model: 'local',
-        copies: localCopies
-      });
-    }
-
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-    const toneText = toneLabels[tone] || toneLabels.persuasive;
-    const channelText = channelLabels[channel] || channelLabels.mixed;
-    const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    const prompt = `Você é um copywriter B2B especialista em prospecção fria por ${channelText}.
-Gere 4 modelos diferentes em português do Brasil para abordagem comercial.
-
-Oferta:
-- Produto/serviço: ${product}
-- Principal ganho prometido: ${value}
-- Público alvo: ${audience}
-- Tom: ${toneText}
-- Semente de variação: ${variationSeed}
-
-Regras obrigatórias:
-- Use abordagem ética, humana e sem promessa milagrosa.
-- Não diga que já conversou com o lead.
-- Varie abertura, ângulo, CTA e tamanho entre os modelos.
-- Use placeholders compatíveis com o GeoLeads: ${tags}.
-- Para WhatsApp, mantenha mensagens naturais e curtas.
-- Para e-mail, inclua assunto no campo text.
-
-Responda somente JSON válido, como array de objetos.
-Cada objeto deve ter exatamente:
-- "title": string
-- "desc": string
-- "text": string`;
-
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.92,
-          topP: 0.95,
-          responseMimeType: 'application/json'
-        }
-      })
+    const prompt = buildCopyPrompt({
+      product, value, tone, channel, audience,
+      leadName, leadCompany, leadCity, leadNiche
     });
 
-    if (!res.ok) {
+    const result = await AIProvider.generate({
+      messages: [
+        { role: 'system', content: 'Você é um copywriter B2B especializado em prospecção fria. Gere apenas JSON válido.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.75,
+      maxTokens: 2048,
+    });
+
+    if (!result.content || result.fromFallback) {
       return NextResponse.json({
         success: true,
         source: 'local_fallback',
-        model: 'local',
-        warning: `Gemini indisponível (${res.status}). Usei modelos locais.`,
+        model: result.provider || 'local',
+        warning: result.provider === 'security_filter'
+          ? 'Entrada bloqueada pelo filtro de segurança.'
+          : 'Provedores IA indisponíveis no momento. Usei modelos locais.',
         copies: localCopies
       });
     }
 
-    const data = await res.json();
-    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const copies = parseCopies(textResponse);
+    const copies = tryParseJSON(result.content);
 
     return NextResponse.json({
       success: true,
-      source: copies.length > 0 ? 'gemini_ai' : 'local_fallback',
-      model: copies.length > 0 ? model : 'local',
+      source: copies.length > 0 ? `${result.provider}_ai` : 'local_fallback',
+      model: copies.length > 0 ? result.model : 'local',
+      latency: result.latency,
       copies: copies.length > 0 ? copies : localCopies
     });
+
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'erro desconhecido';
     console.error('ERRO NO COPYWRITER IA:', message);

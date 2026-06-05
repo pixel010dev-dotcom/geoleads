@@ -54,8 +54,8 @@ async function handlePaymentNotification(paymentId: string) {
 
 export async function POST(request: Request) {
   try {
-    const rawBody = await request.text();
-    const body = JSON.parse(rawBody);
+    const bodyText = await request.text();
+    const body = JSON.parse(bodyText);
     const event: MpEvent = body.data ? body : { action: body.action, data: { id: String(body.id || '') } };
 
     if (!event.data?.id) {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     // Valida assinatura do webhook
-    if (!verifyMercadoPagoSignature(request, rawBody)) {
+    if (!verifyMercadoPagoSignature(request, bodyText)) {
       console.warn('Webhook: assinatura invalida rejeitada');
       return NextResponse.json({ error: 'invalid_signature' }, { status: 401 });
     }

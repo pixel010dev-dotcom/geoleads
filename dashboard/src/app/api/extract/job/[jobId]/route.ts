@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createRequestSupabaseClient, getAuthUser } from '@/lib/server-auth';
+import { createRequestSupabaseClient, getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
+import { refundReservation, getReservationByJobId } from '@/lib/billing';
 
 export async function GET(
   _request: Request,
@@ -23,6 +24,10 @@ export async function GET(
       return NextResponse.json({ error: 'Job não encontrado' }, { status: 404 });
     }
 
+    // So entrega leads se o job foi entregue (delivered = true)
+    // Enquanto esta rodando, leads ficam ocultos ate o pagamento ser confirmado
+    const leads = data.delivered ? (data.leads || []) : [];
+
     return NextResponse.json({
       success: true,
       job: {
@@ -39,9 +44,10 @@ export async function GET(
           : data.search_time_seconds,
         message: data.message,
         error: data.error,
-        leads: data.leads || [],
+        leads,
         started_at: data.started_at,
         completed_at: data.completed_at,
+        delivered: data.delivered,
       }
     });
   } catch (err: any) {
@@ -58,12 +64,34 @@ export async function PATCH(
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const supabase = createRequestSupabaseClient(_request);
+    const adminSupabase = createAdminSupabaseClient();
     const { jobId } = await params;
-    const { status } = await _request.json();
+    const body = await _request.json();
+
+    // Valida campos permitidos - so aceita 'status' e 'cancelled'
+    const allowedFields = ['status'];
+    const invalidFields = Object.keys(body).filter(k => !allowedFields.includes(k));
+    if (invalidFields.length > 0) {
+      return NextResponse.json({ error: `Campos nao permitidos: ${invalidFields.join(', ')}` }, { status: 400 });
+    }
+
+    if (body.status === 'cancelled') {
+      // Reembolso atomico da reserva ANTES de marcar como cancelado
+      const reservation = await getReservationByJobId(Number(jobId));
+      if (reservation) {
+        const refundResult = await refundReservation(reservation.id);
+        if ('error' in refundResult) {
+          console.error('[BILLING] Falha ao reembolsar no cancelamento:', refundResult.error);
+        }
+      }
+    }
 
     const { data, error } = await supabase
       .from('extraction_jobs')
-      .update({ status, completed_at: status === 'cancelled' ? new Date().toISOString() : undefined })
+      .update({
+        status: body.status,
+        completed_at: body.status === 'cancelled' ? new Date().toISOString() : undefined,
+      })
       .eq('id', jobId)
       .eq('user_id', auth.user.id)
       .select()

@@ -8,19 +8,16 @@ import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
 import DashboardCharts from '@/components/DashboardCharts';
-import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, socialProofMsgs, defaultChatbotRules, filterOptions, quickSearches, type DashboardTab } from '@/components/dashboard/dashboard-constants';
-import { LockedFeaturePanel, LeadGuideWidget } from '@/components/dashboard/DashboardWidgets';
+import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, quickSearches, type DashboardTab } from '@/components/dashboard/dashboard-constants';
+import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
 import ExtractorSection from '@/components/dashboard/ExtractorSection';
 import CRMSection from '@/components/dashboard/CRMSection';
 import { WhatsAppSection } from '@/components/dashboard/WhatsAppSection';
 import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
 import AICopySection from '@/components/dashboard/AICopySection';
-import EnrichSection from '@/components/dashboard/EnrichSection';
 import SupportSection from '@/components/dashboard/SupportSection';
-import FacebookAds from '@/components/dashboard/FacebookAds';
-import AutoVendasSection from '@/components/dashboard/AutoVendasSection';
-import SocialProofWidget from '@/components/dashboard/SocialProofWidget';
 import { generatePdfReport } from '@/lib/pdf-report';
+import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('extractor');
@@ -112,8 +109,7 @@ export default function Home() {
   const [showReferral, setShowReferral] = useState(false);
   const [referralBonus, setReferralBonus] = useState<number | null>(null);
 
-  const [proofIndex, setProofIndex] = useState(0);
-  const [proofVisible, setProofVisible] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const dispatchableWaLeads = useMemo(
     () => crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado'),
@@ -313,6 +309,16 @@ export default function Home() {
     finally { setChatbotLoading(false); }
   };
 
+  const handleResetSession = async () => {
+    setChatbotLoading(true);
+    setChatbotMessage('');
+    try {
+      await callChatbotApi('reset_session');
+      setChatbotMessage('Sessão resetada. Conecte novamente.');
+    } catch (error: any) { setChatbotMessage(error.message); }
+    finally { setChatbotLoading(false); }
+  };
+
   const handlePairChatbot = async () => {
     if (!requireFeature('chatbot')) { setActiveTab('chatbot'); return; }
     const number = chatbotPhoneNumber.replace(/\D/g, '');
@@ -351,19 +357,6 @@ export default function Home() {
     setChatbotRules(prev => prev.filter(rule => rule.id !== id));
   };
 
-  useEffect(() => {
-    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
-    const interval = setInterval(() => {
-      setProofVisible(false);
-      const id = setTimeout(() => {
-        setProofIndex((prev) => (prev + 1) % socialProofMsgs.length);
-        setProofVisible(true);
-      }, 500);
-      timeoutIds.push(id);
-    }, 7000);
-    return () => { clearInterval(interval); timeoutIds.forEach(clearTimeout); };
-  }, [socialProofMsgs.length]);
-
   const applyProfileData = (profileData: any) => {
     const profileTokens = typeof profileData?.tokens === 'number'
       ? profileData.tokens
@@ -397,12 +390,18 @@ export default function Home() {
 
     const { data: profileData, error } = await supabase
       .from('profiles').select('tokens, plan_id').eq('id', userId).single();
-    if (error || !profileData) {
-      if (error) console.warn('Profile RLS fallback failed:', error.message);
-      return null;
+    if (error || !profileData) return;
+    try {
+      const { data: availableTokens } = await supabase.rpc('get_available_tokens', {
+        p_user_id: userId
+      });
+      setTokens(typeof availableTokens === 'number' ? availableTokens : profileData.tokens);
+    } catch {
+      setTokens(profileData.tokens);
     }
-    applyProfileData(profileData);
-    return profileData;
+    const savedPlanId = getPlanById(profileData.plan_id).id;
+    const inferredPlanId = getPlanIdFromTokens(profileData.tokens);
+    setPlanId(plans[savedPlanId].tokens >= plans[inferredPlanId].tokens ? savedPlanId : inferredPlanId);
   };
 
   useEffect(() => {
@@ -478,6 +477,14 @@ export default function Home() {
         await fetch('/api/referral/link', { method: 'POST', headers: h, body: JSON.stringify({ ref: pendingRef }) });
       })();
     }
+
+    // Onboarding check
+    try {
+      const onboardingDone = localStorage.getItem('geoleads_onboarding_done');
+      if (!onboardingDone) {
+        setShowOnboarding(true);
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -850,47 +857,43 @@ export default function Home() {
             message: j.message,
           });
           if (j.status === 'completed') {
-            const newLeads = j.leads || [];
-            setLeads(newLeads);
-            setIsExtracting(false);
-            setHasSearched(true);
-            if (pollRef.current) clearInterval(pollRef.current);
-            localStorage.removeItem('lastJobId');
-            setTokens(prev => prev !== null && j.leads_count > 0 ? Math.max(0, prev - j.leads_count) : prev);
-            // Auto-salva leads no CRM
-            if (newLeads.length > 0) {
-              const userId = user?.id;
-              // Calcula toAdd fora do updater (puro)
-              const toAdd = newLeads.filter((l: any) => {
-                const key = getLeadKey(l);
-                return !crmLeads.some((cl: any) => getLeadKey(cl) === key);
-              }).map((l: any) => ({
-                ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
-                nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
-              }));
-              if (toAdd.length > 0) {
-                const normalized = [...toAdd, ...crmLeads].map(normalizeCrmLead);
-                setCrmLeads(normalized);
-                localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
-                if (userId) {
-                  const rows = normalized.map(lead => crmLeadToRow(lead, userId));
+            if (j.delivered) {
+              setLeads(j.leads || []);
+              setHasSearched(true);
+              const newLeads = j.leads || [];
+              // Auto-salva leads no CRM
+              if (newLeads.length > 0 && user?.id) {
+                const toAdd = newLeads.filter((l: any) => {
+                  const key = getLeadKey(l);
+                  return !crmLeads.some((cl: any) => getLeadKey(cl) === key);
+                }).map((l: any) => ({
+                  ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
+                  nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
+                }));
+                if (toAdd.length > 0) {
+                  const normalized = [...toAdd, ...crmLeads].map(normalizeCrmLead);
+                  setCrmLeads(normalized);
+                  localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
+                  const rows = normalized.map(lead => crmLeadToRow(lead, user.id!));
                   supabase.from('crm_leads').upsert(rows, { onConflict: 'user_id,lead_key' }).then(({ error }) => {
                     if (error) console.warn('CRM auto-sync failed:', error.message);
                     else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
                   });
+                  showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
+                  setChartRefreshKey(k => k + 1);
+                } else {
+                  showToast('Leads já existem no CRM.', 'info');
                 }
-                showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
-                setChartRefreshKey(k => k + 1);
-              } else if (newLeads.length > 0) {
-                showToast('Leads já existem no CRM.', 'info');
               }
-            }
-          } else if (j.status === 'running') {
-            // Entrega incremental: mostra leads já encontrados durante a extração
-            if (j.leads && j.leads.length > 0) {
-              setLeads(j.leads);
+            } else {
               setHasSearched(true);
             }
+            setIsExtracting(false);
+            if (pollRef.current) clearInterval(pollRef.current);
+            localStorage.removeItem('lastJobId');
+            if (user?.id) refreshProfile(user.id);
+          } else if (j.status === 'running') {
+            setHasSearched(false);
           } else if (j.status === 'failed' || j.status === 'cancelled') {
             if (currentJobIdRef.current !== jobId) return;
             setIsExtracting(false);
@@ -967,13 +970,22 @@ export default function Home() {
     try {
       const headers = await getAuthedJsonHeaders();
       if (!headers) return;
-      await fetch(`/api/extract/job/${jobId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'cancelled' }) });
+      const res = await fetch('/api/extract/cancel', {
+        method: 'POST', headers,
+        body: JSON.stringify({ jobId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Extração cancelada. Tokens reembolsados.', 'info');
+        if (user?.id) refreshProfile(user.id);
+      } else {
+        showToast(data.error || 'Erro ao cancelar extração.', 'error');
+      }
     } catch {}
     if (pollRef.current) clearInterval(pollRef.current);
     setIsExtracting(false);
     setHasSearched(true);
     localStorage.removeItem('lastJobId');
-    showToast('Extração cancelada.', 'info');
   };
 
   const logout = async () => { await supabase.auth.signOut(); router.push('/login'); };
@@ -1156,75 +1168,50 @@ export default function Home() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold mb-4">
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                Painel pronto para prospecção
+                GeoLeads pronto
               </div>
               <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 sm:mb-4 leading-tight max-w-4xl">
-                Encontre, organize e aborde <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">clientes B2B</span>
+                Encontre clientes no <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Google Maps</span>
               </h1>
               <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl leading-relaxed">
-                Escolha o nicho, a região e o nível de contato que você quer. O GeoLeads entrega a lista, o CRM e a abordagem em um fluxo só.
+                Busque, organize e aborde leads B2B em minutos. Um fluxo só do Maps ao WhatsApp.
               </p>
-              <div className="workflow-strip mt-5">
-                <span>Maps</span><span>CNPJ</span><span>E-mail</span><span>Redes</span><span>WhatsApp</span>
-              </div>
             </div>
-            <LeadGuideWidget user={user} currentPlan={currentPlan} tokens={tokens} onNavigate={setActiveTab} />
           </div>
           <DashboardCharts tokens={tokens ?? 0} leads={crmLeads} />
 
           <div className="flex items-center gap-2 sm:gap-3 mb-6 overflow-x-auto max-w-full">
-            <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold flex-shrink-0">
-              🎁 Indique e Ganhe
-            </button>
-            <button onClick={() => generatePdfReport({ tokens: tokens ?? 0, leads: crmLeads, userName: user?.email || 'Usuário' })}
-              className="text-[11px] px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold flex-shrink-0">
-              📄 Relatório PDF
-            </button>
-            <div className="app-tabs dashboard-tabs flex gap-2 flex-shrink-0 items-center">
-              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mr-1">Captura</span>
+            <div className="app-tabs dashboard-tabs flex gap-1 flex-shrink-0 items-center">
               <button onClick={() => setActiveTab('extractor')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                🚀 Extrator
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                🔍 Buscar
               </button>
-              <button onClick={() => setActiveTab('autovendas')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'autovendas' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                🤖 AutoVendas{!requireFeature('autovendas') && <span className="text-[10px] text-amber-300">🔒</span>}
-              </button>
-
-              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-3 mr-1">Gestão</span>
               <button onClick={() => setActiveTab('crm')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                📋 CRM{!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}{crmLeads.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                📋 Leads{!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}{crmLeads.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>}
               </button>
-              <button onClick={() => setActiveTab('enrich')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'enrich' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                🔍 Dados
-              </button>
-
-              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-3 mr-1">WhatsApp</span>
               <button onClick={() => setActiveTab('whatsapp')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                ⚡ Disparo{!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                ⚡ Disparar{!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}
               </button>
               <button onClick={() => setActiveTab('chatbot')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                 💬 Auto-Resposta{!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}
               </button>
-
-              <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-3 mr-1">Mais</span>
-              <button onClick={() => setActiveTab('ia')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'ia' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                🤖 IA{!requireFeature('aiCopy') && <span className="text-[10px] text-amber-300">🔒</span>}
-              </button>
-              <button onClick={() => setActiveTab('facebook')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'facebook' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                📢 Facebook
-              </button>
               <button onClick={() => setActiveTab('support')}
-                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-t-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/15 border-b-2 border-blue-500 text-blue-400' : 'text-gray-400 hover:text-white'}`}>
-                🙋‍♀️ Suporte
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                ⚙️
               </button>
-          </div>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold">
+                🎁 Indique
+              </button>
+              <button onClick={() => setActiveTab('ia')}
+                className={`text-[11px] px-3 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap font-semibold ${activeTab === 'ia' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'}`}>
+                🤖 IA Copy{!requireFeature('aiCopy') && <span className="ml-1 text-amber-300">🔒</span>}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1319,7 +1306,7 @@ export default function Home() {
             chatbotSession={chatbotSession} chatbotLoading={chatbotLoading} chatbotMessage={chatbotMessage}
             chatbotPhoneNumber={chatbotPhoneNumber} setChatbotPhoneNumber={setChatbotPhoneNumber}
             user={user} handleConnectChatbot={handleConnectChatbot} handleDisconnectChatbot={handleDisconnectChatbot}
-            handlePairChatbot={handlePairChatbot} saveChatbotConfig={saveChatbotConfig}
+            handlePairChatbot={handlePairChatbot} handleResetSession={handleResetSession} saveChatbotConfig={saveChatbotConfig}
             updateChatbotRule={updateChatbotRule} addChatbotRule={addChatbotRule} removeChatbotRule={removeChatbotRule}
             chatbotAutoCapture={chatbotAutoCapture} setChatbotAutoCapture={setChatbotAutoCapture}
             chatbotStats={chatbotStats} conversations={conversations} conversationsLoading={conversationsLoading}
@@ -1336,19 +1323,6 @@ export default function Home() {
           />
         )}
 
-        {activeTab === 'enrich' && (
-          <EnrichSection
-            crmLeads={crmLeads}
-            handleReEnrichSingle={handleReEnrichSingle}
-            handleReEnrichSelected={handleReEnrichSelected}
-            enrichLoading={enrichLoading}
-            selectedCrmLeads={selectedCrmLeads}
-            setSelectedCrmLeads={setSelectedCrmLeads}
-            openWhatsApp={openWhatsApp}
-            showToast={showToast}
-          />
-        )}
-
         {activeTab === 'support' && (
           <SupportSection
             supportRating={supportRating} setSupportRating={setSupportRating}
@@ -1357,17 +1331,9 @@ export default function Home() {
             hoveredStar={hoveredStar} setHoveredStar={setHoveredStar} user={user} showToast={showToast}
           />
         )}
-
-        {activeTab === 'autovendas' && !activeTabLocked && (
-          <AutoVendasSection />
-        )}
-
-        {activeTab === 'facebook' && (
-          <FacebookAds showToast={showToast} crmLeads={crmLeads} onUpdateCRM={saveCrm} />
-        )}
       </main>
 
-      <SocialProofWidget proofIndex={proofIndex} proofVisible={proofVisible} />
+      {showOnboarding && <OnboardingOverlay />}
 
       {showReferral && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowReferral(false)}>
