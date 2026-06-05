@@ -683,6 +683,14 @@ export async function POST(request: Request) {
     session.status = 'pairing';
     session.startedAtMs = Date.now();
 
+    // Limpa credenciais antigas antes de parear (igual ao connect)
+    try {
+      const supabase = createAdminSupabaseClient();
+      await supabase.from('whatsapp_sessions').delete().eq('user_id', auth.user.id);
+    } catch (cleanupErr: any) {
+      console.error('[WAP] Falha ao limpar credenciais antes de parear:', cleanupErr.message);
+    }
+
     const baileys = await import('@whiskeysockets/baileys');
     const makeWASocket = baileys.default;
     const { Browsers, DisconnectReason } = baileys;
@@ -774,6 +782,8 @@ export async function POST(request: Request) {
     });
 
     // Request pairing code
+    // Aguarda socket inicializar antes de pedir código
+    await new Promise(r => setTimeout(r, 1500));
     try {
       const code = await socket.requestPairingCode(phoneNumber);
       session.pairingCode = code;
