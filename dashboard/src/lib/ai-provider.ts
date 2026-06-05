@@ -164,10 +164,10 @@ const buildProviders = (): AIProviderConfig[] => {
     providers.push({
       name: 'Gemini',
       baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
       apiKey: process.env.GEMINI_API_KEY,
       priority: 1,
-      timeout: 15000,
+      timeout: 8000,
     });
   }
 
@@ -177,7 +177,7 @@ const buildProviders = (): AIProviderConfig[] => {
     model: '@cf/meta/llama-3.1-8b-instruct',
     apiKey: 'keyless',
     priority: 8,
-    timeout: 10000,
+    timeout: 5000,
   });
 
   providers.push({
@@ -186,7 +186,7 @@ const buildProviders = (): AIProviderConfig[] => {
     model: 'Meta-Llama-3.1-70B-Instruct',
     apiKey: 'ovh-free',
     priority: 9,
-    timeout: 12000,
+    timeout: 4000,
   });
 
   providers.sort((a, b) => a.priority - b.priority);
