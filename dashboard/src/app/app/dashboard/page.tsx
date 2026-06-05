@@ -85,6 +85,8 @@ export default function Home() {
   const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState('Olá! Sou o assistente automático. Me diga como posso ajudar.');
   const [chatbotFallbackMessage, setChatbotFallbackMessage] = useState('Recebi sua mensagem. Um atendente vai continuar por aqui em breve.');
   const [chatbotRules, setChatbotRules] = useState(defaultChatbotRules);
+  const [chatbotUseAI, setChatbotUseAI] = useState(true);
+  const [chatbotAiInstructions, setChatbotAiInstructions] = useState('Você é um assistente de vendas amigável e profissional. Ajude clientes com dúvidas sobre serviços, agende reuniões e colete informações de contato.');
   const [chatbotSession, setChatbotSession] = useState<any>({ status: 'idle', repliedCount: 0 });
   const [chatbotAutoCapture, setChatbotAutoCapture] = useState(false);
   const [chatbotStats, setChatbotStats] = useState<any>(null);
@@ -214,6 +216,8 @@ export default function Home() {
     setChatbotWelcomeMessage(config.welcomeMessage || config.welcome_message || 'Olá! Sou o assistente automático. Me diga como posso ajudar.');
     setChatbotFallbackMessage(config.fallbackMessage || config.fallback_message || 'Recebi sua mensagem. Um atendente vai continuar por aqui em breve.');
     setChatbotRules(Array.isArray(config.rules) && config.rules.length > 0 ? config.rules : defaultChatbotRules);
+    if (config.useAI !== undefined) setChatbotUseAI(Boolean(config.useAI));
+    if (config.aiInstructions) setChatbotAiInstructions(config.aiInstructions);
   };
 
   const getChatbotConfig = () => ({
@@ -221,7 +225,9 @@ export default function Home() {
     businessName: chatbotBusinessName,
     welcomeMessage: chatbotWelcomeMessage,
     fallbackMessage: chatbotFallbackMessage,
-    rules: chatbotRules
+    rules: chatbotRules,
+    useAI: chatbotUseAI,
+    aiInstructions: chatbotAiInstructions
   });
 
   const saveChatbotConfig = async (silent = false) => {
@@ -230,13 +236,29 @@ export default function Home() {
     let cloudSyncFailed = false;
     let runtimeSyncFailed = false;
     if (user?.id) {
+      let upsertError = null;
+      // Tenta salvar com campos de IA (podem não existir na tabela ainda)
       const { error } = await supabase
         .from('chatbot_configs')
         .upsert({
           user_id: user.id, enabled: config.enabled, business_name: config.businessName,
-          welcome_message: config.welcomeMessage, fallback_message: config.fallbackMessage, rules: config.rules
+          welcome_message: config.welcomeMessage, fallback_message: config.fallbackMessage,
+          rules: config.rules, use_ai: config.useAI, ai_instructions: config.aiInstructions
         }, { onConflict: 'user_id' });
-      if (error) { console.warn('Chatbot config cloud sync failed:', error.message); cloudSyncFailed = true; }
+      upsertError = error;
+      // Fallback: se deu erro nos novos campos, tenta sem eles
+      if (error && (error.message?.includes('use_ai') || error.message?.includes('ai_instructions'))) {
+        const { error: fallbackError } = await supabase
+          .from('chatbot_configs')
+          .upsert({
+            user_id: user.id, enabled: config.enabled, business_name: config.businessName,
+            welcome_message: config.welcomeMessage, fallback_message: config.fallbackMessage,
+            rules: config.rules
+          }, { onConflict: 'user_id' });
+        upsertError = fallbackError;
+        if (!fallbackError) cloudSyncFailed = false;
+      }
+      if (upsertError) { console.warn('Chatbot config cloud sync failed:', upsertError.message); cloudSyncFailed = true; }
       // Save auto-capture setting
       await supabase.from('profiles').update({ chatbot_auto_capture: chatbotAutoCapture }).eq('id', user.id);
     }
@@ -428,7 +450,8 @@ export default function Home() {
             const config = {
               enabled: cloudChatbotConfig.enabled, businessName: cloudChatbotConfig.business_name,
               welcomeMessage: cloudChatbotConfig.welcome_message, fallbackMessage: cloudChatbotConfig.fallback_message,
-              rules: cloudChatbotConfig.rules
+              rules: cloudChatbotConfig.rules,
+              useAI: cloudChatbotConfig.use_ai, aiInstructions: cloudChatbotConfig.ai_instructions
             };
             applyChatbotConfig(config);
             localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config));
@@ -1291,6 +1314,8 @@ export default function Home() {
             chatbotWelcomeMessage={chatbotWelcomeMessage} setChatbotWelcomeMessage={setChatbotWelcomeMessage}
             chatbotFallbackMessage={chatbotFallbackMessage} setChatbotFallbackMessage={setChatbotFallbackMessage}
             chatbotRules={chatbotRules} setChatbotRules={setChatbotRules}
+            chatbotUseAI={chatbotUseAI} setChatbotUseAI={setChatbotUseAI}
+            chatbotAiInstructions={chatbotAiInstructions} setChatbotAiInstructions={setChatbotAiInstructions}
             chatbotSession={chatbotSession} chatbotLoading={chatbotLoading} chatbotMessage={chatbotMessage}
             chatbotPhoneNumber={chatbotPhoneNumber} setChatbotPhoneNumber={setChatbotPhoneNumber}
             user={user} handleConnectChatbot={handleConnectChatbot} handleDisconnectChatbot={handleDisconnectChatbot}

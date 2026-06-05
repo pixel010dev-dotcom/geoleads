@@ -1,4 +1,4 @@
-import { defaultChatbotRules } from './dashboard-constants';
+import { defaultAiInstructions } from './dashboard-constants';
 
 export interface ChatbotSectionProps {
   chatbotEnabled: boolean;
@@ -11,6 +11,10 @@ export interface ChatbotSectionProps {
   setChatbotFallbackMessage: (v: string) => void;
   chatbotRules: any[];
   setChatbotRules: (v: any[]) => void;
+  chatbotUseAI: boolean;
+  setChatbotUseAI: (v: boolean) => void;
+  chatbotAiInstructions: string;
+  setChatbotAiInstructions: (v: string) => void;
   chatbotSession: any;
   chatbotLoading: boolean;
   chatbotMessage: string;
@@ -24,7 +28,6 @@ export interface ChatbotSectionProps {
   updateChatbotRule: (id: string, field: 'keyword' | 'response' | 'enabled', value: string | boolean) => void;
   addChatbotRule: () => void;
   removeChatbotRule: (id: string) => void;
-  // Enriquecimentos
   chatbotAutoCapture: boolean;
   setChatbotAutoCapture: (v: boolean) => void;
   chatbotStats: any;
@@ -39,12 +42,12 @@ export function ChatbotSection({
   setChatbotEnabled,
   chatbotBusinessName,
   setChatbotBusinessName,
-  chatbotWelcomeMessage,
-  setChatbotWelcomeMessage,
   chatbotFallbackMessage,
   setChatbotFallbackMessage,
-  chatbotRules,
-  setChatbotRules,
+  chatbotUseAI,
+  setChatbotUseAI,
+  chatbotAiInstructions,
+  setChatbotAiInstructions,
   chatbotSession,
   chatbotLoading,
   chatbotMessage,
@@ -55,9 +58,6 @@ export function ChatbotSection({
   handleDisconnectChatbot,
   handlePairChatbot,
   saveChatbotConfig,
-  updateChatbotRule,
-  addChatbotRule,
-  removeChatbotRule,
   chatbotAutoCapture,
   setChatbotAutoCapture,
   chatbotStats,
@@ -71,9 +71,9 @@ export function ChatbotSection({
       <div className="lg:col-span-1 space-y-5">
         <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-cyan-500" />
-          <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">🤖 Chatbot WhatsApp</h3>
+          <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">🤖 Auto-Resposta</h3>
           <p className="text-xs text-gray-400 leading-relaxed mb-5">
-            Responda mensagens recebidas automaticamente com regras simples. Ideal para atendimento inicial, dúvidas frequentes e captação de interessados.
+            Responda mensagens do WhatsApp automaticamente com inteligência artificial. Basta descrever o contexto do seu negócio.
           </p>
 
           <div className="rounded-2xl bg-black/40 border border-white/10 p-4 mb-5">
@@ -100,21 +100,18 @@ export function ChatbotSection({
                 <strong className="text-lg text-white">{chatbotSession.repliedCount || 0}</strong>
               </div>
               <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <span className="block text-gray-500">Regras no bot</span>
-                <strong className="text-lg text-white">{chatbotSession.rulesCount ?? chatbotRules.filter(rule => rule.enabled).length}</strong>
+                <span className="block text-gray-500">IA Ativa?</span>
+                <strong className="text-lg text-white">{chatbotUseAI ? 'Sim' : 'Não'}</strong>
               </div>
             </div>
 
-            {(chatbotSession.lastError || chatbotSession.lastDisconnectCode) && (
+            {chatbotSession.lastError && (
               <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 leading-relaxed">
-                {chatbotSession.lastError || 'Conexão instável.'}
-                {chatbotSession.lastDisconnectCode && (
-                  <span className="block font-mono mt-1 opacity-80">Código: {chatbotSession.lastDisconnectCode}</span>
-                )}
+                {chatbotSession.lastError}
               </div>
             )}
 
-            {(chatbotSession.lastIncomingAt || chatbotSession.lastReplyAt || chatbotSession.lastIgnoredReason || chatbotSession.lastEventType) && (
+            {chatbotSession.lastIncomingAt && (
               <div className="mt-3 p-3 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] text-gray-300 leading-relaxed space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-gray-500">Bot</span>
@@ -122,28 +119,14 @@ export function ChatbotSection({
                     {chatbotSession.enabled ? 'Ativo' : 'Pausado'}
                   </span>
                 </div>
-                {chatbotSession.lastEventType && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-500">Evento</span>
-                    <span className="font-mono text-gray-200">{chatbotSession.lastEventType}</span>
-                  </div>
-                )}
-                {chatbotSession.lastIncomingAt && (
-                  <div>
-                    <span className="block text-gray-500">Última mensagem</span>
-                    <span className="block text-gray-200 break-words">{chatbotSession.lastIncomingText || 'Sem texto legível'}</span>
-                  </div>
-                )}
-                {chatbotSession.lastReplyAt && (
+                <div>
+                  <span className="block text-gray-500">Última mensagem</span>
+                  <span className="block text-gray-200 break-words">{chatbotSession.lastIncomingText || '—'}</span>
+                </div>
+                {chatbotSession.lastReplyText && (
                   <div>
                     <span className="block text-gray-500">Última resposta</span>
                     <span className="block text-gray-200 break-words">{chatbotSession.lastReplyText}</span>
-                  </div>
-                )}
-                {chatbotSession.lastIgnoredReason && (
-                  <div>
-                    <span className="block text-gray-500">Último motivo</span>
-                    <span className="block text-amber-300 break-words">{chatbotSession.lastIgnoredReason}</span>
                   </div>
                 )}
               </div>
@@ -163,7 +146,7 @@ export function ChatbotSection({
             </div>
           ) : (
             <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 leading-relaxed mb-5">
-              Ao conectar, o GeoLeads gera um QR Code ou código de pareamento. Depois que o WhatsApp parear, o bot responde apenas conversas recebidas.
+              Ao conectar, o GeoLeads gera um QR Code ou código de pareamento. Depois que o WhatsApp parear, o bot responde usando IA.
             </div>
           )}
 
@@ -228,16 +211,7 @@ export function ChatbotSection({
             >
               Salvar Configuração
             </button>
-            <div className="mt-3 p-3 rounded-xl bg-amber-500/15 border border-amber-500/25">
-              <p className="text-xs text-amber-300 font-bold text-center">⚠ Salve as configurações primeiro!</p>
-              <p className="text-[11px] text-amber-400/70 text-center mt-1">O QR Code só aparece depois de salvar</p>
-            </div>
           </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
-          <span className="font-bold block mb-1">Uso recomendado</span>
-          Use para atendimento e resposta a contatos que chamaram primeiro. O comando SAIR/PARAR/CANCELAR desativa respostas automáticas para aquele contato.
         </div>
       </div>
 
@@ -245,18 +219,29 @@ export function ChatbotSection({
         <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-xl font-semibold">Configuração do Atendimento</h3>
-              <p className="text-xs text-gray-500 mt-1">Defina a identidade do bot e as mensagens padrão.</p>
+              <h3 className="text-xl font-semibold">Configuração do Bot com IA</h3>
+              <p className="text-xs text-gray-500 mt-1">Descreva o contexto do seu negócio e a IA responderá por você.</p>
             </div>
-            <label className="flex items-center gap-2 text-xs text-gray-300 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={chatbotEnabled}
-                onChange={(e) => setChatbotEnabled(e.target.checked)}
-                className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-4 w-4"
-              />
-              Bot ativo
-            </label>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-gray-300 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={chatbotUseAI}
+                  onChange={(e) => setChatbotUseAI(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-4 w-4"
+                />
+                Usar IA
+              </label>
+              <label className="flex items-center gap-2 text-xs text-gray-300 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={chatbotEnabled}
+                  onChange={(e) => setChatbotEnabled(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-4 w-4"
+                />
+                Bot ativo
+              </label>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
@@ -278,89 +263,36 @@ export function ChatbotSection({
             </div>
           </div>
 
+          <div className="mb-5">
+            <label className="block text-xs text-gray-400 mb-1">Instruções para a IA (personalidade, tom, contexto do negócio)</label>
+            <textarea
+              rows={4}
+              value={chatbotAiInstructions}
+              onChange={(e) => setChatbotAiInstructions(e.target.value)}
+              placeholder={defaultAiInstructions}
+              className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">Descreva como o bot deve se comportar, o que ele oferece, e como lidar com perguntas comuns.</p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Mensagem inicial/fallback</label>
+              <label className="block text-xs text-gray-400 mb-1">Mensagem de fallback (quando IA estiver offline)</label>
               <textarea
-                rows={4}
+                rows={3}
                 value={chatbotFallbackMessage}
                 onChange={(e) => setChatbotFallbackMessage(e.target.value)}
                 className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
               />
             </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Mensagem de boas-vindas interna</label>
-              <textarea
-                rows={4}
-                value={chatbotWelcomeMessage}
-                onChange={(e) => setChatbotWelcomeMessage(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h3 className="text-xl font-semibold">Fluxos de Resposta</h3>
-              <p className="text-xs text-gray-500 mt-1">Quando a mensagem recebida contiver a palavra-chave, o bot envia a resposta.</p>
-            </div>
-            <button
-              type="button"
-              onClick={addChatbotRule}
-              className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold cursor-pointer"
-            >
-              + Nova Regra
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {chatbotRules.map((rule, index) => (
-              <div key={rule.id} className="p-4 rounded-2xl bg-black/30 border border-white/10">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                  <span className="text-xs font-bold text-gray-300">Regra {index + 1}</span>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-[11px] text-gray-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={rule.enabled}
-                        onChange={(e) => updateChatbotRule(rule.id, 'enabled', e.target.checked)}
-                        className="rounded border-white/20 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-3.5 w-3.5"
-                      />
-                      Ativa
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => removeChatbotRule(rule.id)}
-                      className="text-xs text-red-400 hover:text-red-300 cursor-pointer"
-                    >
-                      Remover
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] text-gray-500 mb-1">Palavra-chave</label>
-                    <input
-                      value={rule.keyword}
-                      onChange={(e) => updateChatbotRule(rule.id, 'keyword', e.target.value)}
-                      placeholder="ex: preço"
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[11px] text-gray-500 mb-1">Resposta automática</label>
-                    <textarea
-                      rows={3}
-                      value={rule.response}
-                      onChange={(e) => updateChatbotRule(rule.id, 'response', e.target.value)}
-                      className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
-                    />
-                  </div>
-                </div>
+            <div className="flex flex-col justify-end">
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <p className="text-xs text-emerald-300 font-semibold">🤖 IA Ativa</p>
+                <p className="text-[11px] text-emerald-400/70 mt-1">
+                  As respostas são geradas por IA com base no contexto que você descreveu. Quanto mais detalhes, melhor o resultado.
+                </p>
               </div>
-            ))}
+            </div>
           </div>
         </div>
 

@@ -1266,27 +1266,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nao autenticado. Faca login para extrair leads.' }, { status: 401 });
     }
 
-    // Rate limit: máximo 2 extrações simultâneas por usuário, 10 global
-    const current = activeExtractions.get(auth.user.id) || 0;
-    activeExtractions.set(auth.user.id, current + 1);
-    if (current >= MAX_CONCURRENT_PER_USER) {
-      activeExtractions.set(auth.user.id, current);
-      return NextResponse.json({
-        error: `Você já tem ${current} extrações em andamento. Aguarde uma finalizar antes de iniciar outra.`
-      }, { status: 429 });
-    }
-    if (getGlobalConcurrent() >= MAX_GLOBAL_CONCURRENT) {
-      activeExtractions.set(auth.user.id, current);
-      return NextResponse.json({
-        error: 'Sistema sobrecarregado. Tente novamente em alguns segundos.'
-      }, { status: 503 });
-    }
-
     const { keyword: rawKeyword, location: rawLocation, limit, filterRule, existingLeadKeys } = await request.json();
     const requestSupabase = createRequestSupabaseClient(request);
 
     if (!rawKeyword || !rawLocation) {
-      done();
       return NextResponse.json({ error: 'Preencha o termo e a cidade.' }, { status: 400 });
     }
 
@@ -1302,7 +1285,6 @@ export async function POST(request: Request) {
       for (const rule of rules) {
         const requiredFeature = featureMap[rule];
         if (requiredFeature && !requireFeature(auth.planId, requiredFeature)) {
-          done();
           return NextResponse.json({
             error: `Filtro "${rule}" exige plano superior. Faca upgrade para usar.`
           }, { status: 403 });
@@ -1311,7 +1293,6 @@ export async function POST(request: Request) {
     }
 
     if (auth.tokens <= 0) {
-      done();
       return NextResponse.json({ error: 'Sem tokens disponiveis. Compre mais tokens para continuar extraindo.' }, { status: 402 });
     }
 
@@ -1322,9 +1303,22 @@ export async function POST(request: Request) {
     const requestedLimit = Math.max(1, Number(limit) || 10);
     const targetLimit = Math.min(requestedLimit, 200, auth.tokens);
     if (targetLimit === 0) {
-      done();
       return NextResponse.json({ error: 'Saldo insuficiente. Compre mais tokens.' }, { status: 402 });
     }
+
+    // Rate limit: máximo 2 extrações simultâneas por usuário, 10 global (checa ANTES de incrementar)
+    const current = activeExtractions.get(auth.user.id) || 0;
+    if (current >= MAX_CONCURRENT_PER_USER) {
+      return NextResponse.json({
+        error: `Você já tem ${current} extrações em andamento. Aguarde uma finalizar antes de iniciar outra.`
+      }, { status: 429 });
+    }
+    if (getGlobalConcurrent() >= MAX_GLOBAL_CONCURRENT) {
+      return NextResponse.json({
+        error: 'Sistema sobrecarregado. Tente novamente em alguns segundos.'
+      }, { status: 503 });
+    }
+    activeExtractions.set(auth.user.id, current + 1);
 
     // Cria job no Supabase e dispara extração em background
     const { data: jobData, error: jobError } = await requestSupabase.from('extraction_jobs').insert({

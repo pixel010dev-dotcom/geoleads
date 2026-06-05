@@ -20,6 +20,8 @@ type ChatbotConfig = {
   welcomeMessage: string;
   fallbackMessage: string;
   rules: ChatbotRule[];
+  useAI: boolean;
+  aiInstructions: string;
 };
 
 type BotSession = {
@@ -53,7 +55,9 @@ const DEFAULT_CONFIG: ChatbotConfig = {
   businessName: 'GeoLeads',
   welcomeMessage: 'Olá! Sou o assistente automático. Me diga como posso ajudar.',
   fallbackMessage: 'Recebi sua mensagem. Um atendente vai continuar por aqui em breve.',
-  rules: []
+  rules: [],
+  useAI: true,
+  aiInstructions: 'Você é um assistente de vendas amigável e profissional. Ajude clientes com dúvidas sobre serviços, agende reuniões e colete informações de contato. Seja natural e evite respostas robóticas.'
 };
 
 const getSessionStore = () => {
@@ -84,6 +88,8 @@ const getPublicSession = (session?: BotSession) => ({
   lastIgnoredReason: session?.lastIgnoredReason || '',
   repliedCount: session?.repliedCount || 0,
   enabled: session?.config.enabled ?? false,
+  useAI: session?.config.useAI ?? true,
+  aiInstructions: session?.config.aiInstructions || '',
   rulesCount: session?.config.rules.filter(rule => rule.enabled && rule.keyword.trim().length > 0).length || 0
 });
 
@@ -198,13 +204,85 @@ const renderResponse = (template: string, vars: Record<string, string>) => {
     .replace(/{Empresa}/g, vars.empresa || 'nossa equipe');
 };
 
-const pickResponse = (text: string, config: ChatbotConfig) => {
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const GEMINI_KEY = process.env.GEMINI_API_KEY || '';
+
+async function getConversationHistory(userId: string, contactJid: string, limit = 10): Promise<string[]> {
+  try {
+    const supabase = createAdminSupabaseClient();
+    const { data } = await supabase
+      .from('chatbot_conversations')
+      .select('message_text, direction')
+      .eq('user_id', userId)
+      .eq('contact_jid', contactJid)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (!data) return [];
+    const history: string[] = [];
+    for (let i = data.length - 1; i >= 0; i--) {
+      const prefix = data[i].direction === 'incoming' ? 'Cliente: ' : 'Você: ';
+      history.push(prefix + data[i].message_text);
+    }
+    return history;
+  } catch { return []; }
+}
+
+async function callGeminiAI(
+  userMessage: string,
+  history: string[],
+  config: ChatbotConfig
+): Promise<string | null> {
+  if (!GEMINI_KEY) return null;
+  try {
+    const historyBlock = history.length > 0 ? '\nHistórico da conversa:\n' + history.join('\n') : '';
+    const prompt = `Você é o assistente automático de WhatsApp da empresa "${config.businessName}".
+
+Instruções: ${config.aiInstructions}
+
+Regras importantes:
+- Responda em português do Brasil, de forma natural e humana.
+- Seja breve e direto (máximo 3 parágrafos).
+- Não invente informações sobre preços, disponibilidade ou prazos.
+- Se não souber algo, diga educadamente que um atendente humano vai ajudar.
+- Use o nome do cliente quando disponível.
+- Extraia informações de contato (nome, telefone, interesse) quando o cliente fornecer.
+- Se o cliente pedir "sair", "parar" ou "cancelar", confirme o desligamento.${historyBlock}
+
+Cliente: ${userMessage}
+Você:`;
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 300, topP: 0.9 }
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return text.trim() || null;
+  } catch { return null; }
+}
+
+async function pickResponse(text: string, config: ChatbotConfig, session?: BotSession, jid?: string) {
+  // Tenta IA primeiro se habilitado
+  if (config.useAI && GEMINI_KEY && session?.userId && jid) {
+    const history = await getConversationHistory(session.userId, jid);
+    const aiResponse = await callGeminiAI(text, history, config);
+    if (aiResponse) {
+      return { text: aiResponse, ruleId: null };
+    }
+  }
+
+  // Fallback: regras manuais
   const matched = config.rules.find(rule => {
     return rule.enabled && keywordMatchesText(text, rule.keyword);
   });
 
   return { text: matched?.response || config.fallbackMessage, ruleId: matched?.id || null };
-};
+}
 
 const getOrCreateSession = (userId: string, config?: Partial<ChatbotConfig>) => {
   const store = getSessionStore();
@@ -452,7 +530,7 @@ const startBotSession = async (session: BotSession) => {
           continue;
         }
 
-        const { text: responseText, ruleId: matchedRuleId } = pickResponse(text, session.config);
+        const { text: responseText, ruleId: matchedRuleId } = await pickResponse(text, session.config, session, jid);
         if (!responseText) {
           session.lastIgnoredReason = 'Nenhuma resposta configurada para essa mensagem.';
           continue;

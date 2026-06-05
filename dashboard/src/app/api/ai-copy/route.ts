@@ -165,7 +165,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
     const toneText = toneLabels[tone] || toneLabels.persuasive;
     const channelText = channelLabels[channel] || channelLabels.mixed;
     const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2)}`;

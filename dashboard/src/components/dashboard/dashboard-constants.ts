@@ -116,6 +116,8 @@ export const defaultChatbotRules = [
   { id: 'orcamento', keyword: 'orçamento', response: 'Claro, {Nome}. Para montar um orçamento rápido, me envie sua cidade e o serviço que você deseja.', enabled: true }
 ];
 
+export const defaultAiInstructions = 'Você é um assistente de vendas amigável e profissional. Ajude clientes com dúvidas sobre serviços, agende reuniões e colete informações de contato. Seja natural e evite respostas robóticas. Se o cliente perguntar algo que você não sabe, diga que um atendente humano vai responder em breve.';
+
 export const filterOptions = [
   { value: 'none', label: 'Trazer tudo', icon: '🔍', desc: 'Recomendado para varredura completa', feature: 'extractor' as const },
   { value: 'phone', label: 'Só Telefone', icon: '📞', desc: 'Filtra empresas com contato telefônico', feature: 'extractor' as const },
