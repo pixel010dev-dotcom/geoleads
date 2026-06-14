@@ -559,14 +559,15 @@ const startBotSession = async (session: BotSession) => {
 
         const now = Date.now();
         const lastReplyAt = session.replyThrottle.get(jid) || 0;
-        if (now - lastReplyAt < 30_000) {
-          session.lastIgnoredReason = 'Contato em intervalo de segurança de 30 segundos.';
+        if (now - lastReplyAt < 3_000) {
+          session.lastIgnoredReason = 'Contato em intervalo de segurança de 3 segundos.';
           continue;
         }
 
         let replyText: string;
         let matchedRuleId: string | null = null;
 
+        AIProvider.resetProviders();
         const aiResponse = await aiRespond(session.userId, jid, senderName, text, session.config);
 
         if (aiResponse) {

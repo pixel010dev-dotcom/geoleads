@@ -113,6 +113,12 @@ export function ChatbotSection({
               </div>
             )}
 
+            {chatbotSession.lastIgnoredReason && (
+              <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 leading-relaxed">
+                ⏭️ {chatbotSession.lastIgnoredReason}
+              </div>
+            )}
+
             {chatbotSession.lastIncomingAt && (
               <div className="mt-3 p-3 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] text-gray-300 leading-relaxed space-y-2">
                 <div className="flex items-center justify-between gap-2">
