@@ -116,25 +116,25 @@ const buildProviders = (): AIProviderConfig[] => {
 
   const providers: AIProviderConfig[] = [];
 
-  if (process.env.OPENROUTER_API_KEY) {
+  if (process.env.GROQ_API_KEY) {
     providers.push({
-      name: 'OpenRouter',
-      baseUrl: 'https://openrouter.ai/api/v1',
-      model: 'openrouter/free',
-      apiKey: process.env.OPENROUTER_API_KEY,
+      name: 'Groq',
+      baseUrl: 'https://api.groq.com/openai/v1',
+      model: 'llama-3.3-70b-versatile',
+      apiKey: process.env.GROQ_API_KEY,
       priority: 1,
       timeout: 15000,
     });
   }
 
-  if (process.env.GROQ_API_KEY) {
+  if (process.env.GEMINI_API_KEY) {
     providers.push({
-      name: 'Groq',
-      baseUrl: 'https://api.groq.com/openai/v1',
-      model: 'mixtral-8x7b-32768',
-      apiKey: process.env.GROQ_API_KEY,
+      name: 'Gemini',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+      apiKey: process.env.GEMINI_API_KEY,
       priority: 2,
-      timeout: 10000,
+      timeout: 15000,
     });
   }
 
@@ -160,34 +160,16 @@ const buildProviders = (): AIProviderConfig[] => {
     });
   }
 
-  if (process.env.GEMINI_API_KEY) {
+  if (process.env.OPENROUTER_API_KEY) {
     providers.push({
-      name: 'Gemini',
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-      model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-      apiKey: process.env.GEMINI_API_KEY,
-      priority: 1,
-      timeout: 8000,
+      name: 'OpenRouter',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      model: 'openrouter/free',
+      apiKey: process.env.OPENROUTER_API_KEY,
+      priority: 5,
+      timeout: 15000,
     });
   }
-
-  providers.push({
-    name: 'KeylessAI',
-    baseUrl: 'https://keylessai.thryx.workers.dev/v1',
-    model: '@cf/meta/llama-3.1-8b-instruct',
-    apiKey: 'keyless',
-    priority: 8,
-    timeout: 5000,
-  });
-
-  providers.push({
-    name: 'OVHcloud',
-    baseUrl: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1',
-    model: 'Meta-Llama-3.1-70B-Instruct',
-    apiKey: 'ovh-free',
-    priority: 9,
-    timeout: 4000,
-  });
 
   providers.sort((a, b) => a.priority - b.priority);
   cachedProviders = providers;
@@ -293,6 +275,7 @@ export class AIProvider {
 
       try {
         const result = await callProvider(provider, safeRequest);
+        console.log(`[AIProvider] ${provider.name} respondeu em ${result.latency}ms`);
         return result;
       } catch (err) {
         const isLast = i === providers.length - 1;
