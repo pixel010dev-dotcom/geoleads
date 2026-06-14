@@ -16,6 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [resetSent, setResetSent] = useState('');
 
   const getRedirectPath = () => {
     const params = new URLSearchParams(window.location.search);
@@ -80,6 +81,27 @@ export default function Login() {
     });
     if (error) {
       showToast('Erro ao conectar com o Google: ' + error.message, 'error');
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setResetSent('Digite seu e-mail primeiro antes de solicitar a recuperação.');
+      return;
+    }
+    setLoading(true);
+    setResetSent('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/login',
+      });
+      if (error) throw error;
+      setResetSent('Email de recuperação enviado! Verifique sua caixa de entrada e spam.');
+      setMessage('');
+    } catch (error: unknown) {
+      setResetSent('Erro ao enviar: ' + (error instanceof Error ? error.message : 'tente novamente.'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -148,6 +170,20 @@ export default function Login() {
               required
             />
           </div>
+          
+          {resetSent && (
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm text-center">
+              {resetSent}
+            </div>
+          )}
+
+          {isLogin && (
+            <button type="button" onClick={handleForgotPassword} disabled={loading}
+              className="text-xs text-gray-500 hover:text-blue-400 transition-colors mt-1 cursor-pointer disabled:opacity-50"
+            >
+              Esqueci minha senha
+            </button>
+          )}
           
           {!isLogin && (
             <label className="flex items-start gap-2 text-sm text-gray-400 mt-4 cursor-pointer">
