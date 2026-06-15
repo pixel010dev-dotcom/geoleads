@@ -379,7 +379,7 @@
     "estimatedTimeCities": "~{seconds}s (~{cities} cidades)",
     "estimatedTimeLocal": "~{seconds}s",
     "stopExtraction": "⏹ Parar Extração",
-    "startExtraction": "🚀 Iniciar Extraction",
+    "startExtraction": "🚀 Iniciar Extração",
     "createAccountToExtract": "🔒 Criar Conta para Extrair",
     "extracting": "⏳ Extraindo...",
     "leadsFound": "✅ Leads Encontrados",
