@@ -419,7 +419,31 @@
     "overviewLeads": "Leads Encontrados",
     "overviewTime": "Tempo de Busca",
     "overviewMapped": "Empresas Mapeadas",
-    "overviewCities": "Cidades"
+    "overviewCities": "Cidades",
+    "quickSearches": {
+      "clinics": "Clínicas",
+      "dentists": "Dentistas",
+      "gyms": "Academias",
+      "restaurants": "Restaurantes"
+    },
+    "filters": {
+      "none": "Sem filtro",
+      "noneDesc": "Retorna todos os resultados",
+      "phone": "Com Telefone",
+      "phoneDesc": "Apenas leads com telefone",
+      "cnpj": "Com CNPJ",
+      "cnpjDesc": "Apenas leads com CNPJ",
+      "email": "Com E-mail",
+      "emailDesc": "Apenas leads com e-mail",
+      "insta": "Com Instagram",
+      "instaDesc": "Apenas leads com Instagram",
+      "face": "Com Facebook",
+      "faceDesc": "Apenas leads com Facebook",
+      "tiktok": "Com TikTok",
+      "tiktokDesc": "Apenas leads com TikTok",
+      "site": "Com Site",
+      "siteDesc": "Apenas leads com site"
+    }
   },
   "crm": {
     "title": "📋 Seu CRM de Vendas",

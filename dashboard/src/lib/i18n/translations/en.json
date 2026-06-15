@@ -419,7 +419,31 @@
     "overviewLeads": "Leads Found",
     "overviewTime": "Search Time",
     "overviewMapped": "Businesses Mapped",
-    "overviewCities": "Cities"
+    "overviewCities": "Cities",
+    "quickSearches": {
+      "clinics": "Clinics",
+      "dentists": "Dentists",
+      "gyms": "Gyms",
+      "restaurants": "Restaurants"
+    },
+    "filters": {
+      "none": "No filter",
+      "noneDesc": "Returns all results",
+      "phone": "With Phone",
+      "phoneDesc": "Only leads with phone",
+      "cnpj": "With Tax ID",
+      "cnpjDesc": "Only leads with Tax ID",
+      "email": "With Email",
+      "emailDesc": "Only leads with email",
+      "insta": "With Instagram",
+      "instaDesc": "Only leads with Instagram",
+      "face": "With Facebook",
+      "faceDesc": "Only leads with Facebook",
+      "tiktok": "With TikTok",
+      "tiktokDesc": "Only leads with TikTok",
+      "site": "With Website",
+      "siteDesc": "Only leads with website"
+    }
   },
   "crm": {
     "title": "📋 Your Sales CRM",
