@@ -1507,33 +1507,54 @@ const allEnrichedLeads: any[] = [];
         if ((Date.now() - startTime) >= MAX_TIME) break;
         if (await checkCancelled()) break;
 
-      const cityQuery = encodeURIComponent(`${kwVar} em ${searchLoc}`);
-      await page.goto(`https://www.google.com/maps/search/${cityQuery}`, {
-        waitUntil: 'domcontentloaded',
-        timeout: 15000
-      });
-
-      // Detecta bloqueio do Google (CAPTCHA)
-      const pageTitle = await page.title().catch(() => '');
-      const pageUrl = page.url();
-      if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
-        if (updateTimer) clearInterval(updateTimer);
-        await updateJob(jobId, {
-          status: 'failed',
-          error: 'Google bloqueou a busca. Tente novamente em alguns minutos.',
-          search_time_seconds: Math.round((Date.now() - startTime) / 1000),
-          completed_at: new Date().toISOString(),
+      // Gera múltiplos formatos de query para aumentar as chances de encontrar resultados
+      // O Google Maps pode responder de forma diferente dependendo do formato
+      const queryFormats = [
+        `${kwVar} em ${searchLoc}`,
+        `${kwVar} ${searchLoc}`,
+        `${kwVar}, ${searchLoc}`,
+      ];
+      
+      let foundResults = false;
+      for (const queryFormat of queryFormats) {
+        if (foundResults) break;
+        
+        const cityQuery = encodeURIComponent(queryFormat);
+        await page.goto(`https://www.google.com/maps/search/${cityQuery}`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 20000  // Aumentado de 15s para 20s
         });
-        await browser.close();
-        return;
+
+        // Detecta bloqueio do Google (CAPTCHA)
+        const pageTitle = await page.title().catch(() => '');
+        const pageUrl = page.url();
+        if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
+          if (updateTimer) clearInterval(updateTimer);
+          await updateJob(jobId, {
+            status: 'failed',
+            error: 'Google bloqueou a busca. Tente novamente em alguns minutos.',
+            search_time_seconds: Math.round((Date.now() - startTime) / 1000),
+            completed_at: new Date().toISOString(),
+          });
+          await browser.close();
+          return;
+        }
+
+        // Verifica se o feed carregou
+        try {
+          await page.waitForSelector('div[role="feed"], div[role="main"]', { timeout: 15000 }); // Aumentado de 12s para 15s
+          foundResults = true;
+        } catch {
+          // Tenta próximo formato de query
+          continue;
+        }
+      }
+      
+      // Se nenhum formato de query funcionou, pula para próxima localização
+      if (!foundResults) {
+        continue;
       }
 
-      // Verifica se o feed carregou
-      try {
-        await page.waitForSelector('div[role="feed"], div[role="main"]', { timeout: 12000 });
-      } catch {
-        continue; // Sem resultados nesta cidade, tenta próxima
-      }
       // Aguarda cards carregarem de fato
       await page.waitForTimeout(1500 + Math.random() * 1000);
       try {
@@ -1550,20 +1571,54 @@ const allEnrichedLeads: any[] = [];
       while (allEnrichedLeads.length < targetLimit && (Date.now() - startTime) < MAX_TIME && cityScrolls < maxScrollPerCity && !(await checkCancelled())) {
       
       // 1. Extrai todos os cards visíveis da tela
+      // Usa múltiplas estratégias de seletores para ser mais robusto a mudanças do Google Maps
       const rawChunk = await page.evaluate(() => {
         const chunk: any[] = [];
-        const items = document.querySelectorAll('div[role="feed"] > div > div > a[href*="/maps/place"]');
+        
+        // Estratégia 1: Seletor por role="feed" (estrutura atual)
+        let items = document.querySelectorAll('div[role="feed"] > div > div > a[href*="/maps/place"]');
+        
+        // Estratégia 2: Fallback - buscar por links diretos do maps/place
+        if (items.length === 0) {
+          items = document.querySelectorAll('a[href*="/maps/place"][role="link"]');
+        }
+        
+        // Estratégia 3: Fallback - buscar por qualquer link do maps/place dentro do feed
+        if (items.length === 0) {
+          const feed = document.querySelector('div[role="feed"]');
+          if (feed) {
+            items = feed.querySelectorAll('a[href*="/maps/place"]');
+          }
+        }
+        
+        // Estratégia 4: Fallback - buscar por estrutura alternativa
+        if (items.length === 0) {
+          items = document.querySelectorAll('a[href*="/maps/place"]');
+        }
         
         for (const anchor of items) {
           try {
-            const container = anchor.closest('div[role="feed"] > div > div') || anchor.parentElement;
+            // Tenta múltiplas formas de encontrar o container
+            const container = 
+              anchor.closest('div[role="feed"] > div > div') || 
+              anchor.closest('div[role="feed"] > div') ||
+              anchor.parentElement?.closest('div[class*="feed"]') ||
+              anchor.parentElement;
             if (!container) continue;
             
-            const nameEl = container.querySelector('.fontHeadlineSmall') || container.querySelector('[class*="fontHeadline"]');
+            // Tenta múltiplas formas de encontrar o nome do negócio
+            let nameEl = 
+              container.querySelector('.fontHeadlineSmall') ||
+              container.querySelector('[class*="fontHeadline"]') ||
+              container.querySelector('[class*="title"]') ||
+              container.querySelector('[class*="name"]') ||
+              container.querySelector('span[class*="bold"]') ||
+              (container as HTMLElement).querySelector('span')?.closest('div')?.querySelector('span');
+              
             if (!nameEl) continue;
             
             const nome = (nameEl as HTMLElement).innerText?.trim();
-            if (!nome || nome.length < 2) continue;
+            if (!nome || nome.length < 2 || nome.length > 200) continue;
 
             const text = (container as HTMLElement).innerText || '';
             
