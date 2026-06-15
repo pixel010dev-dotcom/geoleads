@@ -18,8 +18,11 @@ import AICopySection from '@/components/dashboard/AICopySection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import { generatePdfReport } from '@/lib/pdf-report';
 import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useTranslations } from '@/lib/i18n';
 
 export default function Home() {
+  const { t, locale } = useTranslations();
   const [activeTab, setActiveTab] = useState<DashboardTab>('extractor');
   const router = useRouter();
 
@@ -139,7 +142,7 @@ export default function Home() {
 
   const showLockedFeature = (feature: FeatureKey) => {
     const requiredPlan = getUpgradePlan(feature);
-    showToast(`Recurso do plano ${requiredPlan.name}. Faça upgrade para liberar.`, 'warning');
+    showToast(t('lockedFeature.toast', { name: t(requiredPlan.nameKey) }), 'warning');
   };
 
   const getAuthedJsonHeaders = async () => {
@@ -350,7 +353,7 @@ export default function Home() {
   };
 
   const addChatbotRule = () => {
-    setChatbotRules(prev => [...prev, { id: `rule-${Date.now()}`, keyword: '', response: 'Olá {Nome}! Recebi sua mensagem sobre {Mensagem}. Já te ajudo.', enabled: true }]);
+    setChatbotRules(prev => [...prev, { id: `rule-${Date.now()}`, keyword: '', responseKey: 'default', enabled: true }]);
   };
 
   const removeChatbotRule = (id: string) => {
@@ -418,7 +421,7 @@ export default function Home() {
       const checkoutState = params.get('checkout');
       const purchasedPlanId = params.get('plan') as PlanId | null;
       if (checkoutState === 'success') {
-        const planName = purchasedPlanId ? getPlanById(purchasedPlanId).name : 'seu plano';
+        const planName = purchasedPlanId ? t(getPlanById(purchasedPlanId).nameKey) : t('checkout.yourPlan');
         setCheckoutNotice(`Pagamento recebido! Estamos liberando os tokens do plano ${planName}. Se o saldo não atualizar em 1 minuto, recarregue a página.`);
         if (sessionUserId) {
           await refreshProfile(sessionUserId);
@@ -1131,23 +1134,24 @@ export default function Home() {
             {user ? (
               <>
                 <div className="px-2.5 py-1 sm:px-4 sm:py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-bold whitespace-nowrap">
-                  💰 {tokens !== null ? tokens.toLocaleString('pt-BR') : '...'} <span className="hidden sm:inline">Tokens</span>
+                  💰 {tokens !== null ? tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR') : '...'} <span className="hidden sm:inline">{t('dashboard.tokens')}</span>
                 </div>
                 <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-300 font-bold whitespace-nowrap">
-                  {currentPlan.shortName}
+                  {t(currentPlan.shortNameKey)}
                 </div>
-                <Link href="/account" className="text-gray-400 hover:text-white transition-colors font-medium">Conta</Link>
-                <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors font-medium">Planos</Link>
-                <button onClick={logout} className="text-red-400 hover:text-red-300 font-medium cursor-pointer">Sair</button>
+                <LanguageSwitcher />
+                <Link href="/account" className="text-gray-400 hover:text-white transition-colors font-medium">{t('nav.account')}</Link>
+                <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors font-medium">{t('nav.plans')}</Link>
+                <button onClick={logout} className="text-red-400 hover:text-red-300 font-medium cursor-pointer">{t('nav.logout')}</button>
               </>
             ) : (
               <>
                 <div className="hidden sm:flex px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/5 border border-white/10 items-center gap-1.5 text-[11px] sm:text-xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
-                  <span className="hidden sm:inline">Motor Online</span>
+                  <span className="hidden sm:inline">{t('nav.engineOnline')}</span>
                 </div>
                 <Link href="/login" className="px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full bg-white text-black font-semibold hover:bg-gray-200 transition-all text-xs sm:text-sm shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                  Entrar
+                  {t('nav.login')}
                 </Link>
               </>
             )}
@@ -1159,7 +1163,7 @@ export default function Home() {
         {checkoutNotice && (
           <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-sm text-emerald-100 leading-relaxed">{checkoutNotice}</p>
-            <button type="button" onClick={() => setCheckoutNotice(null)} className="self-end sm:self-auto px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-xs text-gray-200 hover:text-white cursor-pointer">Fechar</button>
+            <button type="button" onClick={() => setCheckoutNotice(null)} className="self-end sm:self-auto px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-xs text-gray-200 hover:text-white cursor-pointer">{t('dashboard.close')}</button>
           </div>
         )}
 
@@ -1168,13 +1172,13 @@ export default function Home() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold mb-4">
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                GeoLeads pronto
+                {t('dashboard.ready')}
               </div>
               <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 sm:mb-4 leading-tight max-w-4xl">
-                Encontre clientes no <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Google Maps</span>
+                {t('dashboard.heroTitle')}
               </h1>
               <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-2xl leading-relaxed">
-                Busque, organize e aborde leads B2B em minutos. Um fluxo só do Maps ao WhatsApp.
+                {t('dashboard.heroSubtitle')}
               </p>
             </div>
           </div>
@@ -1184,32 +1188,32 @@ export default function Home() {
             <div className="app-tabs dashboard-tabs flex gap-1 flex-shrink-0 items-center">
               <button onClick={() => setActiveTab('extractor')}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'extractor' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                🔍 Buscar
+                {t('dashboard.extractor')}
               </button>
               <button onClick={() => setActiveTab('crm')}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'crm' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                📋 Leads{!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}{crmLeads.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>}
+                {t('dashboard.crm')}{!requireFeature('crm') && <span className="text-[10px] text-amber-300">🔒</span>}{crmLeads.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[10px] font-bold">{crmLeads.length}</span>}
               </button>
               <button onClick={() => setActiveTab('whatsapp')}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'whatsapp' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                ⚡ Disparar{!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}
+                {t('dashboard.whatsapp')}{!requireFeature('whatsappSender') && <span className="text-[10px] text-amber-300">🔒</span>}
               </button>
               <button onClick={() => setActiveTab('chatbot')}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'chatbot' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                💬 Auto-Resposta{!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}
+                {t('dashboard.chatbot')}{!requireFeature('chatbot') && <span className="text-[10px] text-amber-300">🔒</span>}
               </button>
               <button onClick={() => setActiveTab('support')}
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                ⚙️
+                {t('dashboard.support')}
               </button>
             </div>
             <div className="flex gap-2 flex-shrink-0">
               <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold">
-                🎁 Indique
+                {t('dashboard.referral')}
               </button>
               <button onClick={() => setActiveTab('ia')}
                 className={`text-[11px] px-3 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap font-semibold ${activeTab === 'ia' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'}`}>
-                🤖 IA Copy{!requireFeature('aiCopy') && <span className="ml-1 text-amber-300">🔒</span>}
+                {t('dashboard.aiCopy')}{!requireFeature('aiCopy') && <span className="ml-1 text-amber-300">🔒</span>}
               </button>
             </div>
           </div>
@@ -1340,13 +1344,13 @@ export default function Home() {
           <div className="app-card w-full max-w-md p-6 sm:p-8 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/60 border border-white/10 shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
             <button onClick={() => setShowReferral(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white cursor-pointer text-lg">&times;</button>
-            <h2 className="text-xl font-bold mb-2">🎁 Indique e Ganhe</h2>
-            <p className="text-sm text-gray-400 mb-6">Compartilhe seu link e ganhe <strong className="text-amber-400">100 tokens</strong> para cada amigo que criar conta e extrair <strong className="text-amber-400">11+ leads</strong>!</p>
+            <h2 className="text-xl font-bold mb-2">{t('dashboard.referralTitle')}</h2>
+            <p className="text-sm text-gray-400 mb-6">{t('dashboard.referralDesc')}</p>
             <div className="bg-black/40 border border-white/10 rounded-xl p-4 mb-4">
               <label className="text-xs text-gray-500 block mb-1.5">Seu link de indicação</label>
               <div className="flex gap-2">
                 <input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}/login?ref=${user?.id || ''}`} className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none" onClick={e => (e.target as HTMLInputElement).select()} />
-                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/login?ref=${user?.id || ''}`); showToast('Link copiado!', 'success'); }} className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold cursor-pointer">Copiar</button>
+                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/login?ref=${user?.id || ''}`); showToast('Link copiado!', 'success'); }} className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold cursor-pointer">{t('dashboard.copyLink')}</button>
               </div>
             </div>
             {referralBonus !== null && (
@@ -1354,7 +1358,7 @@ export default function Home() {
                 🎉 Você já ganhou <strong>{referralBonus}</strong> tokens em bônus de indicação!
               </div>
             )}
-            <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">O bônus é creditado automaticamente após a primeira extração de 11+ leads do seu indicado.</p>
+            <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">{t('dashboard.referralAutoCredit')}</p>
           </div>
         </div>
       )}

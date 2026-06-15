@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import { showToast, type ToastType } from '@/components/Toast';
 
 export interface SupportSectionProps {
@@ -27,15 +28,17 @@ export default function SupportSection({
   user,
   showToast,
 }: SupportSectionProps) {
+  const { t } = useTranslations();
+
   return (
     <div className="space-y-5 animate-slide-up">
       {/* Overview cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Status', value: supportSubmitted ? 'Avaliado' : 'Pendente', color: supportSubmitted ? 'text-green-400' : 'text-amber-400' },
-          { label: 'Sua Nota', value: supportRating > 0 ? `${supportRating}/5` : '—', color: 'text-amber-400' },
-          { label: 'E-mail', value: 'Suporte Ativo', color: 'text-blue-400' },
-          { label: 'Tempo Resposta', value: '~24h', color: 'text-gray-400' },
+          { label: 'Status', value: supportSubmitted ? t('support.overviewRating') : t('support.overviewPending'), color: supportSubmitted ? 'text-green-400' : 'text-amber-400' },
+          { label: t('support.overviewYourRating'), value: supportRating > 0 ? `${supportRating}/5` : '—', color: 'text-amber-400' },
+          { label: t('support.overviewEmail'), value: t('support.overviewActive'), color: 'text-blue-400' },
+          { label: t('support.overviewResponseTime'), value: t('support.overviewResponseValue'), color: 'text-gray-400' },
         ].map(s => (
           <div key={s.label} className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
             <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
@@ -50,35 +53,35 @@ export default function SupportSection({
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
 
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          🙋‍♀️ Suporte & Atendimento
+          {t('support.title')}
         </h2>
         <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-          Precisa de ajuda? Nossa equipe está pronta para responder.
+          {t('support.subtitle')}
         </p>
 
         <div className="space-y-4">
           <div className="p-4 rounded-xl bg-black/30 border border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <span className="text-[10px] text-gray-500 uppercase block font-bold tracking-wider">E-mail de Suporte</span>
+              <span className="text-[10px] text-gray-500 uppercase block font-bold tracking-wider">{t('support.email')}</span>
               <span className="text-sm text-gray-200 font-medium font-mono break-all">pixel010dev@gmail.com</span>
             </div>
             <button
               onClick={() => { navigator.clipboard.writeText('pixel010dev@gmail.com'); showToast('E-mail copiado!', 'success'); }}
               className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-300 cursor-pointer transition-colors"
             >
-              📋 Copiar
+              {t('support.copy')}
             </button>
           </div>
 
           <a href="mailto:pixel010dev@gmail.com?subject=Suporte GeoLeads&body=Olá equipe GeoLeads,"
             className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2">
-            ✉️ Abrir Chamado
+            {t('support.openTicket')}
           </a>
 
           <a href="https://mail.google.com/mail/?view=cm&fs=1&to=pixel010dev@gmail.com&su=Suporte%20GeoLeads&body=Ol%C3%A1%20equipe%20GeoLeads%2C"
             target="_blank" rel="noopener noreferrer"
             className="w-full py-3 rounded-xl font-medium text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 text-sm">
-            🌐 Abrir no Gmail Web
+            {t('support.openGmail')}
           </a>
         </div>
       </div>
@@ -88,20 +91,20 @@ export default function SupportSection({
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500" />
 
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          ⭐ Avalie sua Experiência
+          {t('support.rateTitle')}
         </h2>
         <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-          Sua opinião nos ajuda a evoluir.
+          {t('support.rateSubtitle')}
         </p>
 
         {supportSubmitted ? (
           <div className="py-8 text-center text-green-400 animate-fade-in">
             <div className="text-5xl mb-3">🎉</div>
-            <h4 className="font-bold text-lg text-gray-100">Obrigado pela avaliação!</h4>
-            <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">Seu feedback será lido pela equipe.</p>
+            <h4 className="font-bold text-lg text-gray-100">{t('support.thanks')}</h4>
+            <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">{t('support.thanksDesc')}</p>
             <button onClick={() => { setSupportSubmitted(false); setSupportRating(0); setSupportFeedback(''); }}
               className="mt-6 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 cursor-pointer transition-colors">
-              Avaliar Novamente
+              {t('support.rateAgain')}
             </button>
           </div>
         ) : (
@@ -141,15 +144,15 @@ export default function SupportSection({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Como podemos melhorar? (opcional)</label>
-              <textarea rows={3} placeholder="Deixe sua sugestão..."
+              <label className="block text-xs font-medium text-gray-400 mb-1">{t('support.feedbackPlaceholder')}</label>
+              <textarea rows={3} placeholder={t('support.feedbackHint')}
                 className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-all resize-none text-sm"
                 value={supportFeedback} onChange={(e) => setSupportFeedback(e.target.value)} />
             </div>
 
             <button type="submit"
               className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-200 cursor-pointer">
-              Enviar Avaliação
+              {t('support.sendRating')}
             </button>
           </form>
         )}

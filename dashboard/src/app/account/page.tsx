@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { getPlanById, plans, paidPlanIds, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
+import { useTranslations } from '@/lib/i18n';
 import Globe from '@/components/Globe';
 
 export default function Account() {
+  const { t, locale } = useTranslations();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [tokens, setTokens] = useState<number>(0);
@@ -47,14 +49,14 @@ export default function Account() {
       setPayments(history || []);
     } catch (err) {
       console.error('Account load error:', err);
-      setLoadError('Erro ao carregar dados. Tente novamente.');
+      setLoadError(t('account.error'));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    document.title = 'GeoLeads - Minha Conta';
+    document.title = t('account.title');
     loadAccountData();
   }, []);
 
@@ -63,7 +65,7 @@ export default function Account() {
       <div className="app-shell min-h-screen text-white flex items-center justify-center">
         <div className="text-center">
           <Globe size={48} className="mx-auto mb-4 animate-pulse" />
-          <p className="text-gray-400">Carregando sua conta...</p>
+          <p className="text-gray-400">{t('account.loading')}</p>
         </div>
       </div>
     );
@@ -75,7 +77,7 @@ export default function Account() {
         <div className="text-center">
           <p className="text-red-400 mb-4">{loadError}</p>
           <button onClick={() => { setLoading(true); setLoadError(''); loadAccountData(); }} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer">
-            Tentar Novamente
+            {t('account.retry')}
           </button>
         </div>
       </div>
@@ -94,30 +96,30 @@ export default function Account() {
             <span className="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/app/dashboard" className="text-gray-400 hover:text-white transition-colors text-sm">Voltar ao Dashboard</Link>
+            <Link href="/app/dashboard" className="text-gray-400 hover:text-white transition-colors text-sm">{t('account.backToDashboard')}</Link>
           </div>
         </div>
       </nav>
 
       <main className="app-container py-8 lg:py-12 relative z-10">
-        <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">Minha Conta</h1>
+        <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">{t('account.myAccount')}</h1>
         <p className="text-gray-400 mb-8">{user?.email}</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
-            <p className="text-sm text-gray-400 mb-1">Plano Atual</p>
-            <p className="text-2xl font-bold">{currentPlan.name}</p>
-            <p className="text-sm text-gray-500 mt-1">{formatPlanPrice(currentPlan.price)}{currentPlan.price > 0 ? '/mês' : ''}</p>
+            <p className="text-sm text-gray-400 mb-1">{t('account.currentPlan')}</p>
+            <p className="text-2xl font-bold">{t(currentPlan.nameKey)}</p>
+            <p className="text-sm text-gray-500 mt-1">{formatPlanPrice(currentPlan.price)}{currentPlan.price > 0 ? t('account.perMonth') : ''}</p>
           </div>
 
           <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
-            <p className="text-sm text-gray-400 mb-1">Tokens Disponíveis</p>
-            <p className="text-2xl font-bold">{tokens.toLocaleString('pt-BR')}</p>
-            <p className="text-sm text-gray-500 mt-1">de {currentPlan.tokens.toLocaleString('pt-BR')} inclusos</p>
+            <p className="text-sm text-gray-400 mb-1">{t('account.availableTokens')}</p>
+            <p className="text-2xl font-bold">{tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}</p>
+            <p className="text-sm text-gray-500 mt-1">{t('account.ofIncluded', { count: currentPlan.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR') })}</p>
           </div>
 
           <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
-            <p className="text-sm text-gray-400 mb-1">Uso do Plano</p>
+            <p className="text-sm text-gray-400 mb-1">{t('account.planUsage')}</p>
             <div className="mt-2">
               <div className="h-3 rounded-full bg-white/10 overflow-hidden">
                 <div
@@ -125,41 +127,41 @@ export default function Account() {
                   style={{ width: `${usagePercent}%` }}
                 />
               </div>
-              <p className="text-sm text-gray-500 mt-2">{Math.round(usagePercent)}% utilizado</p>
+              <p className="text-sm text-gray-500 mt-2">{t('account.percentUsed', { percent: Math.round(usagePercent) })}</p>
             </div>
           </div>
         </div>
 
         <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 mb-8">
-          <h2 className="text-xl font-bold mb-4">Comparativo de Recursos</h2>
+          <h2 className="text-xl font-bold mb-4">{t('account.featureComparison')}</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-left py-3 pr-4 text-gray-400 font-medium">Recurso</th>
+                  <th className="text-left py-3 pr-4 text-gray-400 font-medium">{t('account.feature')}</th>
                   {paidPlanIds.map(pid => (
                     <th key={pid} className={`text-center py-3 px-2 font-bold ${plans[pid].highlight ? 'text-indigo-400' : 'text-gray-300'}`}>
-                      {plans[pid].name}
+                      {t(plans[pid].nameKey)}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b border-white/5">
-                  <td className="py-3 pr-4 text-gray-300">Tokens inclusos</td>
+                  <td className="py-3 pr-4 text-gray-300">{t('account.tokensIncluded')}</td>
                   {paidPlanIds.map(pid => (
-                    <td key={pid} className="text-center py-3 px-2 text-white font-medium">{plans[pid].tokens.toLocaleString('pt-BR')}</td>
+                    <td key={pid} className="text-center py-3 px-2 text-white font-medium">{plans[pid].tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}</td>
                   ))}
                 </tr>
                 <tr className="border-b border-white/5">
-                  <td className="py-3 pr-4 text-gray-300">Preço</td>
+                  <td className="py-3 pr-4 text-gray-300">{t('account.price')}</td>
                   {paidPlanIds.map(pid => (
                     <td key={pid} className="text-center py-3 px-2 text-white font-medium">{formatPlanPrice(plans[pid].price)}</td>
                   ))}
                 </tr>
                 {allFeatureKeys.map(feature => (
                   <tr key={feature} className="border-b border-white/5">
-                    <td className="py-3 pr-4 text-gray-300">{featureLabels[feature]}</td>
+                    <td className="py-3 pr-4 text-gray-300">{t(featureLabels[feature])}</td>
                     {paidPlanIds.map(pid => (
                       <td key={pid} className="text-center py-3 px-2">
                         {plans[pid].featureKeys.includes(feature) ? (
@@ -178,13 +180,13 @@ export default function Account() {
 
         {payments.length > 0 && (
           <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
-            <h2 className="text-xl font-bold mb-4">Histórico de Pagamentos</h2>
+            <h2 className="text-xl font-bold mb-4">{t('account.paymentHistory')}</h2>
             <div className="space-y-3">
               {payments.map(p => (
                 <div key={p.id} className="flex items-center justify-between py-3 px-4 rounded-xl bg-white/5 border border-white/10">
                   <div>
-                    <p className="font-medium">{getPlanById(p.plan_id).name} - {p.tokens_added.toLocaleString('pt-BR')} tokens</p>
-                    <p className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString('pt-BR')}</p>
+                    <p className="font-medium">{t(getPlanById(p.plan_id).nameKey)} - {p.tokens_added.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')} {t('account.tokens')}</p>
+                    <p className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR')}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-green-400">{formatPlanPrice(p.amount)}</p>

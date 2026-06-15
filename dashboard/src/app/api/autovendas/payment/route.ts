@@ -67,10 +67,10 @@ export async function POST(request: Request) {
     const pix = await createPixPayment({
       plan: {
         id: 'pro',
-        name: `AutoVendas - ${campaign.nicho}`,
         tokens: campaign.leads_alvo,
         price,
       },
+      description: `AutoVendas - ${campaign.nicho}`,
       userId: auth.user.id,
       payerEmail: auth.user.email || 'cliente@email.com',
       externalReference: `geoleads:autovendas:${campaign.id}:${auth.user.id}`,

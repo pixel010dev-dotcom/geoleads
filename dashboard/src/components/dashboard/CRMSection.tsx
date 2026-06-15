@@ -1,14 +1,43 @@
+'use client';
+
 import { useState } from 'react';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
 import { showToast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
+import { useTranslations } from '@/lib/i18n';
 
 const HackMap = dynamic(() => import('@/components/HackMap'), { ssr: false, loading: () => <div className="h-[320px] sm:h-[400px] rounded-2xl bg-black/50 border border-green-500/20 flex items-center justify-center text-green-400/50 text-sm font-mono">INICIALIZANDO MAPA...</div> });
 
-function exportCrmToCsv(leads: any[], filename: string) {
-  const cols = ['Nome', 'Telefone', 'Email', 'Site', 'Instagram', 'Facebook', 'TikTok', 'CNPJ', 'Estagio', 'Tags', 'Anotacoes', 'Cidade', 'Nicho', 'Avaliacao'];
+function exportCrmToCsv(t: Function, leads: any[], filename: string) {
+  const cols = [
+    t('crm.csvName'),
+    t('crm.csvPhone'),
+    t('crm.csvEmail'),
+    t('crm.csvSite'),
+    t('crm.csvInstagram'),
+    t('crm.csvFacebook'),
+    t('crm.csvTiktok'),
+    t('crm.csvCnpj'),
+    t('crm.tableFunnel'),
+    t('crm.tableTags'),
+    t('crm.tableNotes'),
+    t('crm.csvCity'),
+    t('crm.csvNiche'),
+    t('crm.csvRating'),
+  ];
+  const keyMap: Record<string, string> = {
+    [t('crm.csvName')]: 'nome',
+    [t('crm.csvPhone')]: 'telefone',
+    [t('crm.csvEmail')]: 'email',
+    [t('crm.csvSite')]: 'site',
+    [t('crm.csvInstagram')]: 'instagram',
+    [t('crm.csvFacebook')]: 'facebook',
+    [t('crm.csvTiktok')]: 'tiktok',
+    [t('crm.csvCnpj')]: 'cnpj',
+  };
   const rows = leads.map(l => cols.map(c => {
-    const val = l[c.toLowerCase()] ?? '';
+    const field = keyMap[c] || c.toLowerCase();
+    const val = l[field] ?? '';
     const str = Array.isArray(val) ? val.join('; ') : String(val);
     return `"${str.replace(/"/g, '""')}"`;
   }).join(','));
@@ -62,14 +91,28 @@ const TAG_CONFIG: Record<string, { icon: string; color: string }> = {
 };
 const ALL_TAGS = Object.keys(TAG_CONFIG);
 
-function TagBadge({ tag, onRemove }: { tag: string; onRemove?: () => void }) {
+function getTagLabel(tag: string, t: Function): string {
+  const tagKeyMap: Record<string, string> = {
+    'Quente': 'crm.hotLabel',
+    'Morno': 'crm.warmLabel',
+    'Frio': 'crm.coldLabel',
+    'Agendar': 'crm.scheduleLabel',
+    'Ligou': 'crm.calledLabel',
+    'Não respondeu': 'crm.noAnswerLabel',
+    'Indicação': 'crm.referralLabel',
+  };
+  if (tagKeyMap[tag]) return t(tagKeyMap[tag]);
+  return tag;
+}
+
+function TagBadge({ tag, onRemove, t: tFn }: { tag: string; onRemove?: () => void; t: Function }) {
   const cfg = TAG_CONFIG[tag];
   const base = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium';
   const style = cfg?.color || 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300';
   return (
     <span className={`${base} ${style}`}>
       {cfg?.icon && <span>{cfg.icon}</span>}
-      {tag}
+      {getTagLabel(tag, tFn)}
       {onRemove && (
         <button onClick={onRemove} className="hover:text-white ml-0.5 cursor-pointer text-[13px] leading-none opacity-60 hover:opacity-100 transition-opacity">&times;</button>
       )}
@@ -105,6 +148,7 @@ export default function CRMSection({
   waSentMessages,
   onImportLeads,
 }: CRMSectionProps) {
+  const { t, locale } = useTranslations();
   const waSentNames = new Set((waSentMessages || []).map((m: any) => m.lead_name).filter(Boolean));
   const [crmFilterTag, setCrmFilterTag] = useState('all');
   const [crmSortField, setCrmSortField] = useState('nome');
@@ -158,6 +202,17 @@ export default function CRMSection({
   const safeCrmPage = Math.min(crmPage, crmTotalPages - 1);
   const paginatedCrmLeads = filteredCrmLeads.slice(safeCrmPage * CRM_PAGE_SIZE, (safeCrmPage + 1) * CRM_PAGE_SIZE);
 
+  const stageLabel = (stage: string): string => {
+    const map: Record<string, string> = {
+      'Novo': 'crm.stageNew',
+      'Em Contato': 'crm.stageContact',
+      'Proposta': 'crm.stageProposal',
+      'Fechado': 'crm.stageWon',
+      'Perdido': 'crm.stageLost',
+    };
+    return map[stage] ? t(map[stage]) : stage;
+  };
+
   return (
     <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden animate-slide-up">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
@@ -165,10 +220,10 @@ export default function CRMSection({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            📋 Seu CRM de Vendas
+            {t('crm.title')}
           </h2>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <p className="text-xs text-gray-500">Gerencie os leads que você já salvou e altere as etapas do funil comercial.</p>
+            <p className="text-xs text-gray-500">{t('crm.subtitle')}</p>
             <span className={`text-[10px] px-2 py-1 rounded-full border font-bold ${
               crmSyncStatus === 'cloud' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
               crmSyncStatus === 'syncing' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
@@ -190,7 +245,7 @@ export default function CRMSection({
                 onChange={() => handleToggleSelectAllCrmLeads(filteredCrmLeads)}
                 className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
               />
-              Selecionar Todos
+              {t('crm.selectAll')}
             </label>
           )}
           {selectedCrmLeads.length > 0 && (
@@ -199,21 +254,21 @@ export default function CRMSection({
                 onClick={handleRemoveSelectedFromCRM}
                 className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white border border-red-500/30 text-xs font-semibold cursor-pointer transition-colors"
               >
-                🗑️ Excluir ({selectedCrmLeads.length})
+                {t('crm.delete', { count: selectedCrmLeads.length })}
               </button>
               <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                Mover para:
+                {t('crm.moveTo')}
                 <select
                   value={bulkStageTarget}
                   onChange={(e) => setBulkStageTarget(e.target.value)}
                   style={{ colorScheme: 'dark' }}
                   className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
                 >
-                  <option value="Novo">Novo Lead</option>
-                  <option value="Em Contato">Em Contato</option>
-                  <option value="Proposta">Proposta Enviada</option>
-                  <option value="Fechado">Vendido / Ganho</option>
-                  <option value="Perdido">Perdido</option>
+                  <option value="Novo">{t('crm.stageNew')}</option>
+                  <option value="Em Contato">{t('crm.stageContact')}</option>
+                  <option value="Proposta">{t('crm.stageProposal')}</option>
+                  <option value="Fechado">{t('crm.stageWon')}</option>
+                  <option value="Perdido">{t('crm.stageLost')}</option>
                 </select>
               </span>
               <button
@@ -221,20 +276,20 @@ export default function CRMSection({
                 disabled={bulkStageLoading}
                 className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white border border-blue-500/30 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {bulkStageLoading ? 'Movendo...' : 'Aplicar'}
+                {bulkStageLoading ? t('crm.applying') : t('crm.apply')}
               </button>
               <button
                 onClick={handleReEnrichSelected}
                 disabled={enrichLoading}
                 className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white border border-amber-500/30 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {enrichLoading ? 'Enriquecendo...' : '🔄 Re-enriquecer'}
+                {enrichLoading ? t('crm.enriching') : t('crm.reEnrich')}
               </button>
             </>
           )}
           <input 
             type="text" 
-            placeholder="Buscar no CRM..."
+            placeholder={t('crm.search')}
             className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
             value={crmSearch}
             onChange={(e) => setCrmSearch(e.target.value)}
@@ -245,12 +300,12 @@ export default function CRMSection({
             style={{ colorScheme: 'dark' }}
             className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
           >
-            <option value="all">Todas as Etapas</option>
-            <option value="Novo">Novo Lead</option>
-            <option value="Em Contato">Em Contato</option>
-            <option value="Proposta">Proposta Enviada</option>
-            <option value="Fechado">Vendido / Ganho</option>
-            <option value="Perdido">Perdido</option>
+            <option value="all">{t('crm.filterStage')}: {t('crm.filterAll')}</option>
+            <option value="Novo">{t('crm.stageNew')}</option>
+            <option value="Em Contato">{t('crm.stageContact')}</option>
+            <option value="Proposta">{t('crm.stageProposal')}</option>
+            <option value="Fechado">{t('crm.stageWon')}</option>
+            <option value="Perdido">{t('crm.stageLost')}</option>
           </select>
           {allUsedTags.length > 0 && (
             <select
@@ -259,21 +314,21 @@ export default function CRMSection({
               style={{ colorScheme: 'dark' }}
               className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
             >
-              <option value="all">Todas as Tags</option>
-              {allUsedTags.map((t: string) => <option key={t} value={t}>{t}</option>)}
+              <option value="all">{t('crm.filterTag')}: {t('crm.filterAll')}</option>
+              {allUsedTags.map((tag: string) => <option key={tag} value={tag}>{getTagLabel(tag, t)}</option>)}
             </select>
           )}
           {filteredCrmLeads.length > 0 && (
             <button
-              onClick={() => exportCrmToCsv(filteredCrmLeads, `geoleads-crm-${new Date().toISOString().slice(0,10)}.csv`)}
+              onClick={() => exportCrmToCsv(t, filteredCrmLeads, `geoleads-crm-${new Date().toISOString().slice(0,10)}.csv`)}
               className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
             >
-              📥 Exportar CSV ({filteredCrmLeads.length})
+              {t('crm.exportCSV', { count: filteredCrmLeads.length })}
             </button>
           )}
           <button onClick={() => setShowImport(true)}
             className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white border border-cyan-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap">
-            📥 Importar CSV
+            {t('crm.importCSV')}
           </button>
           <button
             onClick={() => setCrmViewMode(v => v === 'table' ? 'kanban' : v === 'kanban' ? 'map' : 'table')}
@@ -281,7 +336,7 @@ export default function CRMSection({
               crmViewMode === 'kanban' ? 'bg-purple-600 border-purple-500/30 text-white' : crmViewMode === 'map' ? 'bg-green-700 border-green-500/30 text-white' : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
             }`}
           >
-            {crmViewMode === 'table' ? '📊 Kanban' : crmViewMode === 'kanban' ? '🗺️ Mapa' : '📋 Tabela'}
+            {crmViewMode === 'table' ? t('crm.viewKanban') : crmViewMode === 'kanban' ? t('crm.viewMap') : t('crm.viewTable')}
           </button>
         </div>
       </div>
@@ -302,15 +357,15 @@ export default function CRMSection({
                 />
               </th>
               <th className={`px-4 py-3 font-medium cursor-pointer hover:text-white select-none ${crmSortField === 'nome' ? 'text-white' : ''}`} onClick={() => { setCrmSortField('nome'); setCrmSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
-                Lead Info {crmSortField === 'nome' ? (crmSortDir === 'asc' ? '↑' : '↓') : ''}
+                {t('crm.tableLead')} {crmSortField === 'nome' ? (crmSortDir === 'asc' ? '↑' : '↓') : ''}
               </th>
-              <th className="px-4 py-3 font-medium">Contatos</th>
-              <th className="px-4 py-3 font-medium">Tags</th>
+              <th className="px-4 py-3 font-medium">{t('crm.tableContacts')}</th>
+              <th className="px-4 py-3 font-medium">{t('crm.tableTags')}</th>
               <th className={`px-4 py-3 font-medium cursor-pointer hover:text-white select-none ${crmSortField === 'stage' ? 'text-white' : ''}`} onClick={() => { setCrmSortField('stage'); setCrmSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
-                Funil / Status {crmSortField === 'stage' ? (crmSortDir === 'asc' ? '↑' : '↓') : ''}
+                {t('crm.tableFunnel')} {crmSortField === 'stage' ? (crmSortDir === 'asc' ? '↑' : '↓') : ''}
               </th>
-              <th className="px-4 py-3 font-medium">Minhas Anotações</th>
-              <th className="px-4 py-3 font-medium">Ações</th>
+              <th className="px-4 py-3 font-medium">{t('crm.tableNotes')}</th>
+              <th className="px-4 py-3 font-medium">{t('crm.tableActions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -327,11 +382,13 @@ export default function CRMSection({
                 <td className="px-4 py-4 font-medium text-gray-200">
                   <div className="font-bold">{lead.nome}</div>
                   <div className="text-xs text-gray-500 mt-0.5">{lead.nicho} · {lead.cidade}</div>
-                  {lead.site && lead.site !== 'Sem site' && (
-                    <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1 block">🌐 Site comercial</a>
+                  {lead.site && lead.site !== 'Sem site' ? (
+                    <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1 block">{t('crm.website')}</a>
+                  ) : (
+                    <span className="text-xs text-gray-600 mt-1 block">{t('crm.noWebsite')}</span>
                   )}
                   {lead.cnpj && (
-                    <span className="block text-[11px] text-amber-300 font-mono mt-1">CNPJ {lead.cnpj}</span>
+                    <span className="block text-[11px] text-amber-300 font-mono mt-1">{t('crm.cnpj', { number: lead.cnpj })}</span>
                   )}
                 </td>
                 <td className="px-4 py-4 text-xs font-mono">
@@ -356,7 +413,7 @@ export default function CRMSection({
                 <td className="px-4 py-4">
                   <div className="flex flex-wrap gap-1.5 items-center min-h-[28px]">
                     {(Array.isArray(lead.tags) ? lead.tags : []).map((tag: string) => (
-                      <TagBadge key={tag} tag={tag} onRemove={() => toggleTag(lead.nome, tag)} />
+                      <TagBadge key={tag} tag={tag} onRemove={() => toggleTag(lead.nome, tag)} t={t} />
                     ))}
                     <div className="flex items-center gap-1">
                       <select
@@ -366,13 +423,13 @@ export default function CRMSection({
                         className="px-2 py-1 rounded-lg bg-black/50 border border-white/10 text-[11px] text-gray-400 focus:outline-none focus:border-blue-500 cursor-pointer w-[28px] appearance-none"
                       >
                         <option value="">+</option>
-                        {ALL_TAGS.filter(t => !(Array.isArray(lead.tags) ? lead.tags : []).includes(t)).map((tag: string) => (
-                          <option key={tag} value={tag}>{tag}</option>
+                        {ALL_TAGS.filter(tag => !(Array.isArray(lead.tags) ? lead.tags : []).includes(tag)).map((tag: string) => (
+                          <option key={tag} value={tag}>{getTagLabel(tag, t)}</option>
                         ))}
                       </select>
                       <input
                         type="text"
-                        placeholder="Nova..."
+                        placeholder={t('crm.newTagPlaceholder')}
                         value={tagInputs[lead.nome] || ''}
                         onChange={(e) => setTagInputs(s => ({ ...s, [lead.nome]: e.target.value }))}
                         onKeyDown={(e) => {
@@ -399,16 +456,16 @@ export default function CRMSection({
                       'bg-red-500/10 border-red-500/30 text-red-400'
                     }`}
                   >
-                    <option value="Novo">Novo Lead</option>
-                    <option value="Em Contato">Em Contato</option>
-                    <option value="Proposta">Proposta Enviada</option>
-                    <option value="Fechado">Vendido / Ganho</option>
-                    <option value="Perdido">Perdido</option>
+                    <option value="Novo">{t('crm.stageNew')}</option>
+                    <option value="Em Contato">{t('crm.stageContact')}</option>
+                    <option value="Proposta">{t('crm.stageProposal')}</option>
+                    <option value="Fechado">{t('crm.stageWon')}</option>
+                    <option value="Perdido">{t('crm.stageLost')}</option>
                   </select>
                 </td>
                 <td className="px-4 py-4">
                   <textarea
-                    placeholder="Clique para anotar detalhes..."
+                    placeholder={t('crm.clickToAnnotate')}
                     value={lead.notes || ''}
                     onChange={(e) => handleUpdateCRMLead(lead.nome, 'notes', e.target.value)}
                     className="w-full bg-black/40 border border-white/5 hover:border-white/10 focus:border-blue-500 focus:outline-none rounded-lg p-2 text-xs text-gray-300 resize-none h-14 transition-colors"
@@ -417,7 +474,7 @@ export default function CRMSection({
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-2">
                     {waSentNames.has(lead.nome) && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold" title="WhatsApp já enviado">✅ Enviado</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold" title={t('crm.whatsappSent')}>{t('crm.whatsappSent')}</span>
                     )}
                     {lead.telefone && lead.telefone !== 'Não informado' && (
                       <button
@@ -428,7 +485,7 @@ export default function CRMSection({
                             : 'bg-green-500/10 hover:bg-green-500/20 border-green-500/20 text-green-400'
                         }`}
                       >
-                        💬 Contatar
+                        💬 {t('crm.contact')}
                       </button>
                     )}
                     {lead.site && lead.site !== 'Sem site' && (
@@ -436,14 +493,14 @@ export default function CRMSection({
                         onClick={() => handleReEnrichSingle(lead)}
                         className="p-2 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-colors text-xs font-semibold cursor-pointer"
                       >
-                        🔄 Re-enriquecer
+                        {t('crm.reEnrich')}
                       </button>
                     )}
                     <button
                       onClick={() => handleRemoveFromCRM(lead.nome)}
                       className="p-2 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-colors text-xs font-semibold cursor-pointer"
                     >
-                      Excluir
+                      {t('crm.deleteSingle')}
                     </button>
                   </div>
                 </td>
@@ -454,8 +511,8 @@ export default function CRMSection({
               <tr>
                 <td colSpan={7} className="px-4 py-16 text-center text-gray-500">
                   <div className="text-3xl mb-3">📁</div>
-                  <p className="font-semibold">Nenhum lead encontrado no CRM.</p>
-                  <p className="text-xs max-w-md mx-auto mt-1">Salve leads a partir do "Motor Extrator" para visualizá-los e gerenciá-los aqui no seu pipeline.</p>
+                  <p className="font-semibold">{t('crm.empty')}</p>
+                  <p className="text-xs max-w-md mx-auto mt-1">{t('crm.empty')} {t('crm.subtitle')}</p>
                 </td>
               </tr>
             )}
@@ -483,11 +540,13 @@ export default function CRMSection({
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
                   <div className="text-xs text-gray-500 mt-1">{lead.nicho} · {lead.cidade}</div>
-                  {lead.site && lead.site !== 'Sem site' && (
-                    <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1.5 block">🌐 Site comercial</a>
+                  {lead.site && lead.site !== 'Sem site' ? (
+                    <a href={lead.site} target="_blank" className="text-xs text-blue-400 hover:underline mt-1.5 block">{t('crm.website')}</a>
+                  ) : (
+                    <span className="text-xs text-gray-600 mt-1.5 block">{t('crm.noWebsite')}</span>
                   )}
                   {lead.cnpj && (
-                    <span className="block text-[11px] text-amber-300 font-mono mt-1.5">CNPJ {lead.cnpj}</span>
+                    <span className="block text-[11px] text-amber-300 font-mono mt-1.5">{t('crm.cnpj', { number: lead.cnpj })}</span>
                   )}
                 </div>
               </div>
@@ -521,10 +580,10 @@ export default function CRMSection({
               </div>
 
               <div className="border-t border-white/5 pt-3">
-                <span className="text-[11px] text-gray-500 font-medium block mb-2">Tags:</span>
+                <span className="text-[11px] text-gray-500 font-medium block mb-2">{t('crm.tableTags')}:</span>
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {(Array.isArray(lead.tags) ? lead.tags : []).map((tag: string) => (
-                    <TagBadge key={tag} tag={tag} onRemove={() => toggleTag(lead.nome, tag)} />
+                    <TagBadge key={tag} tag={tag} onRemove={() => toggleTag(lead.nome, tag)} t={t} />
                   ))}
                   <div className="flex items-center gap-1">
                     <select
@@ -534,13 +593,13 @@ export default function CRMSection({
                       className="px-2 py-1 rounded-lg bg-black/50 border border-white/10 text-[11px] text-gray-400 focus:outline-none focus:border-blue-500 cursor-pointer w-[28px] appearance-none"
                     >
                       <option value="">+</option>
-                      {ALL_TAGS.filter(t => !(Array.isArray(lead.tags) ? lead.tags : []).includes(t)).map((tag: string) => (
-                        <option key={tag} value={tag}>{TAG_CONFIG[tag]?.icon || ''} {tag}</option>
+                      {ALL_TAGS.filter(tag => !(Array.isArray(lead.tags) ? lead.tags : []).includes(tag)).map((tag: string) => (
+                        <option key={tag} value={tag}>{TAG_CONFIG[tag]?.icon || ''} {getTagLabel(tag, t)}</option>
                       ))}
                     </select>
                     <input
                       type="text"
-                      placeholder="Nova tag..."
+                      placeholder={t('crm.newTagPlaceholder')}
                       value={tagInputs[lead.nome] || ''}
                       onChange={(e) => setTagInputs(s => ({ ...s, [lead.nome]: e.target.value }))}
                       onKeyDown={(e) => {
@@ -555,7 +614,7 @@ export default function CRMSection({
                 </div>
               </div>
               <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
-                <span className="text-[11px] text-gray-500 font-medium">Funil / Status:</span>
+                <span className="text-[11px] text-gray-500 font-medium">{t('crm.tableFunnel')}:</span>
                 <select
                   value={lead.stage || 'Novo'}
                   onChange={(e) => handleUpdateCRMLead(lead.nome, 'stage', e.target.value)}
@@ -568,18 +627,18 @@ export default function CRMSection({
                     'bg-red-500/10 border-red-500/30 text-red-400'
                   }`}
                 >
-                  <option value="Novo">Novo Lead</option>
-                  <option value="Em Contato">Em Contato</option>
-                  <option value="Proposta">Proposta Enviada</option>
-                  <option value="Fechado">Vendido / Ganho</option>
-                  <option value="Perdido">Perdido</option>
+                  <option value="Novo">{t('crm.stageNew')}</option>
+                  <option value="Em Contato">{t('crm.stageContact')}</option>
+                  <option value="Proposta">{t('crm.stageProposal')}</option>
+                  <option value="Fechado">{t('crm.stageWon')}</option>
+                  <option value="Perdido">{t('crm.stageLost')}</option>
                 </select>
               </div>
 
               <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
-                <span className="text-[11px] text-gray-500 font-medium">Minhas Anotações:</span>
+                <span className="text-[11px] text-gray-500 font-medium">{t('crm.tableNotes')}:</span>
                 <textarea
-                  placeholder="Clique para anotar detalhes..."
+                  placeholder={t('crm.clickToAnnotate')}
                   value={lead.notes || ''}
                   onChange={(e) => handleUpdateCRMLead(lead.nome, 'notes', e.target.value)}
                   className="w-full bg-black/40 border border-white/5 hover:border-white/10 focus:border-blue-500 focus:outline-none rounded-xl p-3 text-xs text-gray-300 resize-none h-16 transition-colors"
@@ -588,14 +647,14 @@ export default function CRMSection({
 
               <div className="flex flex-col sm:flex-row gap-2 border-t border-white/5 pt-3">
                 {waSentNames.has(lead.nome) && (
-                  <span className="text-[10px] px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold inline-flex items-center gap-1 w-fit">✅ WhatsApp Enviado</span>
+                  <span className="text-[10px] px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold inline-flex items-center gap-1 w-fit">{t('crm.whatsappSent')}</span>
                 )}
                 {lead.telefone && lead.telefone !== 'Não informado' && (
                   <button
                     onClick={() => openWhatsApp(lead)}
                     className="flex-1 py-2.5 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    💬 Contatar
+                    💬 {t('crm.contact')}
                   </button>
                 )}
                 {lead.site && lead.site !== 'Sem site' && (
@@ -603,14 +662,14 @@ export default function CRMSection({
                     onClick={() => handleReEnrichSingle(lead)}
                     className="flex-1 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    🔄 Re-enriquecer
+                    {t('crm.reEnrich')}
                   </button>
                 )}
                 <button
                   onClick={() => handleRemoveFromCRM(lead.nome)}
                   className="flex-1 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  Excluir
+                  {t('crm.deleteSingle')}
                 </button>
               </div>
             </div>
@@ -619,7 +678,7 @@ export default function CRMSection({
           {filteredCrmLeads.length === 0 && (
             <div className="py-16 text-center text-gray-500">
               <div className="text-3xl mb-3">📁</div>
-              <p className="font-semibold text-sm">Nenhum lead encontrado no CRM.</p>
+              <p className="font-semibold text-sm">{t('crm.empty')}</p>
             </div>
           )}
         </div>
@@ -648,7 +707,7 @@ export default function CRMSection({
             return (
               <div key={stage} className={`rounded-xl border ${stageColors[stage]} p-3 min-h-[200px]`}>
                 <div className={`text-xs font-bold uppercase tracking-wider mb-3 flex items-center justify-between ${headerColors[stage]}`}>
-                  <span>{stage}</span>
+                  <span>{stageLabel(stage)}</span>
                   <span className="text-white/40 font-mono">{stageLeads.length}</span>
                 </div>
                 <div className="space-y-2">
@@ -665,7 +724,7 @@ export default function CRMSection({
                       {(Array.isArray(lead.tags) ? lead.tags : []).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {(Array.isArray(lead.tags) ? lead.tags : []).slice(0, 3).map((tag: string) => (
-                            <TagBadge key={tag} tag={tag} />
+                            <TagBadge key={tag} tag={tag} t={t} />
                           ))}
                         </div>
                       )}
@@ -679,14 +738,14 @@ export default function CRMSection({
                         {['Novo', 'Em Contato', 'Proposta', 'Fechado', 'Perdido'].filter(s => s !== stage).map(s => (
                           <button key={s} onClick={() => handleUpdateCRMLead(lead.nome, 'stage', s)}
                             className="px-1 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[8px] text-gray-400 cursor-pointer truncate">
-                            → {s}
+                            → {stageLabel(s)}
                           </button>
                         ))}
                       </div>
                     </div>
                   ))}
                   {stageLeads.length === 0 && (
-                    <div className="text-center py-8 text-gray-600 text-[11px]">Nenhum lead</div>
+                    <div className="text-center py-8 text-gray-600 text-[11px]">{t('crm.empty')}</div>
                   )}
                 </div>
               </div>
@@ -705,7 +764,7 @@ export default function CRMSection({
       {crmViewMode === 'table' && filteredCrmLeads.length > CRM_PAGE_SIZE && (
         <div className="flex items-center justify-between pt-4 text-xs text-gray-500">
           <span>
-            Mostrando {safeCrmPage * CRM_PAGE_SIZE + 1}–{Math.min((safeCrmPage + 1) * CRM_PAGE_SIZE, filteredCrmLeads.length)} de {filteredCrmLeads.length}
+            {t('crm.pagination', { from: safeCrmPage * CRM_PAGE_SIZE + 1, to: Math.min((safeCrmPage + 1) * CRM_PAGE_SIZE, filteredCrmLeads.length), total: filteredCrmLeads.length })}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -713,14 +772,14 @@ export default function CRMSection({
               disabled={safeCrmPage === 0}
               className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 disabled:opacity-30 hover:bg-white/10 transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
-              ← Anterior
+              {t('crm.previous')}
             </button>
             <button
               onClick={() => setCrmPage(Math.min(crmTotalPages - 1, safeCrmPage + 1))}
               disabled={safeCrmPage >= crmTotalPages - 1}
               className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 disabled:opacity-30 hover:bg-white/10 transition-colors cursor-pointer disabled:cursor-not-allowed"
             >
-              Próximo →
+              {t('crm.next')}
             </button>
           </div>
         </div>
@@ -733,7 +792,7 @@ export default function CRMSection({
           <div style={{width:'100%',maxWidth:'42rem',maxHeight:'85vh',background:'#111',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'1.5rem',padding:'1.5rem',boxShadow:'0 25px 50px rgba(0,0,0,0.5)',overflow:'auto'}}
             onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem'}}>
-              <h3 style={{fontSize:'1.125rem',fontWeight:700}}>📥 Importar Leads (CSV)</h3>
+              <h3 style={{fontSize:'1.125rem',fontWeight:700}}>{t('crm.importTitle')}</h3>
               <button onClick={() => { setShowImport(false); setImportPreview(null); }} style={{color:'#999',fontSize:'1.25rem',border:'none',background:'none',cursor:'pointer'}}>&times;</button>
             </div>
 
@@ -743,8 +802,8 @@ export default function CRMSection({
                   <input type="file" accept=".csv" onChange={e => setImportFile(e.target.files?.[0] || null)} style={{display:'none'}} id="csv-upload" />
                   <label htmlFor="csv-upload" style={{cursor:'pointer',display:'block'}}>
                     <div style={{fontSize:'2.25rem',marginBottom:'0.75rem'}}>📄</div>
-                    <p style={{fontSize:'0.875rem',color:'#ccc',fontWeight:600}}>{importFile ? importFile.name : 'Clique para selecionar um arquivo CSV'}</p>
-                    <p style={{fontSize:'0.6875rem',color:'#888',marginTop:'0.25rem'}}>Cabeçalhos esperados: Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
+                    <p style={{fontSize:'0.875rem',color:'#ccc',fontWeight:600}}>{importFile ? importFile.name : t('crm.importClick')}</p>
+                    <p style={{fontSize:'0.6875rem',color:'#888',marginTop:'0.25rem'}}>{t('crm.importHeaders')}</p>
                   </label>
                 </div>
                 <button onClick={async () => {
@@ -755,7 +814,7 @@ export default function CRMSection({
                       formData.append('file', importFile);
                       const { data: { session } } = await (await import('@/lib/supabase')).supabase.auth.getSession();
                       const token = session?.access_token;
-                      if (!token) { showToast('Faça login novamente.', 'error'); return; }
+                      if (!token) { showToast(t('crm.importLoginError'), 'error'); return; }
                       const res = await fetch('/api/import/csv', { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } });
                       const data = await res.json();
                       if (data.success) {
@@ -764,26 +823,26 @@ export default function CRMSection({
                         setImportUnmapped(data.unmappedColumns || []);
                         setImportCsvHeaders(data.csvHeaders);
                       } else throw new Error(data.error);
-                    } catch (err: any) { showToast('Erro: ' + err.message, 'error'); }
+                    } catch (err: any) { showToast(t('crm.importError', { message: err.message }), 'error'); }
                     finally { setImportLoading(false); }
                   }}
                   disabled={!importFile || importLoading}
                   style={{width:'100%',padding:'0.75rem',borderRadius:'0.75rem',fontWeight:700,color:'#fff',border:'none',cursor:'pointer',background:'linear-gradient(90deg,#0891b2,#2563eb)',opacity:(!importFile || importLoading)?0.5:1}}>
-                  {importLoading ? 'Processando...' : '📤 Enviar e Analisar'}
+                  {                  importLoading ? t('crm.importProcessing') : t('crm.importUpload')}
                 </button>
-                <p style={{fontSize:'0.625rem',color:'#666',textAlign:'center'}}>O arquivo não é salvo no servidor. Processado em memória.</p>
+                <p style={{fontSize:'0.625rem',color:'#666',textAlign:'center'}}>{t('crm.importNoServer')}</p>
               </div>
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                  <p style={{fontSize:'0.875rem',color:'#ccc'}}>{importPreview.length} leads detectados</p>
-                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} style={{fontSize:'0.75rem',color:'#888',border:'none',background:'none',cursor:'pointer'}}>← Voltar</button>
+                  <p style={{fontSize:'0.875rem',color:'#ccc'}}>{t('crm.importDetected', { count: importPreview.length })}</p>
+                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} style={{fontSize:'0.75rem',color:'#888',border:'none',background:'none',cursor:'pointer'}}>← {t('crm.importBack')}</button>
                 </div>
                 {importUnmapped.length > 0 && (
                   <div style={{background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.2)',borderRadius:'0.75rem',padding:'0.75rem'}}>
-                    <p style={{fontSize:'0.75rem',color:'#fbbf24',fontWeight:600,marginBottom:'0.25rem'}}>Colunas não reconhecidas:</p>
+                    <p style={{fontSize:'0.75rem',color:'#fbbf24',fontWeight:600,marginBottom:'0.25rem'}}>{t('crm.importUnrecognized')}</p>
                     <p style={{fontSize:'0.6875rem',color:'#fcd34d'}}>{importUnmapped.join(', ')}</p>
-                    <p style={{fontSize:'0.6875rem',color:'rgba(251,191,36,0.7)',marginTop:'0.25rem'}}>Use: Nome, Telefone, Email, Site, Instagram, Cidade, Nicho</p>
+                    <p style={{fontSize:'0.6875rem',color:'rgba(251,191,36,0.7)',marginTop:'0.25rem'}}>{t('crm.importHeaders')}</p>
                   </div>
                 )}
                 <div style={{maxHeight:'13rem',overflowY:'auto',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'0.75rem',background:'rgba(0,0,0,0.3)'}}>
@@ -808,9 +867,9 @@ export default function CRMSection({
                       setImportFile(null);
                     }}
                     style={{flex:1,padding:'0.75rem',borderRadius:'0.75rem',fontWeight:700,color:'#fff',border:'none',cursor:'pointer',background:'linear-gradient(90deg,#16a34a,#059669)'}}>
-                    ✅ Importar {importPreview.length} Leads
+                    {t('crm.importConfirm', { count: importPreview.length })}
                   </button>
-                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} style={{padding:'0.75rem 1rem',borderRadius:'0.75rem',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'#ccc',cursor:'pointer'}}>Cancelar</button>
+                  <button onClick={() => { setImportPreview(null); setImportFile(null); }} style={{padding:'0.75rem 1rem',borderRadius:'0.75rem',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'#ccc',cursor:'pointer'}}>{t('crm.importCancel')}</button>
                 </div>
               </div>
             )}

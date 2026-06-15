@@ -1,46 +1,48 @@
 'use client';
 
 import { useState } from 'react';
-
-const steps = [
-  {
-    icon: '🔍',
-    gradient: 'from-blue-600/20 to-cyan-600/10',
-    border: 'border-blue-500/30',
-    title: 'Encontre clientes no Google Maps',
-    desc: 'Digite um nicho (ex: "Academia") e uma cidade. O GeoLeads varre o Maps e extrai nome, telefone, WhatsApp, Instagram, email e CNPJ de centenas de negócios em minutos.',
-    tip: '💡 Dica: Quanto mais específico o nicho, melhores os leads. "Pet Shop" funciona melhor que "animais".',
-  },
-  {
-    icon: '📋',
-    gradient: 'from-emerald-600/20 to-teal-600/10',
-    border: 'border-emerald-500/30',
-    title: 'Gerencie no CRM inteligente',
-    desc: 'Salve leads com 1 clique. Organize por estágio: Novo → Contatado → Proposta → Fechado. Edite, filtre e nunca perca um lead de vista.',
-    tip: '💡 Dica: Use os estágios pra saber exatamente onde cada lead está no seu funil de vendas.',
-  },
-  {
-    icon: '💬',
-    gradient: 'from-purple-600/20 to-pink-600/10',
-    border: 'border-purple-500/30',
-    title: 'Venda pelo WhatsApp',
-    desc: 'Dispare mensagens em massa com templates prontos, ou use o gerador de copys com IA. O chatbot responde automaticamente quem não atendeu.',
-    tip: '💡 Dica: Mensagens curtas e diretas convertem mais. Teste diferentes abordagens.',
-  },
-  {
-    icon: '🪙',
-    gradient: 'from-amber-600/20 to-orange-600/10',
-    border: 'border-amber-500/30',
-    title: 'Tokens = Seu combustível',
-    desc: 'Cada lead extraído gasta 1 token. Você começa com 10 tokens grátis sem cartão. Planos a partir de R$9,90 com 300 tokens. Os tokens são vitalícios enquanto seu plano estiver ativo.',
-    tip: '💡 Dica: Use os tokens grátis pra testar seu nicho antes de investir em um plano.',
-  },
-];
+import { useTranslations } from '@/lib/i18n';
 
 export default function OnboardingOverlay() {
+  const { t } = useTranslations();
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(true);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+
+  const steps = [
+    {
+      icon: '🔍',
+      gradient: 'from-blue-600/20 to-cyan-600/10',
+      border: 'border-blue-500/30',
+      title: t('onboarding.step1Title'),
+      desc: t('onboarding.step1Desc'),
+      tip: t('onboarding.step1Tip'),
+    },
+    {
+      icon: '📋',
+      gradient: 'from-emerald-600/20 to-teal-600/10',
+      border: 'border-emerald-500/30',
+      title: t('onboarding.step2Title'),
+      desc: t('onboarding.step2Desc'),
+      tip: t('onboarding.step2Tip'),
+    },
+    {
+      icon: '💬',
+      gradient: 'from-purple-600/20 to-pink-600/10',
+      border: 'border-purple-500/30',
+      title: t('onboarding.step3Title'),
+      desc: t('onboarding.step3Desc'),
+      tip: t('onboarding.step3Tip'),
+    },
+    {
+      icon: '🪙',
+      gradient: 'from-amber-600/20 to-orange-600/10',
+      border: 'border-amber-500/30',
+      title: t('onboarding.step4Title'),
+      desc: t('onboarding.step4Desc'),
+      tip: t('onboarding.step4Tip'),
+    },
+  ];
 
   if (!visible) return null;
 
@@ -96,19 +98,19 @@ export default function OnboardingOverlay() {
                 <button onClick={handleDismiss}
                   className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-sm font-medium cursor-pointer transition-all hover:bg-white/5"
                 >
-                  Pular
+                  {t('onboarding.skip')}
                 </button>
                 <button onClick={() => setStep(s => s + 1)}
                   className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-sm font-bold cursor-pointer transition-all"
                 >
-                  Próximo
+                  {t('onboarding.next')}
                 </button>
               </>
             ) : (
               <button onClick={handleFinish}
                 className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white text-sm font-bold cursor-pointer transition-all"
               >
-                🔥 Começar a extrair leads
+                {t('onboarding.start')}
               </button>
             )}
           </div>
@@ -116,7 +118,7 @@ export default function OnboardingOverlay() {
           <label className="flex items-center justify-center gap-2 text-[11px] text-gray-500 cursor-pointer hover:text-gray-400 transition-colors">
             <input type="checkbox" checked={dontShowAgain} onChange={(e) => setDontShowAgain(e.target.checked)}
               className="rounded border-gray-600 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-3.5 w-3.5" />
-            Não mostrar novamente
+            {t('onboarding.dontShowAgain')}
           </label>
         </div>
       </div>

@@ -1,5 +1,8 @@
+'use client';
+
 import { useState } from 'react';
 import { getLeadKey } from './dashboard-constants';
+import { useTranslations } from '@/lib/i18n';
 
 interface Props {
   crmLeads: any[];
@@ -13,6 +16,7 @@ interface Props {
 }
 
 export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleReEnrichSelected, enrichLoading, selectedCrmLeads, setSelectedCrmLeads, openWhatsApp, showToast }: Props) {
+  const { t } = useTranslations();
   const [enrichStatus, setEnrichStatus] = useState<Record<string, string>>({});
 
   const leadsToEnrich = crmLeads.filter(l => (l.site && l.site !== 'Sem site') || l.placeUrl);
@@ -34,7 +38,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
     for (const lead of needsEnrichment.slice(0, 20)) {
       await handleEnrich(lead);
     }
-    showToast(`Enriquecimento concluído!`, 'success');
+    showToast(t('enrich.enrichmentDone'), 'success');
   };
 
   return (
@@ -43,54 +47,49 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">🔍 Buscar Mais Dados</h2>
-            <p className="text-sm text-gray-400 mt-1">Escolha leads do CRM e busque dados adicionais como email, CNPJ, Instagram, Facebook e TikTok.</p>
+            <h2 className="text-2xl font-bold flex items-center gap-2">{t('enrich.title')}</h2>
+            <p className="text-sm text-gray-400 mt-1">{t('enrich.desc')}</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="text-xs text-gray-500 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              {needsEnrichment.length} precisam de dados · {enrichedLeads.length} completos
+              {t('enrich.needData', { count: needsEnrichment.length, done: enrichedLeads.length })}
             </div>
             {needsEnrichment.length > 0 && (
               <button onClick={enrichAll} disabled={enrichLoading} className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-all">
-                {enrichLoading ? 'Enriquecendo...' : '🚀 Enriquecer Todos'}
+                {enrichLoading ? t('enrich.enriching') : t('enrich.enrichAll')}
               </button>
             )}
           </div>
         </div>
 
-        {/* Status Overview */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-gray-200">{crmLeads.length}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Total no CRM</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{t('enrich.totalCRM')}</div>
           </div>
           <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-green-400">{enrichedLeads.length}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Completos</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{t('enrich.complete')}</div>
           </div>
           <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-amber-400">{needsEnrichment.length}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Precisam de dados</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{t('enrich.needDataLabel')}</div>
           </div>
           <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-purple-400">{leadsToEnrich.length}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Com site para buscar</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{t('enrich.withSite')}</div>
           </div>
         </div>
 
-        {/* How it works */}
         <div className="bg-purple-500/5 border border-purple-500/15 rounded-xl p-4 mb-6">
-          <h3 className="text-sm font-bold text-purple-300 mb-2">⚡ Como funciona</h3>
+          <h3 className="text-sm font-bold text-purple-300 mb-2">⚡ {t('enrich.howItWorksTitle')}</h3>
           <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
-            <li>Se o lead tem URL do Maps, extraímos telefone, site e redes do Google Maps (LD+JSON)</li>
-            <li>Visitamos o site do lead e extraímos email, CNPJ e redes sociais</li>
-            <li>Buscamos links do Instagram, Facebook e TikTok nas páginas do site</li>
-            <li>Geramos email por padrão (contato@, comercial@) quando necessário</li>
-            <li>Os dados são salvos automaticamente no CRM</li>
+            <li>{t('enrich.howItWorks1')}</li>
+            <li>{t('enrich.howItWorks2')}</li>
+            <li>{t('enrich.howItWorks3')}</li>
           </ol>
         </div>
 
-        {/* Leads list */}
         <div className="rounded-2xl border border-white/5 bg-black/20 overflow-hidden">
           <table className="w-full text-left text-sm">
             <thead className="bg-white/5 border-b border-white/5 text-gray-400">
@@ -100,10 +99,10 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
                     onChange={() => setSelectedCrmLeads(leadsToEnrich.map(l => l.nome))}
                     className="rounded border-white/20 bg-black/40 text-blue-500 cursor-pointer h-4 w-4" />
                 </th>
-                <th className="px-4 py-3 font-medium">Lead</th>
-                <th className="px-4 py-3 font-medium">O que falta</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Ação</th>
+                <th className="px-4 py-3 font-medium">{t('enrich.tableLead')}</th>
+                <th className="px-4 py-3 font-medium">{t('enrich.tableMissing')}</th>
+                <th className="px-4 py-3 font-medium">{t('enrich.tableStatus')}</th>
+                <th className="px-4 py-3 font-medium">{t('enrich.tableAction')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -137,21 +136,21 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
                             'bg-blue-500/10 text-blue-300 border border-blue-500/20'
                           }`}>{m}</span>
                         ))}
-                        {missing.length === 0 && <span className="text-[10px] text-green-400">✅ Completo</span>}
+                        {missing.length === 0 && <span className="text-[10px] text-green-400">{t('enrich.completeBadge')}</span>}
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      {status === 'buscando...' && <span className="text-xs text-blue-400 animate-pulse">Buscando...</span>}
-                      {status === 'concluido' && <span className="text-xs text-green-400">✅ Concluído</span>}
-                      {status === 'erro' && <span className="text-xs text-red-400">❌ Erro</span>}
-                      {!status && missing.length === 0 && <span className="text-xs text-green-400/60">Completo</span>}
-                      {!status && missing.length > 0 && <span className="text-xs text-gray-500">Pendente</span>}
+                      {status === 'buscando...' && <span className="text-xs text-blue-400 animate-pulse">{t('enrich.statusSearching')}</span>}
+                      {status === 'concluido' && <span className="text-xs text-green-400">✅ {t('enrich.statusDone')}</span>}
+                      {status === 'erro' && <span className="text-xs text-red-400">❌ {t('enrich.statusError')}</span>}
+                      {!status && missing.length === 0 && <span className="text-xs text-green-400/60">{t('enrich.completeBadge')}</span>}
+                      {!status && missing.length > 0 && <span className="text-xs text-gray-500">{t('enrich.statusPending')}</span>}
                     </td>
                     <td className="px-4 py-4">
                       {missing.length > 0 && status !== 'buscando...' && (
                         <button onClick={() => handleEnrich(lead)} disabled={enrichLoading}
                           className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border border-purple-500/30 text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors">
-                          🔍 Buscar dados
+                          {t('enrich.searchData')}
                         </button>
                       )}
                     </td>
@@ -161,8 +160,8 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
               {leadsToEnrich.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-16 text-center text-gray-500">
                   <div className="text-3xl mb-3">🔍</div>
-                  <p className="font-semibold">Nenhum lead com site para enriquecer.</p>
-                  <p className="text-xs mt-1">Adicione leads ao CRM primeiro através do Motor Extrator.</p>
+                  <p className="font-semibold">{t('enrich.noLeadsWithSite')}</p>
+                  <p className="text-xs mt-1">{t('enrich.noLeadsHint')}</p>
                 </td></tr>
               )}
             </tbody>
@@ -170,7 +169,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
         </div>
 
         {leadsToEnrich.length > 30 && (
-          <p className="text-xs text-gray-500 text-center mt-3">Mostrando 30 de {leadsToEnrich.length} leads. Selecione-os em lote com o checkbox do cabeçalho.</p>
+          <p className="text-xs text-gray-500 text-center mt-3">{t('enrich.showMore', { total: leadsToEnrich.length })}</p>
         )}
       </div>
     </div>

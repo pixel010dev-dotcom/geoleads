@@ -7,6 +7,7 @@ import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import Toast, { showToast } from '@/components/Toast';
 import { getCostPerLeadLabel, paidPlanIds, plans, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
+import { useTranslations } from '@/lib/i18n';
 
 const planIcons: Record<PlanId, string> = {
   free: '🔎',
@@ -22,13 +23,6 @@ const planAccent: Record<PlanId, string> = {
   agency: 'border-cyan-500/35'
 };
 
-const planHint: Record<PlanId, string> = {
-  free: 'Teste o motor',
-  starter: 'Começo prático',
-  pro: 'Melhor equilíbrio',
-  agency: 'Volume e automação'
-};
-
 type PixSession = {
   paymentId: number;
   qrCode: string;
@@ -38,6 +32,7 @@ type PixSession = {
 };
 
 export default function Pricing() {
+  const { t, locale } = useTranslations();
   const router = useRouter();
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>('pro');
@@ -48,7 +43,7 @@ export default function Pricing() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    document.title = 'GeoLeads - Planos e Preços';
+    document.title = t('pricing.title');
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
     });
@@ -90,7 +85,7 @@ export default function Pricing() {
         setPixStatus(data.status || 'pending');
         if (data.approved) {
           stopPolling();
-          setPixMessage('Pagamento confirmado! Redirecionando...');
+          setPixMessage(t('pricing.paymentConfirmed'));
           window.setTimeout(() => {
             router.push(`/?checkout=success&plan=${selectedPlanId}`);
           }, 1500);
@@ -119,7 +114,7 @@ export default function Pricing() {
 
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error || 'Erro no checkout');
+      throw new Error(data.error || t('pricing.checkoutError'));
     }
 
     return { data, token: session.access_token };
@@ -134,7 +129,7 @@ export default function Pricing() {
 
       const { data, token } = result;
       if (data.method !== 'pix' || !data.qrCode) {
-        throw new Error('Mercado Pago nao retornou QR Code PIX.');
+        throw new Error(t('pricing.noQrCode'));
       }
 
       setPixSession({
@@ -145,10 +140,10 @@ export default function Pricing() {
         planId
       });
       setPixStatus(data.status || 'pending');
-      setPixMessage('Escaneie o QR Code ou copie o codigo PIX abaixo.');
+      setPixMessage(t('pricing.scanQr'));
       startPolling(data.paymentId, token);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Erro desconhecido';
+      const message = e instanceof Error ? e.message : 'Unknown error';
       showToast(`Erro PIX: ${message}`, 'error');
     } finally {
       setLoadingPlan(null);
@@ -164,10 +159,10 @@ export default function Pricing() {
       if (result.data.url) {
         window.location.href = result.data.url;
       } else {
-        showToast('Erro: link do Mercado Pago nao gerado.', 'error');
+        showToast(t('pricing.noPaymentLink'), 'error');
       }
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Erro desconhecido';
+      const message = e instanceof Error ? e.message : 'Unknown error';
       showToast(`Erro checkout: ${message}`, 'error');
     } finally {
       setLoadingPlan(null);
@@ -177,7 +172,7 @@ export default function Pricing() {
   const copyPixCode = async () => {
     if (!pixSession?.qrCode) return;
     await navigator.clipboard.writeText(pixSession.qrCode);
-    setPixMessage('Codigo PIX copiado!');
+    setPixMessage(t('pricing.pixCopied'));
   };
 
   const closePixModal = () => {
@@ -207,9 +202,9 @@ export default function Pricing() {
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold mb-3">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  PAGAMENTO PIX
+                  {t('pricing.pixTitle')}
                 </div>
-                <h3 className="text-xl font-bold">{plans[pixSession.planId].name}</h3>
+                <h3 className="text-xl font-bold">{t('pricing.planNames.' + pixSession.planId)}</h3>
                 <p className="text-2xl font-extrabold mt-1 text-emerald-300">
                   {formatPlanPrice(pixSession.amount)}
                 </p>
@@ -218,7 +213,7 @@ export default function Pricing() {
                 type="button"
                 onClick={closePixModal}
                 className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white flex items-center justify-center cursor-pointer transition-all hover:scale-110"
-                aria-label="Fechar"
+                aria-label={t('pricing.close')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -227,7 +222,7 @@ export default function Pricing() {
             </div>
 
             <div className="text-center mb-5">
-              <p className="text-xs text-gray-400 mb-2">Escaneie o QR Code abaixo com seu banco</p>
+              <p className="text-xs text-gray-400 mb-2">{t('pricing.scanQr')}</p>
             </div>
 
             {qrImageSrc ? (
@@ -246,7 +241,7 @@ export default function Pricing() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                 </div>
-                <p className="text-gray-400 text-sm">Gerando QR Code PIX...</p>
+                <p className="text-gray-400 text-sm">{t('pricing.generatingQr')}</p>
               </div>
             )}
 
@@ -258,7 +253,7 @@ export default function Pricing() {
               <svg className="w-4 h-4 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
-              Copiar código PIX
+              {t('pricing.copyPixCode')}
             </button>
 
             {pixMessage && (
@@ -270,7 +265,7 @@ export default function Pricing() {
             <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mb-2">
               <span>Status:</span>
               <span className={`font-bold ${pixStatus === 'approved' ? 'text-green-400' : 'text-emerald-300'}`}>
-                {pixStatus === 'pending' ? 'Aguardando pagamento' : pixStatus === 'approved' ? 'Pago ✓' : pixStatus}
+                {pixStatus === 'pending' ? t('pricing.awaitingPayment') : pixStatus === 'approved' ? t('pricing.paid') : pixStatus}
               </span>
               {pixStatus === 'pending' && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
@@ -278,7 +273,7 @@ export default function Pricing() {
             </div>
 
             <p className="text-[11px] text-center text-gray-500 mt-4 leading-relaxed border-t border-white/5 pt-4">
-              Após pagar, os tokens entram automaticamente na sua conta em até 1 minuto.
+              {t('pricing.afterPayment')}
             </p>
           </div>
         </div>
@@ -290,10 +285,10 @@ export default function Pricing() {
             <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Voltar ao Motor
+            {t('pricing.backToEngine')}
           </Link>
           <span className={`hidden sm:inline-flex px-3 py-1.5 rounded-full border text-xs font-bold ${user ? 'bg-green-500/10 border-green-500/20 text-green-300' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'}`}>
-            {user ? 'Conta conectada' : 'Entre para comprar'}
+            {user ? t('pricing.accountConnected') : t('pricing.loginToBuy')}
           </span>
         </div>
 
@@ -301,20 +296,20 @@ export default function Pricing() {
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs sm:text-sm font-bold mb-5">
               <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              Planos prontos para vender mais
+              {t('pricing.title')}
             </div>
             <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight mb-4 max-w-3xl">
-              Escolha o volume do seu <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">motor comercial</span>
+              {t('pricing.subtitle')}
             </h1>
             <p className="text-gray-400 text-sm sm:text-lg leading-relaxed max-w-2xl">
-              Pague com PIX aqui mesmo: QR Code e copia e cola na tela. Cartao e boleto pelo Mercado Pago.
+              {t('pricing.paymentInfo')}
             </p>
           </div>
 
           <div className="pricing-steps">
-            <div><b>1</b><span>Escolha o plano</span></div>
-            <div><b>2</b><span>Pague com PIX</span></div>
-            <div><b>3</b><span>Receba tokens</span></div>
+            <div><b>1</b><span>{t('pricing.steps.1')}</span></div>
+            <div><b>2</b><span>{t('pricing.steps.2')}</span></div>
+            <div><b>3</b><span>{t('pricing.steps.3')}</span></div>
           </div>
         </section>
 
@@ -343,20 +338,20 @@ export default function Pricing() {
                     <div>
                       <div className="text-3xl mb-3">{planIcons[plan.id]}</div>
                       <span className="inline-flex px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-gray-300 font-bold">
-                        {planHint[plan.id]}
+                        {t('pricing.planHints.' + plan.id)}
                       </span>
                     </div>
                     <span className={`pricing-radio ${isSelected ? 'is-selected' : ''}`} />
                   </div>
 
-                  {plan.badge && (
+                  {plan.badgeKey && (
                     <div className="mb-3 w-fit bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded-full text-[11px] font-bold shadow-lg shadow-indigo-500/20">
-                      {plan.badge}
+                      {t(plan.badgeKey)}
                     </div>
                   )}
 
-                  <h3 className="text-2xl font-bold mb-1">{plan.name}</h3>
-                  <p className="text-gray-400 text-sm mb-5 min-h-[3rem]">{plan.description}</p>
+                  <h3 className="text-2xl font-bold mb-1">{t('pricing.planNames.' + plan.id)}</h3>
+                  <p className="text-gray-400 text-sm mb-5 min-h-[3rem]">{t('pricing.planDescriptions.' + plan.id)}</p>
 
                   <div className="mb-1 text-4xl font-extrabold tracking-tight">
                     {formatPlanPrice(plan.price)}
@@ -364,8 +359,8 @@ export default function Pricing() {
                   <p className="text-xs text-green-400 mb-5">{getCostPerLeadLabel(plan)}</p>
 
                   <div className="rounded-xl bg-black/25 border border-white/8 p-3 mb-5">
-                    <p className="text-xs text-gray-500">Tokens inclusos</p>
-                    <p className="text-xl font-bold text-white">{plan.tokens.toLocaleString('pt-BR')}</p>
+                    <p className="text-xs text-gray-500">{t('pricing.tokensIncluded')}</p>
+                    <p className="text-xl font-bold text-white">{plan.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}</p>
                   </div>
 
                   <ul className="space-y-2.5 text-sm">
@@ -382,11 +377,11 @@ export default function Pricing() {
           </div>
 
           <aside className="checkout-summary app-card p-5 sm:p-6 rounded-2xl border border-white/10 bg-black/35">
-            <span className="text-xs text-blue-300 font-bold uppercase tracking-wide">Resumo da escolha</span>
+            <span className="text-xs text-blue-300 font-bold uppercase tracking-wide">{t('pricing.summaryTitle')}</span>
             <div className="mt-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-2xl font-bold">{selectedPlan.name}</h2>
-                <p className="text-sm text-gray-400 mt-1">{selectedPlan.tokens.toLocaleString('pt-BR')} leads para usar no motor</p>
+                <h2 className="text-2xl font-bold">{t('pricing.planNames.' + selectedPlan.id)}</h2>
+                <p className="text-sm text-gray-400 mt-1">{t('pricing.leadsToUse', { count: selectedPlan.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR') })}</p>
               </div>
               <span className="text-3xl">{planIcons[selectedPlan.id]}</span>
             </div>
@@ -394,7 +389,7 @@ export default function Pricing() {
             <div className="my-5 rounded-2xl bg-white/[0.04] border border-white/10 p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs text-gray-500">Total hoje</p>
+                  <p className="text-xs text-gray-500">{t('pricing.totalToday')}</p>
                   <p className="text-3xl font-extrabold">{formatPlanPrice(selectedPlan.price)}</p>
                 </div>
                 <p className="text-xs text-green-400 font-bold text-right">{getCostPerLeadLabel(selectedPlan)}</p>
@@ -406,7 +401,7 @@ export default function Pricing() {
               disabled={loadingPlan !== null}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 transition-all font-bold flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-wait shadow-[0_0_22px_rgba(16,185,129,0.25)]"
             >
-              {loadingPlan === selectedPlan.id ? 'Gerando PIX...' : user ? 'Pagar com PIX (QR Code)' : 'Entrar para comprar'}
+              {loadingPlan === selectedPlan.id ? t('pricing.generatingPix') : user ? t('pricing.payWithPix') : t('pricing.enterToBuy')}
             </button>
 
             <button
@@ -414,15 +409,15 @@ export default function Pricing() {
               onClick={() => !user ? router.push(`/login?next=/pricing&plan=${selectedPlanId}`) : buyWithCard(selectedPlan.id)}
               disabled={loadingPlan !== null && !!user}
               className="mt-3 w-full py-3 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-gray-200 disabled:opacity-50 cursor-pointer"
-              title={!user ? 'Faça login para pagar com cartão' : ''}
+              title={!user ? t('pricing.loginForCard') : ''}
             >
-              {!user ? 'Faça login para pagar com cartão' : loadingPlan === selectedPlan.id ? 'Gerando...' : 'Pagar com cartão / boleto (Mercado Pago)'}
+              {!user ? t('pricing.loginForCard') : loadingPlan === selectedPlan.id ? t('pricing.generatingPix') : t('pricing.payWithCard')}
             </button>
 
             <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3">
-              <p className="text-xs font-bold text-emerald-300 mb-1">PIX na hora</p>
+              <p className="text-xs font-bold text-emerald-300 mb-1">{t('pricing.pixOnTheSpot')}</p>
               <p className="text-[11px] text-gray-300 leading-relaxed">
-                O QR Code abre aqui no GeoLeads. Voce tambem pode copiar o codigo e colar no app do banco.
+                {t('pricing.pixDescription')}
               </p>
             </div>
 
@@ -432,12 +427,12 @@ export default function Pricing() {
                 onClick={() => setSelectedPlanId(nextPlan.id)}
                 className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/[0.06] transition-colors"
               >
-                Precisa de mais volume? Ver {nextPlan.name}
+                {t('pricing.needMoreVolume', { name: t('pricing.planNames.' + nextPlan.id) })}
               </button>
             )}
 
             <p className="mt-4 text-xs text-gray-500 leading-relaxed">
-              Tokens liberados apos confirmacao do pagamento. Compre logado na sua conta GeoLeads.
+              {t('pricing.tokensAfterPayment')}
             </p>
           </aside>
         </div>
@@ -445,19 +440,19 @@ export default function Pricing() {
         {/* COMPARISON TABLE */}
         <section className="mt-12 sm:mt-16 max-w-5xl mx-auto">
           <div className="text-center mb-8">
-            <span className="badge-blue mb-3">Comparação completa</span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-3">Veja o que cada plano oferece</h2>
+            <span className="badge-blue mb-3">{t('pricing.compare')}</span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('pricing.compareSubtitle')}</h2>
           </div>
           <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/5 bg-white/[0.03]">
-                  <th className="text-left px-4 py-3.5 text-gray-400 font-semibold">Funcionalidade</th>
+                  <th className="text-left px-4 py-3.5 text-gray-400 font-semibold">{t('pricing.featureColumn')}</th>
                   {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
                     const p = plans[pid];
                     return (
                       <th key={pid} className={`px-4 py-3.5 text-center font-bold ${p.highlight ? 'text-blue-400' : 'text-gray-300'}`}>
-                        {p.name}
+                        {t('pricing.planNames.' + pid)}
                       </th>
                     );
                   })}
@@ -490,7 +485,7 @@ export default function Pricing() {
                     const p = plans[pid];
                     return (
                       <td key={pid} className="px-4 py-3 text-center font-bold text-white">
-                        {p.tokens.toLocaleString('pt-BR')}
+                        {p.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}
                       </td>
                     );
                   })}
@@ -499,7 +494,7 @@ export default function Pricing() {
             </table>
           </div>
           <p className="text-xs text-gray-500 text-center mt-4">
-            Todos os planos incluem acesso ao Motor Extrator e suporte padrão. Upgrade a qualquer momento.
+            {t('pricing.allPlansInclude')}
           </p>
         </section>
       </div>

@@ -1,19 +1,22 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import { ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
 
 const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
-const STAGE_LABELS: Record<string, string> = {
-  Novo: 'Novo',
-  'Em Contato': 'Em Contato',
-  Proposta: 'Proposta',
-  Fechado: 'Fechado',
-  Perdido: 'Perdido',
-};
 
 export default function DashboardCharts({ tokens, leads }: { tokens: number; leads: any[] }) {
+  const { t, locale } = useTranslations();
   const totalLeads = leads.length;
+
+  const stageLabels = useMemo(() => ({
+    Novo: t('charts.stageNew'),
+    'Em Contato': t('charts.stageContact'),
+    Proposta: t('charts.stageProposal'),
+    Fechado: t('charts.stageWon'),
+    Perdido: t('charts.stageLost'),
+  }), [t]);
 
   const leadsByStage = useMemo(() => {
     const stages: Record<string, number> = {};
@@ -22,9 +25,9 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
       stages[stage] = (stages[stage] || 0) + 1;
     }
     return Object.entries(stages)
-      .map(([name, value]) => ({ name: STAGE_LABELS[name] || name, value }))
+      .map(([name, value]) => ({ name: stageLabels[name as keyof typeof stageLabels] || name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [leads]);
+  }, [leads, stageLabels]);
 
   const leadsByMonth = useMemo(() => {
     const months: Record<string, number> = {};
@@ -51,23 +54,23 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
       {/* Token Balance */}
       <div className="app-card p-5 rounded-2xl">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Saldo de Tokens</span>
+          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">{t('charts.tokenBalance')}</span>
           <span className="text-lg">🪙</span>
         </div>
-        <div className="text-3xl font-extrabold text-white mb-2">{tokens.toLocaleString('pt-BR')}</div>
+        <div className="text-3xl font-extrabold text-white mb-2">{tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}</div>
         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all"
             style={{ width: `${Math.min(100, (tokens / 2000) * 100)}%` }}
           />
         </div>
-        <p className="text-[10px] text-gray-500 mt-2">Plano Max • {tokens.toLocaleString('pt-BR')} de 2.000 tokens</p>
+        <p className="text-[10px] text-gray-500 mt-2">{t('charts.planInfo', { plan: 'Max', used: tokens.toLocaleString('pt-BR'), total: '2.000' })}</p>
       </div>
 
       {/* Total Leads */}
       <div className="app-card p-5 rounded-2xl">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total de Leads</span>
+          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">{t('charts.totalLeads')}</span>
           <span className="text-lg">📊</span>
         </div>
         <div className="text-3xl font-extrabold text-white mb-2">{totalLeads}</div>
@@ -86,7 +89,7 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
             </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500 text-xs text-center">
-              Nenhum lead ainda.<br />Extraia seus primeiros leads!
+              {t('charts.noLeads')}
             </div>
           )}
         </div>
@@ -95,7 +98,7 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
       {/* Leads by Stage */}
       <div className="app-card p-5 rounded-2xl">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Leads por Estágio</span>
+          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">{t('charts.leadsByStage')}</span>
           <span className="text-lg">🎯</span>
         </div>
         {leadsByStage.length > 0 ? (
@@ -125,7 +128,7 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
           </div>
         ) : (
           <div className="flex items-center justify-center h-24 text-gray-500 text-xs text-center">
-            Nenhum lead no CRM.<br />Salve leads para ver a distribuição.
+            {t('charts.noLeadsCRM')}
           </div>
         )}
       </div>

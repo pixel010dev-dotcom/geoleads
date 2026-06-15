@@ -1,7 +1,10 @@
+'use client';
+
 import React from 'react';
 import { FeatureKey, PlanId } from '@/lib/plans';
 import HackerRadar from '@/components/HackerRadar';
 import { filterOptions, quickSearches } from './dashboard-constants';
+import { useTranslations } from '@/lib/i18n';
 
 export interface ExtractorSectionProps {
   isExtracting: boolean;
@@ -14,7 +17,7 @@ export interface ExtractorSectionProps {
   filterRule: string;
   tokens: number | null;
   user: any;
-  currentPlan: { name: string; shortName: string; tokens: number };
+  currentPlan: { nameKey: string; shortNameKey: string; tokens: number };
   planId: PlanId;
   handleExtract: (e: React.FormEvent) => Promise<void>;
   handleAddToCRM: (lead: any) => void;
@@ -29,7 +32,7 @@ export interface ExtractorSectionProps {
   historyData: any[];
   requireFeature: (feature: FeatureKey) => boolean;
   showLockedFeature: (feature: FeatureKey) => void;
-  getUpgradePlan: (feature: FeatureKey) => { name: string; shortName: string; tokens: number };
+  getUpgradePlan: (feature: FeatureKey) => { nameKey: string; shortNameKey: string; tokens: number };
   setKeyword: (v: string) => void;
   setLocation: (v: string) => void;
   setLimit: (v: number | '') => void;
@@ -70,16 +73,18 @@ export default function ExtractorSection({
   setFilterRule,
   onCancel,
 }: ExtractorSectionProps) {
+  const { t, locale } = useTranslations();
+
   return (
     <>
       {/* Overview Cards */}
       {hasSearched && !isExtracting && leads.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 animate-slide-up">
           {[
-            { label: 'Leads Encontrados', value: leads.length, color: 'text-blue-400' },
-            { label: 'Tempo de Busca', value: `${extractStats?.time || 0}s`, color: 'text-cyan-400' },
-            { label: 'Empresas Mapeadas', value: extractStats?.scanned || 0, color: 'text-green-400' },
-            { label: 'Cidades', value: extractStats?.cities_scanned || 1, color: 'text-purple-400' },
+            { label: t('extractor.overviewLeads'), value: leads.length, color: 'text-blue-400' },
+            { label: t('extractor.overviewTime'), value: `${extractStats?.time || 0}s`, color: 'text-cyan-400' },
+            { label: t('extractor.overviewMapped'), value: extractStats?.scanned || 0, color: 'text-green-400' },
+            { label: t('extractor.overviewCities'), value: extractStats?.cities_scanned || 1, color: 'text-purple-400' },
           ].map(s => (
             <div key={s.label} className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
               <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
@@ -99,25 +104,25 @@ export default function ExtractorSection({
               <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              Nova Extração Avançada
+              {t('extractor.newExtraction')}
             </h2>
 
             <form onSubmit={handleExtract} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Comece por um modelo rápido</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">{t('extractor.quickModel')}</label>
                 <div className="quick-preset-grid">
-                  {quickSearches.map((preset) => (
+                   {quickSearches.map((preset) => (
                     <button
-                      key={`${preset.keyword}-${preset.location}`}
+                      key={`${preset.keywordKey}-${preset.location}`}
                       type="button"
                       onClick={() => {
-                        setKeyword(preset.keyword);
+                        setKeyword(t(preset.keywordKey));
                         setLocation(preset.location);
                         setFilterRule('none');
                       }}
                       className="quick-preset"
                     >
-                      <span>{preset.keyword}</span>
+                      <span>{t(preset.keywordKey)}</span>
                       <small>{preset.location}</small>
                     </button>
                   ))}
@@ -125,10 +130,10 @@ export default function ExtractorSection({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">O que você procura?</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1">{t('extractor.whatToSearch')}</label>
                 <input 
                   type="text" 
-                  placeholder="ex: Academias, Dentistas..."
+                  placeholder={t('extractor.whatPlaceholder')}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
@@ -136,10 +141,10 @@ export default function ExtractorSection({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Qual cidade/região?</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1">{t('extractor.cityRegion')}</label>
                 <input 
                   type="text" 
-                  placeholder="ex: São Paulo, SP"
+                  placeholder={t('extractor.cityPlaceholder')}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -147,7 +152,7 @@ export default function ExtractorSection({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Quantos Leads? (-1 Token/Lead)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1">{t('extractor.howManyLeads')}</label>
                 <input 
                   type="number" min="1" max="200"
                   style={{ colorScheme: 'dark' }}
@@ -160,7 +165,7 @@ export default function ExtractorSection({
 
               {/* PREMIUM GRID CHIPS FOR FILTER SELECTOR */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Filtros (selecione um ou mais)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">{t('extractor.filters')}</label>
                 <div className="extract-filter-grid">
                   {filterOptions.map((opt) => {
                     const selectedSet = new Set(filterRule.split(',').map(s => s.trim()).filter(Boolean));
@@ -190,9 +195,9 @@ export default function ExtractorSection({
                       >
                         <span className="text-xl flex items-center justify-between">
                           <span>{opt.icon}</span>
-                          {isLocked && <span className="text-[10px] text-amber-300">🔒 {requiredPlan.shortName}</span>}
+                          {isLocked && <span className="text-[10px] text-amber-300">🔒 {t(requiredPlan.shortNameKey)}</span>}
                         </span>
-                        <span className="text-xs font-bold leading-tight block text-gray-200 mt-1">{opt.label}</span>
+                        <span className="text-xs font-bold leading-tight block text-gray-200 mt-1">{t(opt.labelKey)}</span>
                         {isSelected && (
                           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-400" />
                         )}
@@ -200,7 +205,7 @@ export default function ExtractorSection({
                     );
                   })}
                 </div>
-                <p className="text-[11px] text-gray-500 mt-2">Você só consome tokens pelos leads que possuírem o item escolhido.</p>
+                <p className="text-[11px] text-gray-500 mt-2">{t('extractor.filtersInfo')}</p>
               </div>
 
               {/* Estimated time */}
@@ -209,18 +214,17 @@ export default function ExtractorSection({
                 if (l <= 0) return null;
                 const isBroad = /brasil|brazil|todos os estados|nacional|pa[ií]s inteiro|mundo/i.test(location);
                 if (isBroad) {
-                  const leadsPerCity = 3.5;
-                  const cities = Math.min(Math.ceil(l / leadsPerCity), 140);
-                  let sec = 10 + cities * 2 + l * 1.5 + 15;
-                  if (sec > 600) sec = 600;
+                  const citiesEst = Math.min(Math.ceil(l / 3.5), 140);
+                  let sec = Math.min(10 + citiesEst * 2 + l * 1.5 + 15, 600);
                   if (sec > 120) {
-                    return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ Tempo estimado: ~{Math.ceil(sec / 60)} minuto{Math.ceil(sec / 60) > 1 ? 's' : ''} (~{cities} cidades em {Math.min(27, Math.ceil(cities / 4))} estados)</p>;
+                    const mins = Math.ceil(sec / 60);
+                    const statesEst = Math.min(27, Math.ceil(citiesEst / 4));
+                    return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeMinutes', { minutes: mins, cities: citiesEst, states: statesEst }) })}</p>;
                   }
-                  return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ Tempo estimado: ~{Math.ceil(sec)} segundos (~{cities} cidades)</p>;
-                } else {
-                  const sec = 5 + l * 3.5;
-                  return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ Tempo estimado: ~{Math.ceil(sec)} segundos</p>;
+                  return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeCities', { seconds: Math.ceil(sec), cities: citiesEst }) })}</p>;
                 }
+                const sec = Math.ceil(5 + l * 3.5);
+                return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeLocal', { seconds: sec }) })}</p>;
               })()}
               
               {isExtracting ? (
@@ -233,14 +237,14 @@ export default function ExtractorSection({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
                   </svg>
-                  ⏹ Parar Extração
+                  {t('extractor.stopExtraction')}
                 </button>
               ) : (
                 <button 
                   type="submit"
                   className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {user ? '🚀 Iniciar Extração' : '🔒 Criar Conta para Extrair'}
+                  {user ? t('extractor.startExtraction') : t('extractor.createAccountToExtract')}
                 </button>
               )}
             </form>
@@ -256,17 +260,17 @@ export default function ExtractorSection({
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
                 <h2 className="text-xl font-semibold flex items-center gap-2">
-                  {isExtracting ? '⏳ Extraindo...' : leads.length > 0 ? '✅ Leads Encontrados' : '🔍 Vitrine de Resultados'}
+                  {isExtracting ? t('extractor.extracting') : leads.length > 0 ? t('extractor.leadsFound') : t('extractor.resultsGallery')}
                   {leads.length > 0 && <span className="text-sm px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold">{leads.length}</span>}
                 </h2>
                 {extractStats && (
                   <div className="mt-1 space-y-0.5 animate-fade-in">
                     <p className="text-xs text-gray-500">
-                      Mapeou <strong className="text-gray-300">{extractStats.scanned}</strong> empresas em <strong className="text-gray-300">{extractStats.time}s</strong>
+                      {t('extractor.mapped', { count: extractStats.scanned, time: extractStats.time })}
                     </p>
                     {extractStats.correctedKeyword && (
                       <p className="text-xs text-blue-400 font-medium">
-                        ✨ Busca: "{extractStats.correctedKeyword}{extractStats.broadRegion ? ' (país inteiro)' : ` em ${extractStats.correctedLocation}`}"
+                        {t('extractor.search', { query: `"${extractStats.correctedKeyword}${extractStats.broadRegion ? ` (${t('extractor.entireCountry')})` : ` ${t('extractor.in')} ${extractStats.correctedLocation}`}"` })}
                       </p>
                     )}
                   </div>
@@ -278,7 +282,7 @@ export default function ExtractorSection({
                   disabled={leads.length === 0}
                   className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-gray-200 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/10 cursor-pointer"
                 >
-                  📁 Salvar no CRM
+                  {t('extractor.saveToCRM')}
                 </button>
                 <button 
                   onClick={exportToCSV}
@@ -288,20 +292,20 @@ export default function ExtractorSection({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Exportar CSV
+                  {t('extractor.exportCSV')}
                 </button>
                 <button 
                   onClick={exportToXLSX}
                   disabled={leads.length === 0}
                   className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-emerald-500/10 px-4 py-2 rounded-lg border border-emerald-500/20 cursor-pointer"
                 >
-                  📊 Excel
+                  {t('extractor.exportExcel')}
                 </button>
                 <button 
                   onClick={fetchHistory}
                   className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-sm text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 px-4 py-2 rounded-lg border border-amber-500/20 cursor-pointer"
                 >
-                  🕐 Histórico
+                  {t('extractor.history')}
                 </button>
               </div>
             </div>
@@ -319,14 +323,14 @@ export default function ExtractorSection({
                 <table className="hidden md:table w-full text-left text-sm">
                   <thead className="bg-white/5 border-b border-white/5 text-gray-400 sticky top-0 backdrop-blur-md z-10">
                     <tr>
-                      <th className="px-4 py-3 font-medium">Empresa</th>
-                      <th className="px-4 py-3 font-medium">Contato</th>
-                      <th className="px-4 py-3 font-medium">E-mail</th>
-                      <th className="px-4 py-3 font-medium">Redes</th>
-                      <th className="px-4 py-3 font-medium">Categoria</th>
-                      <th className="px-4 py-3 font-medium">Endereço</th>
-                      <th className="px-4 py-3 font-medium">Horários</th>
-                      <th className="px-4 py-3 font-medium">Ações</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableCompany')}</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableContact')}</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableEmail')}</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableSocial')}</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableCategory')}</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableAddress')}</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableHours')}</th>
+                      <th className="px-4 py-3 font-medium">{t('extractor.tableActions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
@@ -335,12 +339,12 @@ export default function ExtractorSection({
                         <td className="px-4 py-4 font-medium text-gray-200">
                           <div>{lead.nome}</div>
                           {lead.site && lead.site !== 'Sem site' ? (
-                            <a href={lead.site} target="_blank" className="inline-block text-xs text-blue-400 hover:underline mt-1">🌐 Site Oficial</a>
+                            <a href={lead.site} target="_blank" className="inline-block text-xs text-blue-400 hover:underline mt-1">{t('extractor.website')}</a>
                           ) : (
-                            <span className="text-xs text-gray-600 mt-1 block">Sem site comercial</span>
+                            <span className="text-xs text-gray-600 mt-1 block">{t('extractor.noWebsite')}</span>
                           )}
                           {lead.cnpj && (
-                            <span className="block text-[11px] text-amber-300 font-mono mt-1">CNPJ {lead.cnpj}</span>
+                            <span className="block text-[11px] text-amber-300 font-mono mt-1">{t('extractor.cnpj', { number: lead.cnpj })}</span>
                           )}
                         </td>
                         <td className="px-4 py-4 text-gray-400 font-mono text-xs">
@@ -348,7 +352,7 @@ export default function ExtractorSection({
                             <span>{lead.telefone}</span>
                             {lead.telefone && lead.telefone !== 'Não informado' && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 text-[10px] w-fit">
-                                ✓ Válido
+                                {t('extractor.valid')}
                               </span>
                             )}
                           </div>
@@ -390,9 +394,9 @@ export default function ExtractorSection({
                             <button 
                               onClick={() => handleAddToCRM(lead)}
                               className="p-2 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 hover:border-white/20 transition-all text-xs cursor-pointer flex items-center gap-1"
-                              title="Salvar no CRM"
+                              title={t('extractor.saveToCRM')}
                             >
-                              📁 Salvar
+                              📁 {t('extractor.saveToCRM')}
                             </button>
                             {lead.telefone && lead.telefone !== 'Não informado' && (
                               <button 
@@ -400,7 +404,7 @@ export default function ExtractorSection({
                                 className="p-2 rounded bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors text-xs cursor-pointer"
                                 title="WhatsApp Direto"
                               >
-                                💬 Whatsapp
+                                💬 WhatsApp
                               </button>
                             )}
                           </div>
@@ -413,9 +417,9 @@ export default function ExtractorSection({
                       <tr>
                         <td colSpan={8} className="px-4 py-16 text-center">
                           <div className="text-4xl mb-4">🔍</div>
-                          <p className="text-gray-300 font-medium text-lg mb-2">Pronto para começar!</p>
+                          <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.emptyTitle')}</p>
                           <p className="text-gray-500 text-sm max-w-md mx-auto">
-                            Preencha o formulário ao lado com o nicho e a cidade desejada, defina a quantidade de leads e clique em <span className="text-blue-400 font-semibold">Iniciar Extração</span>.
+                            {t('extractor.emptyDesc')}
                           </p>
                         </td>
                       </tr>
@@ -426,11 +430,11 @@ export default function ExtractorSection({
                       <tr>
                         <td colSpan={8} className="px-4 py-16 text-center">
                           <div className="text-4xl mb-4">🕵️</div>
-                          <p className="text-gray-300 font-medium text-lg mb-2">Nenhum lead encontrado</p>
+                          <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.noResultsTitle')}</p>
                           <p className="text-gray-500 text-sm max-w-lg mx-auto">
-                            O motor não encontrou empresas que atendam ao filtro selecionado nessa região.
+                            {t('extractor.noResultsDesc')}
                             <br/><br/>
-                            <span className="text-blue-400 font-semibold">Nenhum Token foi descontado.</span> Tente mudar o filtro para "Trazer tudo" ou busque outra cidade.
+                            <span className="text-blue-400 font-semibold">{t('extractor.noResultsTokens')}</span>
                           </p>
                         </td>
                       </tr>
@@ -449,27 +453,27 @@ export default function ExtractorSection({
                       <div>
                         <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
                         {lead.site && lead.site !== 'Sem site' ? (
-                          <a href={lead.site} target="_blank" className="inline-block text-xs text-blue-400 hover:underline mt-1">🌐 Site Oficial</a>
+                          <a href={lead.site} target="_blank" className="inline-block text-xs text-blue-400 hover:underline mt-1">{t('extractor.website')}</a>
                         ) : (
-                          <span className="text-xs text-gray-600 mt-1 block">Sem site comercial</span>
+                          <span className="text-xs text-gray-600 mt-1 block">{t('extractor.noWebsite')}</span>
                         )}
                         {lead.cnpj && (
-                          <span className="block text-[11px] text-amber-300 font-mono mt-1">CNPJ {lead.cnpj}</span>
+                          <span className="block text-[11px] text-amber-300 font-mono mt-1">{t('extractor.cnpj', { number: lead.cnpj })}</span>
                         )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs border-t border-white/5 pt-3">
                         <div>
-                          <span className="text-gray-500 block mb-0.5">Contato</span>
+                          <span className="text-gray-500 block mb-0.5">{t('extractor.tableContact')}</span>
                           <span className="font-mono text-gray-300 block break-words">{lead.telefone}</span>
                           {lead.telefone && lead.telefone !== 'Não informado' && (
                             <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 text-[9px] w-fit">
-                              ✓ Válido
+                              {t('extractor.valid')}
                             </span>
                           )}
                         </div>
                         <div>
-                          <span className="text-gray-500 block mb-0.5">E-mail</span>
+                          <span className="text-gray-500 block mb-0.5">{t('extractor.tableEmail')}</span>
                           {lead.email ? (
                             <a href={`mailto:${lead.email}`} className="text-purple-400 hover:underline font-mono block break-all">{lead.email}</a>
                           ) : (
@@ -496,7 +500,7 @@ export default function ExtractorSection({
                             onClick={() => handleAddToCRM(lead)}
                             className="w-full sm:w-auto px-3 py-2 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs cursor-pointer flex items-center justify-center gap-1"
                           >
-                            📁 Salvar
+                            📁 {t('extractor.saveToCRM')}
                           </button>
                           {lead.telefone && lead.telefone !== 'Não informado' && (
                             <button 
@@ -515,9 +519,9 @@ export default function ExtractorSection({
                   {leads.length === 0 && !hasSearched && !isExtracting && (
                     <div className="py-16 text-center">
                       <div className="text-4xl mb-4">🔍</div>
-                      <p className="text-gray-300 font-medium text-lg mb-2">Pronto para começar!</p>
+                      <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.emptyTitle')}</p>
                       <p className="text-gray-500 text-xs max-w-xs mx-auto">
-                        Preencha o formulário acima com o nicho e a cidade desejada, defina a quantidade de leads e clique em <span className="text-blue-400 font-semibold">Iniciar Extração</span>.
+                        {t('extractor.emptyDesc')}
                       </p>
                     </div>
                   )}
@@ -526,9 +530,9 @@ export default function ExtractorSection({
                   {leads.length === 0 && hasSearched && !isExtracting && (
                     <div className="py-16 text-center">
                       <div className="text-4xl mb-4">🕵️</div>
-                      <p className="text-gray-300 font-medium text-lg mb-2">Nenhum lead encontrado</p>
+                      <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.noResultsTitle')}</p>
                       <p className="text-gray-500 text-xs max-w-xs mx-auto">
-                        O motor não encontrou empresas que atendam ao filtro selecionado nessa região. Tente mudar o filtro ou busque outra cidade.
+                        {t('extractor.noResultsDesc')}
                       </p>
                     </div>
                   )}
@@ -546,7 +550,7 @@ export default function ExtractorSection({
           <div className="relative w-full max-w-2xl max-h-[80vh] bg-gray-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                🕐 Histórico de Extrações
+                {t('extractor.historyTitle')}
               </h3>
               <button
                 onClick={() => setShowHistory(false)}
@@ -568,7 +572,7 @@ export default function ExtractorSection({
               ) : historyData.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-3xl mb-3">📭</div>
-                  <p className="text-gray-400">Nenhuma extração encontrada.</p>
+                  <p className="text-gray-400">{t('extractor.historyEmpty')}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -577,19 +581,19 @@ export default function ExtractorSection({
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div>
                           <span className="font-bold text-sm text-white">{h.keyword}</span>
-                          <span className="text-gray-400 text-sm mx-1.5">em</span>
+                          <span className="text-gray-400 text-sm mx-1.5">{t('extractor.in')}</span>
                           <span className="font-bold text-sm text-blue-400">{h.location}</span>
                         </div>
                         <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                          {new Date(h.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(h.created_at).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-gray-400">
-                        <span>🔹 {h.leads_found} leads encontrados</span>
-                        <span>🔹 {h.tokens_spent} tokens gastos</span>
-                        <span>🔹 {h.search_time_seconds}s de busca</span>
+                        <span>{t('extractor.historyLeads', { count: h.leads_found })}</span>
+                        <span>{t('extractor.historyTokens', { count: h.tokens_spent })}</span>
+                        <span>{t('extractor.historyTime', { time: h.search_time_seconds })}</span>
                         {h.filter_rule && h.filter_rule !== 'none' && (
-                          <span>🔹 Filtro: {h.filter_rule}</span>
+                          <span>{t('extractor.historyFilter', { filter: h.filter_rule })}</span>
                         )}
                       </div>
                     </div>

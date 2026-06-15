@@ -1,37 +1,62 @@
+'use client';
+
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 import ScrollReveal from '@/components/ScrollReveal';
 import Globe from '@/components/Globe';
 import DashboardPreview from '@/components/DashboardPreview';
 import AnimatedStats from '@/components/AnimatedStats';
-import { IconSearch, IconPhone, IconBuilding, IconMail, IconCamera, IconWhatsApp, IconBot, IconChart, IconDownload } from '@/components/FeatureIcon';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useTranslations } from '@/lib/i18n';
+import { useEffect, useState } from 'react';
+import { IconPhone, IconBuilding, IconMail, IconCamera, IconWhatsApp, IconBot, IconChart, IconDownload } from '@/components/FeatureIcon';
 
-export default async function LandingPage() {
-  const { data: realTestimonials } = await supabase
-    .from('testimonials')
-    .select('name, rating, feedback, role')
-    .eq('approved', true)
-    .order('created_at', { ascending: false })
-    .limit(6);
+export default function LandingPage() {
+  const { t } = useTranslations();
+  const [testimonialsList, setTestimonialsList] = useState<{ name: string; stars: number; text: string; role: string }[]>([]);
 
-  const fallback = [
-    { stars: 5, text: 'Triplicou minha prospecção. Antes eu passava 20 horas por semana catando leads manualmente. Agora em 30 minutos tenho uma lista pronta com CNPJ, email e WhatsApp.', name: 'Ricardo Silva', role: 'Diretor de Vendas' },
-    { stars: 5, text: 'Uso pra encontrar distribuidores pro meu e-commerce. Em 1 semana fechei parceria com 3 lojas. O CNPJ validado e as redes sociais fazem toda diferença.', name: 'Juliana Costa', role: 'E-commerce B2B' },
-    { stars: 5, text: 'O chatbot WhatsApp respondeu 80% das perguntas sozinho no primeiro mês. Economizei horas de atendimento e ainda fechei 4 contratos.', name: 'André Oliveira', role: 'Agência Digital' },
-  ];
+  useEffect(() => {
+    async function fetchTestimonials() {
+      const { supabase } = await import('@/lib/supabase');
+      const { data: realTestimonials } = await supabase
+        .from('testimonials')
+        .select('name, rating, feedback, role')
+        .eq('approved', true)
+        .order('created_at', { ascending: false })
+        .limit(6);
 
-  const testimonialsList: { name: string; stars: number; text: string; role: string }[] =
-    realTestimonials && realTestimonials.length > 0
-      ? realTestimonials.map(t => ({ name: t.name, stars: t.rating, text: t.feedback || '', role: t.role || '' })).filter(t => t.text)
-      : fallback;
+      const fallback = [
+        { stars: 5, text: 'Triplicou minha prospecção. Antes eu passava 20 horas por semana catando leads manualmente. Agora em 30 minutos tenho uma lista pronta com CNPJ, email e WhatsApp.', name: 'Ricardo Silva', role: 'Diretor de Vendas' },
+        { stars: 5, text: 'Uso pra encontrar distribuidores pro meu e-commerce. Em 1 semana fechei parceria com 3 lojas. O CNPJ validado e as redes sociais fazem toda diferença.', name: 'Juliana Costa', role: 'E-commerce B2B' },
+        { stars: 5, text: 'O chatbot WhatsApp respondeu 80% das perguntas sozinho no primeiro mês. Economizei horas de atendimento e ainda fechei 4 contratos.', name: 'André Oliveira', role: 'Agência Digital' },
+      ];
+
+      const list = realTestimonials && realTestimonials.length > 0
+        ? realTestimonials.map(t => ({ name: t.name, stars: t.rating, text: t.feedback || '', role: t.role || '' })).filter(t => t.text)
+        : fallback;
+
+      setTestimonialsList(list);
+    }
+    fetchTestimonials();
+  }, []);
 
   const faq = [
-    { q: 'Precisa de cartão de crédito para testar?', a: 'Não. São 10 tokens grátis sem cartão. Depois você paga com PIX, cartão ou boleto via Mercado Pago.' },
-    { q: 'Funciona em qualquer cidade do Brasil?', a: 'Sim. O motor varre o Google Maps de qualquer cidade ou região que você escolher. Funciona também para outros países.' },
-    { q: 'Os leads são de empresas reais?', a: 'Sim. Os dados vêm diretamente do Google Maps — nome, telefone, site, endereço. O enriquecimento busca CNPJ, e-mail e redes sociais nas fontes oficiais.' },
-    { q: 'Posso usar pelo celular?', a: 'Funciona direto do navegador no celular. O dashboard é responsivo e adaptado para telas pequenas.' },
-    { q: 'O que acontece se eu não usar todos os tokens do plano?', a: 'Os tokens são vitalícios enquanto seu plano estiver ativo. Use quando quiser, sem pressa.' },
-    { q: 'Consigo exportar os leads para usar em outras ferramentas?', a: 'Sim. Você pode exportar em CSV ou Excel a qualquer momento.' },
+    { q: t('faq.q1'), a: t('faq.a1') },
+    { q: t('faq.q2'), a: t('faq.a2') },
+    { q: t('faq.q3'), a: t('faq.a3') },
+    { q: t('faq.q4'), a: t('faq.a4') },
+    { q: t('faq.q5'), a: t('faq.a5') },
+    { q: t('faq.q6'), a: t('faq.a6') },
+  ];
+
+  const features = [
+    { iconSvg: IconPhone, title: t('tools.phone.title'), desc: t('tools.phone.desc') },
+    { iconSvg: IconBuilding, title: t('tools.cnpj.title'), desc: t('tools.cnpj.desc') },
+    { iconSvg: IconMail, title: t('tools.email.title'), desc: t('tools.email.desc') },
+    { iconSvg: IconCamera, title: t('tools.social.title'), desc: t('tools.social.desc') },
+    { iconSvg: IconWhatsApp, title: t('tools.whatsapp.title'), desc: t('tools.whatsapp.desc') },
+    { iconSvg: IconBot, title: t('tools.chatbot.title'), desc: t('tools.chatbot.desc') },
+    { iconSvg: IconChart, title: t('tools.crm.title'), desc: t('tools.crm.desc') },
+    { iconSvg: IconDownload, title: t('tools.export.title'), desc: t('tools.export.desc') },
   ];
 
   return (
@@ -45,7 +70,7 @@ export default async function LandingPage() {
             name: 'GeoLeads',
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
-            description: 'Motor de extração de leads B2B via Google Maps com CRM, WhatsApp e IA.',
+            description: t('footer.description'),
             url: 'https://geoleads-production.up.railway.app',
             offers: {
               '@type': 'AggregateOffer',
@@ -70,14 +95,15 @@ export default async function LandingPage() {
             </span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3 text-xs sm:text-sm">
+            <LanguageSwitcher />
             <Link href="/pricing" className="hidden sm:inline-flex px-2.5 py-1.5 rounded-full text-gray-300 hover:text-white transition-colors font-medium">
-              Preços
+              {t('nav.pricing')}
             </Link>
             <Link href="/login" className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white transition-all font-medium">
-              Entrar
+              {t('nav.login')}
             </Link>
             <Link href="/login" className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition-all shadow-[0_4px_15px_rgba(59,130,246,0.3)] hover:shadow-[0_8px_25px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 active:scale-95 text-xs sm:text-sm whitespace-nowrap">
-              Criar Conta Grátis
+              {t('nav.signup')}
             </Link>
           </div>
         </div>
@@ -89,33 +115,35 @@ export default async function LandingPage() {
             <div className="max-w-4xl mx-auto text-center">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold mb-5">
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                Motor Online · <span className="text-blue-200 font-extrabold tabular-nums">4.200+</span> leads extraídos
+                {t('hero.badge').split('{count}')[0]}
+                <span className="text-blue-200 font-extrabold tabular-nums">4.200+</span>
+                {t('hero.badge').split('{count}')[1]}
               </div>
               <h1 className="text-[clamp(1.75rem,6vw,3.75rem)] font-extrabold tracking-tight leading-[1.08] mb-4">
-                Descubra{' '}
+                {t('hero.title').split(t('hero.titleHighlight'))[0]}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400">
-                  clientes prontos pra vender
-                </span>{' '}
-                em minutos
+                  {t('hero.titleHighlight')}
+                </span>
+                {t('hero.title').split(t('hero.titleHighlight'))[1]}
               </h1>
               <p className="text-sm sm:text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed mb-6 sm:mb-8">
-                Digite um nicho. Escolha uma cidade. O GeoLeads encontra empresas com telefone, e-mail, CNPJ e redes sociais validados — tudo pronto pra você abordar.
+                {t('hero.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
                 <Link
                   href="/login"
                   className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm sm:text-base transition-all shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95 text-center"
                 >
-                  Testar Grátis (10 leads)
+                  {t('hero.cta')}
                 </Link>
                 <Link
                   href="/pricing"
                   className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium text-sm sm:text-base transition-all text-center"
                 >
-                  Ver Planos
+                  {t('hero.ctaSecondary')}
                 </Link>
               </div>
-              <p className="text-xs text-gray-500 mt-4">Sem cartão de crédito · Conta gratuita · Ativação instantânea</p>
+              <p className="text-xs text-gray-500 mt-4">{t('hero.footnote')}</p>
             </div>
           </ScrollReveal>
         </section>
@@ -124,8 +152,8 @@ export default async function LandingPage() {
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-blue mb-3">Como funciona</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">3 passos. Sem complicação.</h2>
+                <span className="badge-blue mb-3">{t('howItWorks.title')}</span>
+                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('howItWorks.subtitle')}</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
                 <ScrollReveal delay={0}>
@@ -136,8 +164,8 @@ export default async function LandingPage() {
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center mx-auto mb-3 sm:mb-4">
                       1
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold mb-2">Escolha seu nicho</h3>
-                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">Academia, restaurante, contabilidade, clínica, pet shop — qualquer segmento. Digite e a cidade. O motor encontra todos os negócios.</p>
+                    <h3 className="text-base sm:text-lg font-bold mb-2">{t('howItWorks.step1.title')}</h3>
+                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">{t('howItWorks.step1.desc')}</p>
                   </div>
                 </ScrollReveal>
                 <ScrollReveal delay={100}>
@@ -148,8 +176,8 @@ export default async function LandingPage() {
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center mx-auto mb-3 sm:mb-4">
                       2
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold mb-2">Receba leads prontos</h3>
-                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">Nome, telefone, e-mail, site, CNPJ, Instagram e Facebook — tudo que você precisa pra começar a vender. Sem digitar nada.</p>
+                    <h3 className="text-base sm:text-lg font-bold mb-2">{t('howItWorks.step2.title')}</h3>
+                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">{t('howItWorks.step2.desc')}</p>
                   </div>
                 </ScrollReveal>
                 <ScrollReveal delay={200}>
@@ -160,8 +188,8 @@ export default async function LandingPage() {
                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center mx-auto mb-3 sm:mb-4">
                       3
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold mb-2">Venda pelo WhatsApp</h3>
-                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">Dispare mensagens com um clique ou programe campanhas automáticas. O chatbot responde quem não atendeu.</p>
+                    <h3 className="text-base sm:text-lg font-bold mb-2">{t('howItWorks.step3.title')}</h3>
+                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">{t('howItWorks.step3.desc')}</p>
                   </div>
                 </ScrollReveal>
               </div>
@@ -175,8 +203,8 @@ export default async function LandingPage() {
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-purple mb-3">Ferramentas</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">Tudo que você precisa pra prospectar</h2>
+                <span className="badge-purple mb-3">{t('tools.title')}</span>
+                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('tools.subtitle')}</h2>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {features.map((f, i) => {
@@ -202,8 +230,8 @@ export default async function LandingPage() {
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-purple mb-3">Depoimentos</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">Quem usa, recomenda</h2>
+                <span className="badge-purple mb-3">{t('testimonials.title')}</span>
+                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('testimonials.subtitle')}</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 {testimonialsList.slice(0, 3).map((t, i) => (
@@ -231,8 +259,8 @@ export default async function LandingPage() {
           <ScrollReveal>
             <div className="max-w-3xl mx-auto">
               <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-blue mb-3">Dúvidas</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">Perguntas frequentes</h2>
+                <span className="badge-blue mb-3">{t('faq.title')}</span>
+                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('faq.subtitle')}</h2>
               </div>
               <div className="space-y-3 sm:space-y-4">
                 {faq.map((item, i) => (
@@ -255,17 +283,20 @@ export default async function LandingPage() {
               <div className="app-card p-8 sm:p-14 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-b from-blue-600/10 to-black/40 border border-blue-500/20 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
                 <span className="text-3xl sm:text-4xl mb-3 sm:mb-4 block">🚀</span>
-                <h2 className="text-xl sm:text-4xl font-extrabold tracking-tight mb-3 sm:mb-4">Pronto para começar?</h2>
+                <h2 className="text-xl sm:text-4xl font-extrabold tracking-tight mb-3 sm:mb-4">{t('cta.title')}</h2>
                 <p className="text-gray-400 max-w-md mx-auto mb-6 sm:mb-8 text-sm sm:text-base">
-                  10 leads grátis para testar. Sem compromisso. Em 2 minutos você já está extraindo.
+                  {t('cta.subtitle')}
                 </p>
                 <Link
                   href="/login"
                   className="inline-flex px-8 sm:px-10 py-3 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm sm:text-base transition-all shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95"
                 >
-                  Criar Conta Grátis
+                  {t('cta.button')}
                 </Link>
-                <p className="text-xs text-gray-500 mt-4">Já tem conta? <Link href="/login" className="text-blue-400 hover:text-blue-300">Entrar</Link></p>
+                <p className="text-xs text-gray-500 mt-4">
+                  {t('cta.login').replace(t('nav.login'), '')}
+                  <Link href="/login" className="text-blue-400 hover:text-blue-300">{t('nav.login')}</Link>
+                </p>
               </div>
             </div>
           </ScrollReveal>
@@ -277,19 +308,19 @@ export default async function LandingPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8 text-xs text-gray-500">
             <div className="col-span-2 sm:col-span-1">
               <div className="font-extrabold text-base text-white mb-3">Geo<span className="text-blue-400">Leads</span></div>
-              <p className="leading-relaxed">Motor de extração de leads B2B. CNPJ, e-mail, WhatsApp e redes sociais validados em um fluxo só.</p>
+              <p className="leading-relaxed">{t('footer.description')}</p>
             </div>
             <div>
-              <div className="font-bold text-sm text-gray-300 mb-3">Links</div>
+              <div className="font-bold text-sm text-gray-300 mb-3">{t('footer.links')}</div>
               <div className="flex flex-col gap-1.5 sm:gap-2">
-                <Link href="/pricing" className="hover:text-gray-300 transition-colors">Planos e Preços</Link>
-                <Link href="/privacy" className="hover:text-gray-300 transition-colors">Privacidade</Link>
-                <Link href="/terms" className="hover:text-gray-300 transition-colors">Termos</Link>
-                <Link href="/login" className="hover:text-gray-300 transition-colors">Entrar</Link>
+                <Link href="/pricing" className="hover:text-gray-300 transition-colors">{t('footer.pricing')}</Link>
+                <Link href="/privacy" className="hover:text-gray-300 transition-colors">{t('footer.privacy')}</Link>
+                <Link href="/terms" className="hover:text-gray-300 transition-colors">{t('footer.terms')}</Link>
+                <Link href="/login" className="hover:text-gray-300 transition-colors">{t('nav.login')}</Link>
               </div>
             </div>
             <div>
-              <div className="font-bold text-sm text-gray-300 mb-3">Contato</div>
+              <div className="font-bold text-sm text-gray-300 mb-3">{t('footer.contact')}</div>
               <div className="flex flex-col gap-1.5 sm:gap-2">
                 <a href="mailto:pixel010dev@gmail.com" className="hover:text-gray-300 transition-colors">pixel010dev@gmail.com</a>
                 <span>Guilherme Oliveira</span>
@@ -298,21 +329,10 @@ export default async function LandingPage() {
             </div>
           </div>
           <div className="text-center text-xs text-gray-600 pt-5 sm:pt-6 border-t border-white/5">
-            &copy; {new Date().getFullYear()} GeoLeads. Todos os direitos reservados.
+            {t('footer.rights', { year: new Date().getFullYear() })}
           </div>
         </div>
       </footer>
     </div>
   );
 }
-
-const features = [
-  { iconSvg: IconPhone, title: 'Telefone e Site', desc: 'Priorize leads com contato disponível para abordagem imediata.' },
-  { iconSvg: IconBuilding, title: 'CNPJ Validado', desc: 'Enriquece com dados da Receita Federal automaticamente.' },
-  { iconSvg: IconMail, title: 'E-mail que funciona', desc: 'Descobre e-mails institucionais a partir do site oficial da empresa.' },
-  { iconSvg: IconCamera, title: 'Redes Sociais', desc: 'Instagram, Facebook e TikTok quando disponíveis nos dados públicos.' },
-  { iconSvg: IconWhatsApp, title: 'Disparo WhatsApp', desc: 'Fila assistida com templates prontos e envio direto.' },
-  { iconSvg: IconBot, title: 'Chatbot Automático', desc: 'Responde leads automaticamente com regras que você define.' },
-  { iconSvg: IconChart, title: 'CRM Integrado', desc: 'Gerencie leads em estágios (Novo, Contato, Proposta, Cliente).' },
-  { iconSvg: IconDownload, title: 'Exportação CSV/Excel', desc: 'Exporte seus leads para usar onde quiser.' },
-];

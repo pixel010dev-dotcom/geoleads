@@ -6,10 +6,13 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useTranslations } from '@/lib/i18n';
 
 export default function Login() {
   const router = useRouter();
-  useEffect(() => { document.title = 'GeoLeads - Entrar'; }, []);
+  const { t } = useTranslations();
+  useEffect(() => { document.title = t('login.title'); }, [t]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
@@ -37,18 +40,11 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
-            setMessage(
-              'Email ou senha incorretos. Se você já criou uma conta, '
-              + 'verifique se confirmou o e-mail (olhe no spam). '
-              + 'Caso contrário, crie uma nova conta abaixo.'
-            );
+            setMessage(t('login.errors.invalidCredentials'));
             return;
           }
           if (error.message.includes('Email not confirmed')) {
-            setMessage(
-              'Seu e-mail ainda não foi confirmado. '
-              + 'Verifique sua caixa de entrada e spam, ou peça um novo link.'
-            );
+            setMessage(t('login.errors.emailNotConfirmed'));
             return;
           }
           throw error;
@@ -57,16 +53,12 @@ export default function Login() {
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        setMessage(
-          'Conta criada! Verifique seu e-mail para confirmar o cadastro. '
-          + 'Depois de confirmar, volte e faça login para ganhar 10 Tokens grátis. '
-          + '(Se não encontrar o e-mail, olhe no spam)'
-        );
+        setMessage(t('login.errors.signupSuccess'));
         setEmail('');
         setPassword('');
       }
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : 'Erro inesperado ao autenticar.');
+      setMessage(error instanceof Error ? error.message : t('login.errors.unexpected'));
     } finally {
       setLoading(false);
     }
@@ -80,13 +72,13 @@ export default function Login() {
       },
     });
     if (error) {
-      showToast('Erro ao conectar com o Google: ' + error.message, 'error');
+      showToast(t('login.googleError') + ' ' + error.message, 'error');
     }
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
-      setResetSent('Digite seu e-mail primeiro antes de solicitar a recuperação.');
+      setResetSent(t('login.enterEmailFirst'));
       return;
     }
     setLoading(true);
@@ -96,10 +88,10 @@ export default function Login() {
         redirectTo: window.location.origin + '/login',
       });
       if (error) throw error;
-      setResetSent('Email de recuperação enviado! Verifique sua caixa de entrada e spam.');
+      setResetSent(t('login.forgotSent'));
       setMessage('');
     } catch (error: unknown) {
-      setResetSent('Erro ao enviar: ' + (error instanceof Error ? error.message : 'tente novamente.'));
+      setResetSent(t('login.forgotError') + ' ' + (error instanceof Error ? error.message : ''));
     } finally {
       setLoading(false);
     }
@@ -112,16 +104,19 @@ export default function Login() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(600px,95vw)] h-[520px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="app-card w-full max-w-md p-6 sm:p-8 rounded-[1.5rem] sm:rounded-3xl bg-white/[0.02] border border-white/10 shadow-2xl relative z-10 group hover:border-blue-500/30 transition-all duration-300">
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-8 relative">
           <Globe size={52} className="mb-4" />
           <span className="font-extrabold text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
+          <div className="absolute top-0 right-0">
+            <LanguageSwitcher />
+          </div>
         </div>
         
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2">
-          {isLogin ? 'Bem-vindo de volta' : 'Ganhe 10 Tokens Grátis'}
+          {isLogin ? t('login.welcome') : t('login.welcomeSignup')}
         </h2>
         <p className="text-gray-400 text-center mb-8">
-          Acesse o <span className="font-semibold text-white">GeoLeads</span>
+          {t('login.subtitle')}
         </p>
 
         {message && (
@@ -140,18 +135,18 @@ export default function Login() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
           </svg>
-          Continuar com o Google
+          {t('login.google')}
         </button>
 
         <div className="flex items-center gap-4 mb-6">
           <div className="h-px bg-white/10 flex-1"></div>
-          <span className="text-sm text-gray-500">ou com e-mail</span>
+          <span className="text-sm text-gray-500">{t('login.or')}</span>
           <div className="h-px bg-white/10 flex-1"></div>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">E-mail de Trabalho</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1">{t('login.emailLabel')}</label>
             <input 
               type="email" 
               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
@@ -161,7 +156,7 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Senha Segura</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1">{t('login.passwordLabel')}</label>
             <input 
               type="password" 
               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
@@ -181,7 +176,7 @@ export default function Login() {
             <button type="button" onClick={handleForgotPassword} disabled={loading}
               className="text-xs text-gray-500 hover:text-blue-400 transition-colors mt-1 cursor-pointer disabled:opacity-50"
             >
-              Esqueci minha senha
+              {t('login.forgotPassword')}
             </button>
           )}
           
@@ -195,10 +190,9 @@ export default function Login() {
                 required
               />
               <span>
-                Aceito os{' '}
-                <Link href="/terms" className="text-blue-400 hover:underline" target="_blank">Termos de Uso</Link>
-                {' '}e a{' '}
-                <Link href="/privacy" className="text-blue-400 hover:underline" target="_blank">Política de Privacidade</Link>
+                <Link href="/terms" className="text-blue-400 hover:underline" target="_blank">{t('login.termsLink')}</Link>
+                {' '}{t('login.termsAnd')}{' '}
+                <Link href="/privacy" className="text-blue-400 hover:underline" target="_blank">{t('login.privacyLink')}</Link>
               </span>
             </label>
           )}
@@ -207,7 +201,7 @@ export default function Login() {
             disabled={loading || (!isLogin && !termsAccepted)}
             className="w-full py-3.5 mt-4 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 hover:-translate-y-1 transition-all duration-200 flex justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
-            {loading ? 'Processando...' : isLogin ? 'Entrar na Plataforma' : 'Criar Conta e Ganhar Tokens'}
+            {loading ? t('login.processing') : isLogin ? t('login.loginButton') : t('login.signupButton')}
           </button>
         </form>
 
@@ -216,7 +210,7 @@ export default function Login() {
             onClick={() => setIsLogin(!isLogin)}
             className="text-sm text-gray-400 hover:text-blue-400 transition-colors"
           >
-            {isLogin ? 'Não tem uma conta? Crie uma grátis' : 'Já tem uma conta? Faça login'}
+            {isLogin ? t('login.noAccount') : t('login.hasAccount')}
           </button>
         </div>
       </div>

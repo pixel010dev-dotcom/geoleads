@@ -16,13 +16,13 @@ export type FeatureKey =
 
 export type Plan = {
   id: PlanId;
-  name: string;
-  shortName: string;
-  description: string;
+  nameKey: string;
+  shortNameKey: string;
+  descKey: string;
   price: number;
   tokens: number;
-  cta: string;
-  badge?: string;
+  ctaKey: string;
+  badgeKey?: string | null;
   highlight?: boolean;
   features: string[];
   featureKeys: FeatureKey[];
@@ -33,12 +33,12 @@ export const planOrder: PlanId[] = ['free', 'starter', 'pro', 'agency'];
 export const plans: Record<PlanId, Plan> = {
   free: {
     id: 'free',
-    name: 'Teste',
-    shortName: 'Teste',
-    description: 'Para experimentar o motor antes de comprar créditos.',
+    nameKey: 'pricing.planNames.free',
+    shortNameKey: 'pricing.planNames.free',
+    descKey: 'pricing.planDescriptions.free',
     price: 0,
     tokens: 10,
-    cta: 'Criar conta grátis',
+    ctaKey: 'pricing.cta.free',
     features: [
       '10 tokens iniciais',
       'Motor Maps básico',
@@ -49,12 +49,12 @@ export const plans: Record<PlanId, Plan> = {
   },
   starter: {
     id: 'starter',
-    name: 'Inicial',
-    shortName: 'Inicial',
-    description: 'Para começar a prospectar com CRM, exportação e dados essenciais.',
+    nameKey: 'pricing.planNames.starter',
+    shortNameKey: 'pricing.planNames.starter',
+    descKey: 'pricing.planDescriptions.starter',
     price: 9.9,
     tokens: 300,
-    cta: 'Escolher Inicial',
+    ctaKey: 'pricing.cta.starter',
     features: [
       '300 tokens de extração',
       'CRM de leads completo',
@@ -66,13 +66,13 @@ export const plans: Record<PlanId, Plan> = {
   },
   pro: {
     id: 'pro',
-    name: 'Profissional',
-    shortName: 'Pro',
-    description: 'Para prospecção recorrente com redes sociais, WhatsApp e IA.',
+    nameKey: 'pricing.planNames.pro',
+    shortNameKey: 'pricing.planNames.pro',
+    descKey: 'pricing.planDescriptions.pro',
     price: 24.9,
     tokens: 1000,
-    cta: 'Escolher Profissional',
-    badge: 'MAIS EQUILIBRADO',
+    ctaKey: 'pricing.cta.pro',
+    badgeKey: 'pricing.badge',
     highlight: true,
     features: [
       '1.000 tokens de extração',
@@ -96,12 +96,12 @@ export const plans: Record<PlanId, Plan> = {
   },
   agency: {
     id: 'agency',
-    name: 'Profissional Max',
-    shortName: 'Max',
-    description: 'Para operação em volume com automação de atendimento e prioridade.',
+    nameKey: 'pricing.planNames.agency',
+    shortNameKey: 'pricing.planNames.agency',
+    descKey: 'pricing.planDescriptions.agency',
     price: 47,
     tokens: 2000,
-    cta: 'Escolher Max',
+    ctaKey: 'pricing.cta.agency',
     features: [
       '2.000 tokens de extração',
       'Tudo do plano Profissional',
@@ -159,9 +159,10 @@ export const formatPlanPrice = (price: number) => (
   }).replace(/\s/g, ' ')
 );
 
-export const getCostPerLeadLabel = (plan: Plan) => {
-  if (!plan.tokens || !plan.price) return 'Incluído no teste';
-  return `~ ${formatPlanPrice(plan.price / plan.tokens)} por lead`;
+export const getCostPerLeadLabel = (plan: Plan, t?: (key: string, vars?: Record<string, string | number>) => string) => {
+  if (!plan.tokens || !plan.price) return t ? t('pricing.includedInTrial') : 'Incluído no teste';
+  const price = formatPlanPrice(plan.price / plan.tokens);
+  return t ? t('pricing.perLeadLabel', { price }) : `~ ${price} por lead`;
 };
 
 export const allFeatureKeys: FeatureKey[] = [
@@ -180,16 +181,16 @@ export const allFeatureKeys: FeatureKey[] = [
 ];
 
 export const featureLabels: Record<FeatureKey, string> = {
-  extractor: 'Motor Extrator',
-  crm: 'CRM de Leads',
-  export: 'Exportação CSV',
-  emailEnrichment: 'Caçador de E-mails',
-  cnpjEnrichment: 'CNPJ Oficial',
-  socialEnrichment: 'Redes Sociais',
-  whatsappSender: 'Disparador WhatsApp',
-  aiCopy: 'Copys com IA',
-  chatbot: 'Chatbot WhatsApp',
-  autovendas: 'AutoVendas',
-  prioritySupport: 'Suporte Prioritário',
-  facebook: 'Anúncios Facebook'
+  extractor: 'pricing.features.extractor',
+  crm: 'pricing.features.crm',
+  export: 'pricing.features.export',
+  emailEnrichment: 'pricing.features.emailEnrichment',
+  cnpjEnrichment: 'pricing.features.cnpjEnrichment',
+  socialEnrichment: 'pricing.features.socialEnrichment',
+  whatsappSender: 'pricing.features.whatsappSender',
+  aiCopy: 'pricing.features.aiCopy',
+  chatbot: 'pricing.features.chatbot',
+  autovendas: 'pricing.features.autovendas',
+  prioritySupport: 'pricing.features.prioritySupport',
+  facebook: 'pricing.features.facebook'
 };

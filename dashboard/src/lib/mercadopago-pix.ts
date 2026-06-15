@@ -2,6 +2,13 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 import type { PlanId } from '@/lib/plans';
 import { mercadoPagoWebhookUrl } from '@/lib/mercadopago-checkout';
 
+const planDisplayNames: Record<string, string> = {
+  free: 'Teste',
+  starter: 'Inicial',
+  pro: 'Profissional',
+  agency: 'Profissional Max',
+};
+
 function getMpConfig() {
   const token = process.env.MERCADO_PAGO_ACCESS_TOKEN || '';
   const isSandbox = token.startsWith('TEST-');
@@ -33,13 +40,15 @@ export async function createPixPayment({
   userId,
   payerEmail,
   externalReference,
+  description,
   metadata,
   notificationUrl
 }: {
-  plan: { id: PlanId; name: string; tokens: number; price: number };
+  plan: { id: PlanId; tokens: number; price: number };
   userId: string;
   payerEmail: string;
   externalReference?: string;
+  description?: string;
   metadata?: Record<string, unknown>;
   notificationUrl?: string;
 }): Promise<PixCheckoutResult> {
@@ -73,7 +82,7 @@ export async function createPixPayment({
     result = await paymentApi.create({
       body: {
         transaction_amount: Number(plan.price.toFixed(2)),
-        description: `GeoLeads ${plan.name} - ${plan.tokens} tokens`,
+        description: description || `GeoLeads ${planDisplayNames[plan.id] || plan.id} - ${plan.tokens} tokens`,
         payment_method_id: 'pix',
         external_reference: externalRef,
         date_of_expiration: expiration,

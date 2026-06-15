@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Toast, { showToast } from '@/components/Toast';
 import Globe from '@/components/Globe';
+import { useTranslations } from '@/lib/i18n';
 
 interface Testimonial {
   id: number;
@@ -18,6 +19,7 @@ interface Testimonial {
 }
 
 export default function AdminPage() {
+  const { t, locale } = useTranslations();
   const router = useRouter();
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   useEffect(() => {
-    document.title = 'Admin | GeoLeads';
+    document.title = t('admin.title');
     checkAuth();
   }, []);
 
@@ -62,10 +64,10 @@ export default function AdminPage() {
       if (res.ok) {
         setTestimonials(json.testimonials || []);
       } else {
-        showToast(json.error || 'Erro ao carregar', 'error');
+        showToast(json.error || t('admin.connectionError'), 'error');
       }
     } catch (err) {
-      showToast('Erro de conexão', 'error');
+      showToast(t('admin.connectionError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -91,12 +93,12 @@ export default function AdminPage() {
         setTestimonials(prev =>
           prev.map(t => (t.id === id ? { ...t, approved } : t))
         );
-        showToast(approved ? 'Aprovado!' : 'Rejeitado!', 'success');
+        showToast(approved ? t('admin.approvedToast') : t('admin.rejectedToast'), 'success');
       } else {
         showToast(json.error || 'Erro', 'error');
       }
     } catch {
-      showToast('Erro de conexão', 'error');
+      showToast(t('admin.connectionError'), 'error');
     } finally {
       setActionLoading(null);
     }
@@ -139,42 +141,42 @@ export default function AdminPage() {
         {!isAdmin && !loading ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🔒</div>
-            <h1 className="text-2xl font-bold mb-2">Acesso Restrito</h1>
-            <p className="text-gray-400 text-sm">Você não tem permissão para acessar esta página.</p>
+            <h1 className="text-2xl font-bold mb-2">{t('admin.accessRestricted')}</h1>
+            <p className="text-gray-400 text-sm">{t('admin.noPermission')}</p>
             <button
               onClick={() => router.push('/app/dashboard')}
               className="mt-6 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors cursor-pointer"
             >
-              Voltar ao Dashboard
+              {t('admin.backToDashboard')}
             </button>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold">Painel Admin</h1>
-                <p className="text-gray-400 text-sm mt-1">Aprovação de depoimentos</p>
+                <h1 className="text-2xl sm:text-3xl font-extrabold">{t('admin.panelTitle')}</h1>
+                <p className="text-gray-400 text-sm mt-1">{t('admin.testimonialApproval')}</p>
               </div>
               <div className="text-right text-xs text-gray-500">
-                <div>Pendentes: <span className="text-amber-400 font-bold">{pending.length}</span></div>
-                <div>Aprovados: <span className="text-green-400 font-bold">{approved.length}</span></div>
+                <div>{t('admin.pending')} <span className="text-amber-400 font-bold">{pending.length}</span></div>
+                <div>{t('admin.approved')} <span className="text-green-400 font-bold">{approved.length}</span></div>
               </div>
             </div>
 
             {loading ? (
-              <div className="text-center py-20 text-gray-500">Carregando...</div>
+              <div className="text-center py-20 text-gray-500">{t('admin.loading')}</div>
             ) : testimonials.length === 0 ? (
               <div className="text-center py-20">
                 <div className="text-5xl mb-3">📭</div>
-                <p className="text-gray-400">Nenhum depoimento cadastrado ainda.</p>
+                <p className="text-gray-400">{t('admin.noTestimonials')}</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {testimonials.map(t => (
+                {testimonials.map(item => (
                   <div
-                    key={t.id}
+                    key={item.id}
                     className={`rounded-2xl border p-5 transition-all duration-300 ${
-                      t.approved
+                      item.approved
                         ? 'bg-emerald-500/5 border-emerald-500/20'
                         : 'bg-amber-500/5 border-amber-500/20'
                     }`}
@@ -182,44 +184,44 @@ export default function AdminPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="font-bold text-white">{t.name}</h3>
-                          <span className="text-amber-400 text-sm">{renderStars(t.rating)}</span>
+                          <h3 className="font-bold text-white">{item.name}</h3>
+                          <span className="text-amber-400 text-sm">{renderStars(item.rating)}</span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                            t.approved
+                            item.approved
                               ? 'bg-emerald-500/20 text-emerald-300'
                               : 'bg-amber-500/20 text-amber-300'
                           }`}>
-                            {t.approved ? 'Aprovado' : 'Pendente'}
+                            {item.approved ? t('admin.approvedLabel') : t('admin.pendingLabel')}
                           </span>
                         </div>
-                        {t.feedback && (
-                          <p className="text-gray-300 text-sm mt-2 leading-relaxed">{t.feedback}</p>
+                        {item.feedback && (
+                          <p className="text-gray-300 text-sm mt-2 leading-relaxed">{item.feedback}</p>
                         )}
-                        {t.role && (
-                          <p className="text-gray-500 text-xs mt-1">{t.role}</p>
+                        {item.role && (
+                          <p className="text-gray-500 text-xs mt-1">{item.role}</p>
                         )}
                         <p className="text-gray-600 text-[10px] mt-2">
-                          ID: {t.id} | {new Date(t.created_at).toLocaleString('pt-BR')}
-                          {t.user_id ? ` | User: ${t.user_id.slice(0, 8)}...` : ''}
+                          ID: {item.id} | {new Date(item.created_at).toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}
+                          {item.user_id ? ` | User: ${item.user_id.slice(0, 8)}...` : ''}
                         </p>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        {!t.approved && (
+                        {!item.approved && (
                           <button
-                            onClick={() => handleApprove(t.id, true)}
-                            disabled={actionLoading === t.id}
+                            onClick={() => handleApprove(item.id, true)}
+                            disabled={actionLoading === item.id}
                             className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer"
                           >
-                            {actionLoading === t.id ? '...' : '✓ Aprovar'}
+                            {actionLoading === item.id ? '...' : t('admin.approve')}
                           </button>
                         )}
-                        {t.approved && (
+                        {item.approved && (
                           <button
-                            onClick={() => handleApprove(t.id, false)}
-                            disabled={actionLoading === t.id}
+                            onClick={() => handleApprove(item.id, false)}
+                            disabled={actionLoading === item.id}
                             className="px-4 py-2 rounded-xl bg-red-600/50 hover:bg-red-500/70 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer"
                           >
-                            {actionLoading === t.id ? '...' : '✗ Rejeitar'}
+                            {actionLoading === item.id ? '...' : t('admin.reject')}
                           </button>
                         )}
                       </div>

@@ -2,25 +2,32 @@ import type { PlanId } from '@/lib/plans';
 
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 
+const planDisplayNames: Record<string, string> = {
+  free: 'Teste',
+  starter: 'Inicial',
+  pro: 'Profissional',
+  agency: 'Profissional Max',
+};
+
 export const mercadoPagoWebhookUrl = `${appUrl}/api/mercado-pago/webhook`;
 
-/** Preferência otimizada para Brasil: PIX (QR/copia-e-cola), cartão e boleto no Checkout Pro. */
 export function buildCheckoutPreferenceBody({
   plan,
   userId,
   payerEmail
 }: {
-  plan: { id: PlanId; name: string; tokens: number; price: number };
+  plan: { id: PlanId; tokens: number; price: number };
   userId: string;
   payerEmail?: string;
 }) {
   const externalRef = `geoleads:${plan.id}:${plan.tokens}:${userId}`;
+  const displayName = planDisplayNames[plan.id] || plan.id;
 
   return {
     items: [
       {
         id: `geoleads-${plan.id}`,
-        title: `${plan.name} - ${plan.tokens.toLocaleString('pt-BR')} tokens GeoLeads`,
+        title: `${displayName} - ${plan.tokens.toLocaleString('pt-BR')} tokens GeoLeads`,
         quantity: 1,
         unit_price: plan.price,
         currency_id: 'BRL'

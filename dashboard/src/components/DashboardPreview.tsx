@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 
 export default function DashboardPreview() {
+  const { t } = useTranslations();
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -25,8 +27,8 @@ export default function DashboardPreview() {
     <div ref={ref} className={`app-container py-12 sm:py-24 transition-all duration-1000 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-10 sm:mb-12">
-          <span className="badge-blue mb-3">Na prática</span>
-          <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">Veja como é usar o GeoLeads</h2>
+          <span className="badge-blue mb-3">{t('dashboardPreview.title')}</span>
+          <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('dashboardPreview.subtitle')}</h2>
         </div>
 
         <div className="relative">
@@ -47,9 +49,9 @@ export default function DashboardPreview() {
 
             <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[220px_1fr] min-h-[320px] sm:min-h-[400px]">
               <div className="border-r border-white/5 bg-black/30 p-3 sm:p-4 hidden sm:flex flex-col gap-3">
-                {['Motor', 'CRM', 'Disparo', 'IA', 'Config'].map((label) => (
-                  <div key={label} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${label === 'Motor' ? 'bg-blue-600/20 text-blue-300 border border-blue-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${label === 'Motor' ? 'bg-blue-400' : 'bg-gray-600'}`} />
+                {[t('dashboardPreview.tab1'), t('dashboardPreview.tab2'), t('dashboardPreview.tab3'), t('dashboardPreview.tab4'), t('dashboardPreview.tab5')].map((label) => (
+                  <div key={label} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${label === t('dashboardPreview.tab1') ? 'bg-blue-600/20 text-blue-300 border border-blue-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${label === t('dashboardPreview.tab1') ? 'bg-blue-400' : 'bg-gray-600'}`} />
                     {label}
                   </div>
                 ))}
@@ -57,11 +59,11 @@ export default function DashboardPreview() {
 
               <div className="p-3 sm:p-5 flex flex-col gap-3 sm:gap-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs sm:text-sm font-bold text-white">Motor de Extração</h3>
+                  <h3 className="text-xs sm:text-sm font-bold text-white">{t('dashboardPreview.tab1')}</h3>
                   <div className="flex items-center gap-2 text-[10px] sm:text-xs text-gray-500">
                     <span className="inline-flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                      Online
+                      {t('dashboardPreview.online')}
                     </span>
                     <span className="hidden sm:inline">|</span>
                     <span className="hidden sm:inline">4.200+ leads</span>
@@ -70,10 +72,10 @@ export default function DashboardPreview() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   {[
-                    { label: 'Leads hoje', value: '47', color: 'from-blue-500 to-indigo-500' },
-                    { label: 'Tokens', value: '2.340', color: 'from-emerald-500 to-teal-500' },
-                    { label: 'Enviados', value: '128', color: 'from-violet-500 to-purple-500' },
-                    { label: 'Conversões', value: '12', color: 'from-amber-500 to-orange-500' },
+                    { label: t('dashboardPreview.leadsToday'), value: '47', color: 'from-blue-500 to-indigo-500' },
+                    { label: t('dashboardPreview.tokens'), value: '2.340', color: 'from-emerald-500 to-teal-500' },
+                    { label: t('dashboardPreview.sent'), value: '128', color: 'from-violet-500 to-purple-500' },
+                    { label: t('dashboardPreview.conversions'), value: '12', color: 'from-amber-500 to-orange-500' },
                   ].map((stat) => (
                     <div key={stat.label} className="rounded-xl bg-white/[0.03] border border-white/5 p-3 sm:p-4">
                       <p className="text-[10px] sm:text-xs text-gray-500 mb-1">{stat.label}</p>
@@ -84,8 +86,8 @@ export default function DashboardPreview() {
 
                 <div className="flex-1 rounded-xl bg-white/[0.02] border border-white/5 p-3 sm:p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] sm:text-xs font-bold text-gray-400">Últimas extrações</span>
-                    <span className="text-[10px] sm:text-xs text-blue-400">Ver tudo →</span>
+                    <span className="text-[10px] sm:text-xs font-bold text-gray-400">{t('dashboardPreview.latestExtractions')}</span>
+                    <span className="text-[10px] sm:text-xs text-blue-400">{t('dashboardPreview.viewAll')}</span>
                   </div>
                   <div className="space-y-2">
                     {[

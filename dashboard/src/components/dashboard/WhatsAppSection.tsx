@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { FeatureKey } from '@/lib/plans';
 import type { DashboardTab } from './dashboard-constants';
 import { waMessagePresets, waTemplateTags } from './dashboard-constants';
+import { useTranslations } from '@/lib/i18n';
 
 export interface WhatsAppSectionProps {
   dispatchableWaLeads: any[];
@@ -57,7 +58,6 @@ export interface WhatsAppSectionProps {
   waPreviewLead: any;
   selectedWaCount: number;
   activeBulkLeadKey: string | null;
-  // Enriquecimentos
   waStats: any;
   campaigns: any[];
   scheduleDate: string;
@@ -131,28 +131,40 @@ export function WhatsAppSection({
   handleLoadCampaigns,
   handleCreateCampaign,
 }: WhatsAppSectionProps) {
+  const { t, locale } = useTranslations();
   const [followupDelays, setFollowupDelays] = useState<string>('1,3,7');
   const [followupEnabled, setFollowupEnabled] = useState(false);
   const [followupMessage, setFollowupMessage] = useState('Olá {Nome}! Tudo bem? Passando pra saber se teve chance de ver minha mensagem anterior. Qualquer dúvida, fico à disposição!');
+
+  const presetLabel = (id: string, type: 'title' | 'subtitle'): string => {
+    const keyMap: Record<string, { title: string; subtitle: string }> = {
+      'local': { title: 'whatsapp.preset1', subtitle: 'whatsapp.preset2' },
+      'offer': { title: 'whatsapp.preset3', subtitle: 'whatsapp.preset4' },
+      'audit': { title: 'whatsapp.preset5', subtitle: 'whatsapp.preset6' },
+      'partner': { title: 'whatsapp.preset7', subtitle: 'whatsapp.preset8' },
+    };
+    const keys = keyMap[id];
+    return keys ? t(keys[type]) : type === 'title' ? 'Preset' : '';
+  };
 
   return (
     <div className="space-y-5 animate-slide-up">
       {/* Métricas */}
       <div className="app-card p-5 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
         <div className="flex items-center justify-between gap-3 mb-4">
-          <h3 className="text-lg font-semibold">📊 Métricas de Envio</h3>
+          <h3 className="text-lg font-semibold">{t('whatsapp.metrics')}</h3>
           <button type="button" onClick={() => { handleLoadWaStats(); handleLoadCampaigns(); }}
             className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 cursor-pointer">
-            Atualizar
+            {t('whatsapp.refresh')}
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { label: 'Total Enviadas', value: waStats?.totalSent ?? 0, color: 'text-blue-400' },
-            { label: 'Falhas', value: waStats?.totalFailed ?? 0, color: 'text-red-400' },
-            { label: 'Taxa de Sucesso', value: `${waStats?.successRate ?? 100}%`, color: 'text-green-400' },
-            { label: 'Enviadas Hoje', value: waStats?.todaySent ?? 0, color: 'text-cyan-400' },
-            { label: 'Campanhas', value: campaigns.length, color: 'text-purple-400' },
+            { label: t('whatsapp.totalSent'), value: waStats?.totalSent ?? 0, color: 'text-blue-400' },
+            { label: t('whatsapp.failures'), value: waStats?.totalFailed ?? 0, color: 'text-red-400' },
+            { label: t('whatsapp.successRate'), value: `${waStats?.successRate ?? 100}%`, color: 'text-green-400' },
+            { label: t('whatsapp.sentToday'), value: waStats?.todaySent ?? 0, color: 'text-cyan-400' },
+            { label: t('whatsapp.campaigns'), value: campaigns.length, color: 'text-purple-400' },
           ].map(s => (
             <div key={s.label} className="p-3 rounded-xl bg-black/30 border border-white/5 text-center">
               <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
@@ -163,11 +175,11 @@ export function WhatsAppSection({
         {/* Campanhas agendadas */}
         {campaigns.filter((c: any) => c.status === 'scheduled').length > 0 && (
           <div className="mt-4 space-y-2">
-            <span className="text-xs text-gray-500 font-bold">📅 Campanhas Agendadas</span>
+            <span className="text-xs text-gray-500 font-bold">{t('whatsapp.scheduledCampaigns')}</span>
             {campaigns.filter((c: any) => c.status === 'scheduled').map((c: any) => (
               <div key={c.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/15 text-xs">
                 <span className="text-gray-300 truncate">{c.name}</span>
-                <span className="text-amber-300 whitespace-nowrap font-mono">{c.scheduled_at ? new Date(c.scheduled_at).toLocaleString('pt-BR') : '—'}</span>
+                <span className="text-amber-300 whitespace-nowrap font-mono">{c.scheduled_at ? new Date(c.scheduled_at).toLocaleString(locale) : '—'}</span>
               </div>
             ))}
           </div>
@@ -183,14 +195,14 @@ export function WhatsAppSection({
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
           <div className="mb-5">
             <h3 className="text-xl font-semibold flex items-center gap-2">
-              ✍️ Mensagem da Campanha
+              {t('whatsapp.campaignMessage')}
             </h3>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
               <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-300 border border-green-500/20 font-bold">
-                Personalizada
+                {t('whatsapp.customBadge')}
               </span>
               <span className="px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">
-                Envio assistido
+                {t('whatsapp.assistedBadge')}
               </span>
             </div>
           </div>
@@ -211,8 +223,8 @@ export function WhatsAppSection({
                         : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20'
                     }`}
                   >
-                    <span className="block text-xs font-bold text-gray-100">{preset.title}</span>
-                    <span className="block text-[10px] text-gray-500 mt-0.5">{preset.subtitle}</span>
+                    <span className="block text-xs font-bold text-gray-100">{presetLabel(preset.id, 'title')}</span>
+                    <span className="block text-[10px] text-gray-500 mt-0.5">{presetLabel(preset.id, 'subtitle')}</span>
                   </button>
                 );
               })}
@@ -221,11 +233,11 @@ export function WhatsAppSection({
             <form onSubmit={generateWaAiTemplates} className="rounded-2xl bg-green-500/[0.04] border border-green-500/15 p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h4 className="text-sm font-bold text-green-300">Modelos com IA</h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">Gere abordagens novas e aplique no disparador.</p>
+                  <h4 className="text-sm font-bold text-green-300">{t('whatsapp.aiModels')}</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{t('whatsapp.aiSubtitle')}</p>
                 </div>
                 <span className="text-[10px] px-2 py-1 rounded-full bg-black/30 border border-white/10 text-gray-400">
-                  Gemini ou local
+                  {t('whatsapp.aiProvider')}
                 </span>
               </div>
 
@@ -233,14 +245,14 @@ export function WhatsAppSection({
                 <input
                   value={waAiProduct}
                   onChange={(e) => setWaAiProduct(e.target.value)}
-                  placeholder="O que você vende? ex: gestão de tráfego"
+                  placeholder={t('whatsapp.aiProduct')}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-green-500"
                 />
                 <textarea
                   rows={2}
                   value={waAiValue}
                   onChange={(e) => setWaAiValue(e.target.value)}
-                  placeholder="Principal benefício: ex: gerar mais orçamentos todos os meses"
+                  placeholder={t('whatsapp.aiBenefit')}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-green-500 resize-none"
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
@@ -250,17 +262,17 @@ export function WhatsAppSection({
                     style={{ colorScheme: 'dark' }}
                     className="w-full bg-black/80 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-green-500 cursor-pointer"
                   >
-                    <option value="friendly">Humano e natural</option>
-                    <option value="direct">Curto e direto</option>
-                    <option value="curious">Curioso</option>
-                    <option value="persuasive">Persuasivo</option>
+                    <option value="friendly">{t('whatsapp.aiToneHuman')}</option>
+                    <option value="direct">{t('whatsapp.aiToneDirect')}</option>
+                    <option value="curious">{t('whatsapp.aiToneCurious')}</option>
+                    <option value="persuasive">{t('whatsapp.aiTonePersuasive')}</option>
                   </select>
                   <button
                     type="submit"
                     disabled={waAiLoading}
                     className="px-4 py-2.5 rounded-xl bg-green-500 hover:bg-green-400 text-black text-xs font-extrabold cursor-pointer disabled:opacity-60"
                   >
-                    {waAiLoading ? 'Gerando...' : 'Gerar modelos'}
+                    {waAiLoading ? t('whatsapp.aiGenerating') : t('whatsapp.aiGenerate')}
                   </button>
                 </div>
               </div>
@@ -283,7 +295,7 @@ export function WhatsAppSection({
                       <span className="block text-xs font-bold text-white">{copy.title}</span>
                       <span className="block text-[10px] text-gray-500 mt-0.5">{copy.desc}</span>
                       <span className="block text-[11px] text-gray-300 mt-2 line-clamp-3 whitespace-pre-wrap">{copy.text}</span>
-                      <span className="block text-[10px] text-green-300 font-bold mt-2">Usar este modelo</span>
+                      <span className="block text-[10px] text-green-300 font-bold mt-2">{t('whatsapp.aiUseModel')}</span>
                     </button>
                   ))}
                 </div>
@@ -292,8 +304,8 @@ export function WhatsAppSection({
 
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-xs font-medium text-gray-400">Editor</label>
-                <span className="text-[10px] text-gray-500 font-mono">{waTemplate.length} caracteres</span>
+                <label className="block text-xs font-medium text-gray-400">{t('whatsapp.dynamicFields')}</label>
+                <span className="text-[10px] text-gray-500 font-mono">{t('whatsapp.aiChars', { count: waTemplate.length })}</span>
               </div>
               <textarea
                 rows={7}
@@ -305,7 +317,7 @@ export function WhatsAppSection({
 
             {/* TAG HELPERS */}
             <div>
-              <label className="block text-[11px] font-medium text-gray-500 mb-2">Campos dinâmicos</label>
+              <label className="block text-[11px] font-medium text-gray-500 mb-2">{t('whatsapp.dynamicFields')}</label>
               <div className="flex flex-wrap gap-1.5">
                 {waTemplateTags.map(tag => (
                   <button
@@ -322,7 +334,7 @@ export function WhatsAppSection({
 
             <div className="rounded-2xl bg-black/45 border border-green-500/15 overflow-hidden">
               <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-green-300">Prévia</span>
+                <span className="text-xs font-bold text-green-300">{t('whatsapp.preview')}</span>
                 <span className="text-[10px] text-gray-500 truncate">{waPreviewLead.nome}</span>
               </div>
               <div className="p-4 text-xs text-gray-300 leading-relaxed">
@@ -336,15 +348,15 @@ export function WhatsAppSection({
         <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500" />
           <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            🚀 Fila Assistida WhatsApp
+            {t('whatsapp.queueTitle')}
           </h3>
           <p className="text-xs text-gray-400 mb-4">
-            Abra conversas em sequência, envie dentro do WhatsApp e avance sem perder o controle da lista.
+            {t('whatsapp.queueDesc')}
           </p>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Intervalo entre Mensagens (segundos):</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">{t('whatsapp.intervalLabel')}</label>
               <input
                 type="number"
                 min={10}
@@ -366,7 +378,7 @@ export function WhatsAppSection({
                   onChange={(e) => setBulkSimulateHuman(e.target.checked)}
                   className="rounded border-white/20 bg-black/40 text-red-500 focus:ring-0 cursor-pointer h-4 w-4"
                 />
-                Simular comportamento humano (+/- 4s randômicos)
+                {t('whatsapp.humanBehavior')}
               </label>
 
               <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer">
@@ -376,7 +388,7 @@ export function WhatsAppSection({
                   onChange={(e) => setBulkAutoNext(e.target.checked)}
                   className="rounded border-white/20 bg-black/40 text-red-500 focus:ring-0 cursor-pointer h-4 w-4"
                 />
-                Abrir próximo chat automaticamente após o intervalo
+                {t('whatsapp.autoNext')}
               </label>
             </div>
 
@@ -387,24 +399,24 @@ export function WhatsAppSection({
                 : 'bg-gray-500/10 border border-gray-500/20 text-gray-400'
             }`}>
               <span className="font-bold flex items-center gap-1">
-                {chatbotSession?.status === 'connected' ? '🟢 Bot WhatsApp Conectado' : '🔴 Chatbot Desconectado'}
+                {chatbotSession?.status === 'connected' ? t('whatsapp.botConnected') : t('whatsapp.botDisconnected')}
               </span>
               {chatbotSession?.status === 'connected' ? (
-                <span>Envio direto via bot disponível. Respostas: {chatbotSession.repliedCount || 0}</span>
+                <span>{t('whatsapp.botStatusConnected')}. {t('whatsapp.botRepliedCount', { count: chatbotSession.repliedCount || 0 })}</span>
               ) : (
-                <span>Vá na aba Chatbot e conecte via QR Code para enviar mensagens direto do servidor.</span>
+                <span>{t('whatsapp.botStatusDisconnected')}</span>
               )}
             </div>
 
             {/* ALERTA DE BLOQUEIO DESTAQUE */}
             <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/20 text-xs text-red-400 leading-relaxed space-y-1">
-              <span className="font-bold flex items-center gap-1">⚠️ AVISO DE RISCO DE BLOQUEIO</span>
-              O WhatsApp limita automações de envio. Use a fila para abordagens legítimas, com contexto, personalização e opção de não receber novas mensagens.
+              <span className="font-bold flex items-center gap-1">{t('whatsapp.blockWarning')}</span>
+              {t('whatsapp.blockWarningText')}
             </div>
 
         {/* AGENDAMENTO */}
         <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-3">
-          <span className="text-xs font-bold text-purple-300 flex items-center gap-1">📅 Agendar Disparo</span>
+          <span className="text-xs font-bold text-purple-300 flex items-center gap-1">{t('whatsapp.scheduleSend')}</span>
           <div className="grid grid-cols-2 gap-2">
             <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)}
               className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 [color-scheme:dark]" />
@@ -413,30 +425,30 @@ export function WhatsAppSection({
           </div>
           <button type="button" onClick={handleCreateCampaign}
             className="w-full py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 cursor-pointer transition-all">
-            📌 Agendar Campanha
+            {t('whatsapp.scheduleCampaign')}
           </button>
         </div>
 
         {/* FOLLOW-UP SEQUENCE */}
         <div className="p-4 rounded-xl bg-green-950/20 border border-green-500/20 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-green-300 flex items-center gap-1">🔄 Sequência de Follow-up</span>
+            <span className="text-xs font-bold text-green-300 flex items-center gap-1">{t('whatsapp.followUp')}</span>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
               <input type="checkbox" checked={followupEnabled} onChange={e => setFollowupEnabled(e.target.checked)}
                 className="rounded border-white/20 bg-black/40 text-green-500 cursor-pointer h-3.5 w-3.5" />
-              Ativar
+              {t('whatsapp.enable')}
             </label>
           </div>
           {followupEnabled && (
             <div className="space-y-2">
               <div>
-                <label className="text-[10px] text-gray-500 block mb-1">Intervalos em dias (separados por vírgula)</label>
+                <label className="text-[10px] text-gray-500 block mb-1">{t('whatsapp.followUpInterval')}</label>
                 <input type="text" value={followupDelays} onChange={e => setFollowupDelays(e.target.value)}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-green-500 font-mono"
                   placeholder="1,3,7" />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 block mb-1">Mensagem de follow-up</label>
+                <label className="text-[10px] text-gray-500 block mb-1">{t('whatsapp.followUpMessage')}</label>
                 <textarea rows={2} value={followupMessage} onChange={e => setFollowupMessage(e.target.value)}
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-green-500 resize-none"
                   placeholder="Olá {Nome}!..." />
@@ -452,7 +464,7 @@ export function WhatsAppSection({
                 onClick={handleStopBulkSending}
                 className="w-full py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 border border-red-500/30 cursor-pointer flex items-center justify-center gap-2 transition-colors"
               >
-                ⏹ Parar Fila
+                {t('whatsapp.stopQueue')}
               </button>
             ) : (
               <div className="flex flex-col gap-2">
@@ -461,7 +473,7 @@ export function WhatsAppSection({
                   onClick={handleStartBulkSending}
                   className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer flex items-center justify-center gap-2 transition-all"
                 >
-                  🚀 Iniciar Fila Assistida
+                  {t('whatsapp.startQueue')}
                 </button>
                 <button
                   type="button"
@@ -479,7 +491,7 @@ export function WhatsAppSection({
                       : 'bg-amber-600/30 text-amber-300 hover:bg-amber-600/50 border border-amber-500/30'
                   }`}
                 >
-                  {chatbotSession?.status === 'connected' ? '🤖 Enviar Automático (Bot)' : '🔌 Conecte o Chatbot primeiro →'}
+                  {chatbotSession?.status === 'connected' ? t('whatsapp.autoSendBot') : t('whatsapp.connectBotFirst')}
                 </button>
               </div>
             )}
@@ -492,15 +504,15 @@ export function WhatsAppSection({
         <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl h-full flex flex-col">
           <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div>
-              <h3 className="text-xl font-semibold">Leads Prontos para Abordagem</h3>
-              <p className="text-xs text-gray-500 mt-1">Lista com telefones extraídos do seu CRM.</p>
+              <h3 className="text-xl font-semibold">{t('whatsapp.readyLeads')}</h3>
+              <p className="text-xs text-gray-500 mt-1">{t('whatsapp.readyLeadsDesc')}</p>
             </div>
             <div className="flex flex-wrap gap-2 sm:items-center">
               <div className="text-xs px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-bold">
-                Selecionados: {selectedWaCount}
+                {t('whatsapp.selected', { count: selectedWaCount })}
               </div>
               <div className="text-xs px-3 py-1.5 rounded-full bg-white/5 text-gray-300 border border-white/10 font-bold">
-                Total: {dispatchableWaLeads.length} com telefone
+                {t('whatsapp.totalWithPhone', { count: dispatchableWaLeads.length })}
               </div>
             </div>
           </div>
@@ -513,16 +525,16 @@ export function WhatsAppSection({
                 : 'bg-green-500/10 border border-green-500/20 text-green-400'
             }`}>
               <div>
-                <span className="font-bold block">{isAutoSending ? '🤖 Disparo Automático Ativo!' : '🚀 Fila Assistida Ativa!'}</span>
+                <span className="font-bold block">{isAutoSending ? t('whatsapp.autoActive') : t('whatsapp.queueActive')}</span>
                 {isAutoSending ? (
-                  <span>Enviando {bulkIndex + 1} de {bulkQueue.length}... (aguarde)</span>
+                  <span>{t('whatsapp.sendingProgress', { current: bulkIndex + 1, total: bulkQueue.length })}</span>
                 ) : (
                   <>
-                    Processando lead {bulkIndex + 1} de {bulkQueue.length}.
+                    {t('whatsapp.processingLead', { current: bulkIndex + 1, total: bulkQueue.length })}
                     {bulkAutoNext ? (
-                      <> Próximo chat abre em <span className="font-mono font-bold text-white bg-green-500 px-2 py-0.5 rounded text-xs ml-1">{bulkTimer}s</span>.</>
+                      <> {t('whatsapp.nextChatIn')} <span className="font-mono font-bold text-white bg-green-500 px-2 py-0.5 rounded text-xs ml-1">{bulkTimer}s</span>.</>
                     ) : (
-                      <span className="block text-green-300 mt-1">Envie a mensagem no WhatsApp, volte aqui e avance.</span>
+                      <span className="block text-green-300 mt-1">{t('whatsapp.sendAndProceed')}</span>
                     )}
                   </>
                 )}
@@ -533,14 +545,14 @@ export function WhatsAppSection({
                     onClick={handleConfirmSentAndNext}
                     className="px-3.5 py-1.5 rounded-lg bg-green-500 text-black hover:bg-green-400 border border-green-400 text-xs font-extrabold cursor-pointer"
                   >
-                    ✓ Já enviei / Próximo
+                    {t('whatsapp.alreadySent')}
                   </button>
                 )}
                 <button
                   onClick={handleStopBulkSending}
                   className="px-3.5 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-semibold cursor-pointer"
                 >
-                  ⏹ Parar Fila
+                  {t('whatsapp.stopQueue')}
                 </button>
               </div>
             </div>
@@ -559,10 +571,10 @@ export function WhatsAppSection({
                       onChange={() => handleToggleSelectAllWaLeads(dispatchableWaLeads)}
                     />
                   </th>
-                  <th className="px-4 py-3 font-medium">Nome / Empresa</th>
-                  <th className="px-4 py-3 font-medium">Telefone</th>
-                  <th className="px-4 py-3 font-medium">Preview da Abordagem</th>
-                  <th className="px-4 py-3 font-medium">Status / Ação</th>
+                  <th className="px-4 py-3 font-medium">{t('whatsapp.tableName')}</th>
+                  <th className="px-4 py-3 font-medium">{t('whatsapp.tablePhone')}</th>
+                  <th className="px-4 py-3 font-medium">{t('whatsapp.tablePreview')}</th>
+                  <th className="px-4 py-3 font-medium">{t('whatsapp.tableStatus')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -620,7 +632,7 @@ export function WhatsAppSection({
                                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
                               }`}
                             >
-                              {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
+                              {isActive ? t('whatsapp.btnChatActive') : isSendingBulk && queueIndex < 0 ? t('whatsapp.btnOutQueue') : isSent ? t('whatsapp.btnResend') : t('whatsapp.btnDispatch')}
                             </button>
                             {chatbotSession?.status === 'connected' && (
                               <button
@@ -632,7 +644,7 @@ export function WhatsAppSection({
                                     : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
                                 }`}
                               >
-                                {waSendingViaBot[leadKey] ? '...' : '🤖 Bot'}
+                                {waSendingViaBot[leadKey] ? '...' : t('whatsapp.btnBot')}
                               </button>
                             )}
                           </div>
@@ -645,8 +657,8 @@ export function WhatsAppSection({
                   <tr>
                     <td colSpan={5} className="px-4 py-16 text-center text-gray-500">
                       <div className="text-3xl mb-3">💬</div>
-                      <p className="font-semibold">Nenhum lead com telefone no CRM.</p>
-                      <p className="text-xs max-w-md mx-auto mt-1">Vá para o Extrator, faça buscas com filtros e salve os contatos no seu CRM para liberá-los aqui.</p>
+                      <p className="font-semibold">{t('whatsapp.emptyLeads')}</p>
+                      <p className="text-xs max-w-md mx-auto mt-1">{t('whatsapp.emptyLeadsDesc')}</p>
                     </td>
                   </tr>
                 )}
@@ -657,14 +669,14 @@ export function WhatsAppSection({
             <div className="mobile-card-list md:hidden p-3 sm:p-4">
               {dispatchableWaLeads.length > 0 && (
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 bg-white/[0.02] border border-white/5 rounded-xl p-3.5">
-                  <span className="text-xs text-gray-400">Selecionados: {selectedWaCount} de {dispatchableWaLeads.length}</span>
+                  <span className="text-xs text-gray-400">{t('whatsapp.selected', { count: selectedWaCount })} de {dispatchableWaLeads.length}</span>
                   <button
                     type="button"
                     onClick={() => handleToggleSelectAllWaLeads(dispatchableWaLeads)}
                     disabled={isSendingBulk}
                     className="text-xs font-bold text-green-400 hover:text-green-300 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {dispatchableWaLeads.every(l => selectedWaLeads.includes(getLeadKey(l))) ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                    {dispatchableWaLeads.every(l => selectedWaLeads.includes(getLeadKey(l))) ? t('whatsapp.deselectAllLabel') : t('whatsapp.selectAllLabel')}
                   </button>
                 </div>
               )}
@@ -726,7 +738,7 @@ export function WhatsAppSection({
                                 : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-gray-200'
                           }`}
                         >
-                          {isActive ? '👉 Chat Atual' : isSendingBulk && queueIndex < 0 ? 'Fora da Fila' : isSent ? '✓ Re-enviar' : '⚡ Disparar'}
+                          {isActive ? t('whatsapp.btnChatActive') : isSendingBulk && queueIndex < 0 ? t('whatsapp.btnOutQueue') : isSent ? t('whatsapp.btnResend') : t('whatsapp.btnDispatch')}
                         </button>
                         {chatbotSession?.status === 'connected' && (
                           <button
@@ -738,7 +750,7 @@ export function WhatsAppSection({
                                 : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
                             }`}
                           >
-                            {waSendingViaBot[leadKey] ? '...' : '🤖 Enviar via Bot'}
+                            {waSendingViaBot[leadKey] ? '...' : t('whatsapp.btnSendBot')}
                           </button>
                         )}
                       </div>
@@ -749,7 +761,7 @@ export function WhatsAppSection({
               {dispatchableWaLeads.length === 0 && (
                 <div className="py-16 text-center text-gray-500">
                   <div className="text-3xl mb-3">💬</div>
-                  <p className="font-semibold text-sm">Nenhum lead com telefone no CRM.</p>
+                  <p className="font-semibold text-sm">{t('whatsapp.emptyLeads')}</p>
                 </div>
               )}
             </div>
@@ -759,13 +771,13 @@ export function WhatsAppSection({
           {chatbotSession?.status === 'connected' && waSentMessages.length > 0 && (
             <div className="mt-6 app-card p-6 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl">
               <div className="flex items-center justify-between gap-3 mb-4">
-                <h4 className="text-sm font-bold text-gray-200">📨 Mensagens Enviadas via Bot</h4>
+                <h4 className="text-sm font-bold text-gray-200">{t('whatsapp.sentMessagesTitle')}</h4>
                 <button
                   type="button"
                   onClick={handleLoadSentMessages}
                   className="text-[10px] px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 cursor-pointer"
                 >
-                  {waSentMessagesLoading ? '...' : 'Atualizar'}
+                  {waSentMessagesLoading ? '...' : t('whatsapp.refresh')}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
@@ -778,13 +790,13 @@ export function WhatsAppSection({
                         msg.status === 'failed' ? 'bg-red-500/10 text-red-400' :
                         'bg-gray-500/10 text-gray-400'
                       }`}>
-                        {msg.status === 'sent' ? 'Enviada' : msg.status === 'failed' ? 'Falhou' : msg.status}
+                        {msg.status === 'sent' ? t('whatsapp.messageSent') : msg.status === 'failed' ? t('whatsapp.messageFailed') : msg.status}
                       </span>
                     </div>
                     <div className="text-gray-400 line-clamp-2">{msg.message}</div>
                     <div className="text-[10px] text-gray-500 mt-1">
-                      {msg.sent_at ? new Date(msg.sent_at).toLocaleString('pt-BR') : '—'}
-                      {msg.error_message && <span className="text-red-400 ml-2">Erro: {msg.error_message}</span>}
+                    {msg.sent_at ? new Date(msg.sent_at).toLocaleString(locale) : '—'}
+                    {msg.error_message && <span className="text-red-400 ml-2">{t('whatsapp.error', { message: msg.error_message })}</span>}
                     </div>
                   </div>
                 ))}

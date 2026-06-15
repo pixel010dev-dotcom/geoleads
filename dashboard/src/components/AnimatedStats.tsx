@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 
 interface StatItem {
   value: number;
@@ -8,6 +9,7 @@ interface StatItem {
 }
 
 export default function AnimatedStats() {
+  const { t, locale } = useTranslations();
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -27,6 +29,13 @@ export default function AnimatedStats() {
     return () => observer.disconnect();
   }, []);
 
+  const stats: StatItem[] = [
+    { value: 4200, label: t('stats.leadsExtracted'), suffix: '+' },
+    { value: 150, label: t('stats.activeUsers'), suffix: '+' },
+    { value: 98, label: t('stats.uptime'), suffix: '%' },
+    { value: 3, label: t('stats.minutesToResult'), suffix: 'min' },
+  ];
+
   return (
     <div ref={ref} className="app-container py-10 sm:py-16">
       <div className="max-w-4xl mx-auto">
@@ -34,7 +43,7 @@ export default function AnimatedStats() {
           {stats.map((s, i) => (
             <div key={i} className="text-center">
               <p className="text-2xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 tabular-nums">
-                <Counter target={s.value} visible={visible} />
+                <Counter target={s.value} visible={visible} locale={locale} />
                 {s.suffix || ''}
               </p>
               <p className="text-xs sm:text-sm text-gray-500 mt-1">{s.label}</p>
@@ -46,7 +55,7 @@ export default function AnimatedStats() {
   );
 }
 
-function Counter({ target, visible }: { target: number; visible: boolean }) {
+function Counter({ target, visible, locale }: { target: number; visible: boolean; locale: string }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -69,12 +78,5 @@ function Counter({ target, visible }: { target: number; visible: boolean }) {
   }, [visible, target]);
 
   if (!visible) return <>{0}</>;
-  return <>{count.toLocaleString('pt-BR')}</>;
+  return <>{count.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}</>;
 }
-
-const stats: StatItem[] = [
-  { value: 4200, label: 'Leads extraídos', suffix: '+' },
-  { value: 150, label: 'Usuários ativos', suffix: '+' },
-  { value: 98, label: 'Disponibilidade', suffix: '%' },
-  { value: 3, label: 'Minutos p/ resultado', suffix: 'min' },
-];

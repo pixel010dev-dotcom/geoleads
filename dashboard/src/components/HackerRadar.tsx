@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 
 interface HackerRadarProps {
   keyword: string;
@@ -7,6 +8,7 @@ interface HackerRadarProps {
 }
 
 export default function HackerRadar({ keyword, location }: HackerRadarProps) {
+  const { t } = useTranslations();
   const [logs, setLogs] = useState<string[]>([]);
   const [blips, setBlips] = useState<{ x: number; y: number; id: number; color: string; life: number }[]>([]);
   const [elapsed, setElapsed] = useState(0);
@@ -81,7 +83,7 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
 
       <div className="flex items-center gap-2 mb-6">
         <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping" />
-        <span className="text-xs font-mono font-bold text-green-400 tracking-widest uppercase">RASTREAMENTO ATIVO DE LEADS</span>
+        <span className="text-xs font-mono font-bold text-green-400 tracking-widest uppercase">{t('hackerRadar.title')}</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center w-full relative z-10">
@@ -144,7 +146,7 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
           <div className="mt-2 border-t border-green-500/20 pt-2 flex items-center justify-between text-green-500/60 text-[9px]">
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              STATUS: ESCANEANDO MAPS
+              {t('hackerRadar.status')}
             </span>
             <span>● {elapsed}s</span>
           </div>
@@ -152,8 +154,8 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
       </div>
       
       <p className="text-gray-400 text-xs text-center mt-6 tracking-wide leading-relaxed">
-        Buscando dados públicos no Google Maps e cruzando com o site oficial da empresa. <br />
-        <span className="text-gray-600 text-[10px]">Tempo decorrido: {elapsed}s · Limite de segurança: 600s</span>
+        {t('hackerRadar.footer')} <br />
+        <span className="text-gray-600 text-[10px]">{t('hackerRadar.elapsedTime', { elapsed })}</span>
       </p>
     </div>
   );

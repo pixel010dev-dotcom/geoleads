@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from 'next/font/google';
 import "./globals.css";
+import { I18nProvider } from '@/lib/i18n';
+import { cookies } from 'next/headers';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,59 +12,76 @@ const inter = Inter({
 
 const googleVerification = '2xD0DF7y2_22UwNCUufufnKH5OmElr2qv2faSiotQNw';
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('geoleads_locale')?.value || 'pt-BR';
+  const isEn = locale === 'en';
 
-export const metadata: Metadata = {
-  title: {
-    default: "GeoLeads - Motor de Extração de Leads B2B",
-    template: "%s | GeoLeads",
-  },
-  description: "Encontre clientes potenciais em qualquer lugar do mundo. Extração inteligente de leads via Google Maps com CRM, WhatsApp e IA.",
-  keywords: ["leads", "B2B", "extração de leads", "Google Maps", "CRM", "WhatsApp marketing", "SaaS", "prospecção", "vendas B2B", "geração de leads"],
-  authors: [{ name: "GeoLeads" }],
-  creator: "GeoLeads",
-  publisher: "GeoLeads",
-  metadataBase: new URL(baseUrl),
-  alternates: {
-    canonical: '/',
-  },
-  openGraph: {
-    title: "GeoLeads - Motor de Extração de Leads B2B",
-    description: "Extraia 200+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos. Do Google Maps ao CRM, tudo em um fluxo.",
-    url: '/',
-    siteName: "GeoLeads",
-    type: "website",
-    locale: "pt_BR",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "GeoLeads - Motor de Extração de Leads B2B",
-    description: "Extraia 200+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+
+  return {
+    title: {
+      default: isEn ? 'GeoLeads - B2B Lead Generation Engine' : 'GeoLeads - Motor de Extração de Leads B2B',
+      template: '%s | GeoLeads',
+    },
+    description: isEn
+      ? 'Find potential clients anywhere in the world. Smart lead extraction from Google Maps with CRM, WhatsApp and AI.'
+      : 'Encontre clientes potenciais em qualquer lugar do mundo. Extração inteligente de leads via Google Maps com CRM, WhatsApp e IA.',
+    keywords: isEn
+      ? ['leads', 'prospecting', 'google maps', 'business data', 'whatsapp', 'b2b', 'sales', 'lead generation']
+      : ['leads', 'prospecção', 'google maps', 'cnpj', 'whatsapp', 'b2b', 'vendas', 'extração de leads', 'gerar leads'],
+    authors: [{ name: 'GeoLeads' }],
+    creator: 'GeoLeads',
+    publisher: 'GeoLeads',
+    metadataBase: new URL(baseUrl),
+    alternates: {
+      canonical: '/',
+    },
+    openGraph: {
+      title: isEn ? 'GeoLeads - B2B Lead Generation Engine' : 'GeoLeads - Motor de Extração de Leads B2B',
+      description: isEn
+        ? 'Extract 200+ qualified leads with tax ID, email and WhatsApp in 3 minutes. From Google Maps to CRM, all in one flow.'
+        : 'Extraia 200+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos. Do Google Maps ao CRM, tudo em um fluxo.',
+      url: '/',
+      siteName: 'GeoLeads',
+      type: 'website',
+      locale: isEn ? 'en_US' : 'pt_BR',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: isEn ? 'GeoLeads - B2B Lead Generation Engine' : 'GeoLeads - Motor de Extração de Leads B2B',
+      description: isEn
+        ? 'Extract 200+ qualified leads with tax ID, email and WhatsApp in 3 minutes.'
+        : 'Extraia 200+ leads qualificados com CNPJ, e-mail e WhatsApp em 3 minutos.',
+    },
+    robots: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
-  },
-  verification: {
-    google: googleVerification,
-  },
-};
+    verification: {
+      google: googleVerification,
+    },
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('geoleads_locale')?.value || 'pt-BR';
+
   return (
-    <html lang="pt-BR" className={`h-full antialiased ${inter.variable}`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+    <html lang={locale === 'en' ? 'en' : 'pt-BR'} className={`h-full antialiased ${inter.variable}`}>
+      <body className="min-h-full flex flex-col font-sans"><I18nProvider>{children}</I18nProvider></body>
     </html>
   );
 }
