@@ -197,6 +197,11 @@ async function extractCardsFromPage(page: any): Promise<any[]> {
   });
 }
 
+export interface MapsScrapeResult {
+  leads: SearchLead[];
+  blocked: boolean;
+}
+
 export async function extractFromPlaywrightMaps(
   browser: any,
   keyword: string,
@@ -205,8 +210,9 @@ export async function extractFromPlaywrightMaps(
   existingKeys: Set<string>,
   maxScrolls: number = 50,
   signal?: AbortSignal
-): Promise<SearchLead[]> {
+): Promise<MapsScrapeResult> {
   const allLeads: SearchLead[] = [];
+  let wasBlocked = false;
 
   const context = await browser.newContext({
     userAgent: getRandomUserAgent(),
@@ -261,8 +267,9 @@ export async function extractFromPlaywrightMaps(
 
       if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || 
           pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
+        wasBlocked = true;
         await context.close();
-        return allLeads;
+        return { leads: allLeads, blocked: wasBlocked };
       }
 
       try {
@@ -281,7 +288,7 @@ export async function extractFromPlaywrightMaps(
 
   if (!foundResults) {
     await context.close();
-    return allLeads;
+    return { leads: allLeads, blocked: wasBlocked };
   }
 
   await page.waitForTimeout(1000 + Math.random() * 1000);
@@ -325,8 +332,16 @@ export async function extractFromPlaywrightMaps(
     scrollCount++;
   }
 
+  try {
+    const finalUrl = page.url();
+    const finalTitle = await page.title().catch(() => '');
+    if (finalUrl.includes('sorry') || finalUrl.includes('captcha') || 
+        finalTitle.toLowerCase().includes('captcha') || finalTitle.toLowerCase().includes('sorry')) {
+      wasBlocked = true;
+    }
+  } catch {}
   await context.close();
-  return allLeads;
+  return { leads: allLeads, blocked: wasBlocked };
 }
 
 export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promise<any> {

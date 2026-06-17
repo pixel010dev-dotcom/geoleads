@@ -9,6 +9,14 @@ import { enrichLead } from './enrichment/website';
 import { normalizePhone, isValidBrazilianPhone } from './lib/validation';
 import { getNicheVariations, getCityBairros, shuffleArray, MAJOR_CITIES } from './lib/normalizers';
 
+export interface RunnerResult {
+  leads: SearchLead[];
+  scanned: number;
+  citiesDone: number;
+  totalTimeMs: number;
+  error?: string;
+}
+
 export interface RunnerConfig {
   keyword: string;
   location: string;
@@ -17,7 +25,7 @@ export interface RunnerConfig {
   isBroadRegion: boolean;
   existingLeadKeys: string[];
   onProgress?: (leads: SearchLead[], scanned: number, citiesDone: number, message: string) => void;
-  onDone?: (leads: SearchLead[], scanned: number, citiesDone: number, totalTimeMs: number) => void;
+  onDone?: (result: RunnerResult) => void;
   shouldCancel?: () => Promise<boolean>;
   maxTimeMs?: number;
 }
@@ -82,6 +90,9 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   const seenAll = new Set<string>();
   let citiesDone = 0;
   let scannedTotal = 0;
+  let blockedDetected = false;
+  let googleSearchReturned = false;
+  let mapsReturned = false;
 
   const maxTimeReached = () => (Date.now() - startTime) >= maxTimeMs;
   const cancelled = async () => shouldCancel ? await shouldCancel() : false;
@@ -118,14 +129,16 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     // PHASE 1: Google Search tbm=map (fetch, no browser)
     // =========================================================================
     if (!maxTimeReached() && !(await cancelled()) && allEnrichedLeads.length < targetLimit) {
-      const searchLeads = await extractFromGoogleSearch(
+      const searchResult = await extractFromGoogleSearch(
         keyword, location,
         Math.max(targetLimit, targetLimit * 2),
         new Set(existingLeadKeys)
       );
-      await tryAddLeads(searchLeads, 'google-search');
-      scannedTotal += searchLeads.length;
-      notify(` (Google Search: ${searchLeads.length})`);
+      if (searchResult.blocked) blockedDetected = true;
+      googleSearchReturned = searchResult.leads.length > 0;
+      await tryAddLeads(searchResult.leads, 'google-search');
+      scannedTotal += searchResult.leads.length;
+      notify(` (Google Search: ${searchResult.leads.length})`);
     }
 
     // =========================================================================
@@ -170,15 +183,17 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
             const existingForScrape = new Set<string>(Array.from(scrapedNames));
 
-            const mapsLeads = await extractFromPlaywrightMaps(
+            const mapsResult = await extractFromPlaywrightMaps(
               browser, kwVar, searchLoc,
               targetLimit - allEnrichedLeads.length,
               existingForScrape,
               maxScrollPerCity
             );
 
-            if (mapsLeads.length > 0) {
-              for (const lead of mapsLeads) {
+            if (mapsResult.blocked) blockedDetected = true;
+            if (mapsResult.leads.length > 0) {
+              mapsReturned = true;
+              for (const lead of mapsResult.leads) {
                 if (allEnrichedLeads.length >= targetLimit) break;
                 if (seenAll.has(lead.nome.toLowerCase()) || scrapedNames.has(lead.nome)) continue;
                 seenAll.add(lead.nome.toLowerCase());
@@ -186,7 +201,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
                 if (lead.telefone !== 'Não informado') scrapedPhones.add(lead.telefone);
 
                 allEnrichedLeads.push(lead);
-                scannedTotal += mapsLeads.length;
+                scannedTotal += mapsResult.leads.length;
               }
             }
           }
@@ -267,13 +282,36 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     // =========================================================================
     const validLeads = allEnrichedLeads.filter(l => postFilter(l, filterRule)).slice(0, targetLimit);
 
+    let error: string | undefined;
+    if (validLeads.length === 0 && blockedDetected) {
+      error = 'Google bloqueou a busca. Tente novamente em alguns minutos.';
+    } else if (validLeads.length === 0 && !googleSearchReturned && !mapsReturned) {
+      error = 'Nenhum lead encontrado — Google pode estar bloqueando a conexão. Tente novamente mais tarde.';
+    }
+
     if (onDone) {
-      onDone(validLeads, scannedTotal, citiesDone, Date.now() - startTime);
+      onDone({
+        leads: validLeads,
+        scanned: scannedTotal,
+        citiesDone,
+        totalTimeMs: Date.now() - startTime,
+        error,
+      });
     }
 
     return validLeads;
   } catch (err: any) {
     console.error('[EXTRACT RUNNER] Fatal error:', err);
-    return allEnrichedLeads.filter(l => postFilter(l, filterRule)).slice(0, targetLimit);
+    const partialLeads = allEnrichedLeads.filter(l => postFilter(l, filterRule)).slice(0, targetLimit);
+    if (onDone) {
+      onDone({
+        leads: partialLeads,
+        scanned: scannedTotal,
+        citiesDone,
+        totalTimeMs: Date.now() - startTime,
+        error: `Erro na extração: ${err?.message || 'Erro inesperado'}`,
+      });
+    }
+    return partialLeads;
   }
 }

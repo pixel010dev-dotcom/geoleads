@@ -136,8 +136,8 @@ export async function POST(request: Request) {
           search_time_seconds: Math.round((Date.now() - extractionStartTime) / 1000),
         });
       },
-      onDone: async (validLeads, scanned, citiesDone, totalTimeMs) => {
-        const gastos = validLeads.length;
+      onDone: async (result) => {
+        const gastos = result.leads.length;
 
         if (gastos > 0) {
           let deducted = false;
@@ -160,23 +160,37 @@ export async function POST(request: Request) {
           await requestSupabase.from('extraction_history').insert({
             user_id: authedUser.user.id, keyword, location,
             filter_rule: filterRule || '',
-            leads_found: validLeads.length,
+            leads_found: result.leads.length,
             leads_requested: targetLimit,
             tokens_spent: gastos,
-            search_time_seconds: Math.round(totalTimeMs / 1000),
+            search_time_seconds: Math.round(result.totalTimeMs / 1000),
           });
         } catch {}
 
-        await updateJob(jobId, {
-          status: 'completed',
-          leads: validLeads,
-          leads_count: validLeads.length,
-          scanned,
-          cities_scanned: citiesDone,
-          message: `Extração concluída: ${validLeads.length} leads em ${Math.round(totalTimeMs / 1000)}s`,
-          search_time_seconds: Math.round(totalTimeMs / 1000),
-          completed_at: new Date().toISOString(),
-        });
+        if (result.error) {
+          await updateJob(jobId, {
+            status: 'failed',
+            error: result.error,
+            leads: result.leads,
+            leads_count: result.leads.length,
+            scanned: result.scanned,
+            cities_scanned: result.citiesDone,
+            message: result.error,
+            search_time_seconds: Math.round(result.totalTimeMs / 1000),
+            completed_at: new Date().toISOString(),
+          });
+        } else {
+          await updateJob(jobId, {
+            status: 'completed',
+            leads: result.leads,
+            leads_count: result.leads.length,
+            scanned: result.scanned,
+            cities_scanned: result.citiesDone,
+            message: `Extração concluída: ${result.leads.length} leads em ${Math.round(result.totalTimeMs / 1000)}s`,
+            search_time_seconds: Math.round(result.totalTimeMs / 1000),
+            completed_at: new Date().toISOString(),
+          });
+        }
 
         done();
       },
