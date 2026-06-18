@@ -116,11 +116,20 @@ export async function extractFromGoogleSearch(
   location: string,
   targetLimit: number,
   existingKeys: Set<string>,
-  signal?: AbortSignal
+  signalOrOptions?: AbortSignal | { cfWorkerUrl?: string; signal?: AbortSignal }
 ): Promise<GoogleSearchResult> {
   const allLeads: SearchLead[] = [];
   const seenNames = new Set<string>();
   let blocked = false;
+
+  const cfWorkerUrl = signalOrOptions && typeof signalOrOptions !== 'boolean' && 'cfWorkerUrl' in signalOrOptions
+    ? (signalOrOptions as any).cfWorkerUrl
+    : undefined;
+  const signal = signalOrOptions instanceof AbortSignal
+    ? signalOrOptions
+    : signalOrOptions && typeof signalOrOptions === 'object' && 'signal' in signalOrOptions
+      ? (signalOrOptions as any).signal
+      : undefined;
 
   const tlds = ['com', 'com.br', 'com.mx', 'co.uk', 'com.au'];
   const hls = ['pt-BR', 'pt', 'en', 'es'];
@@ -142,6 +151,13 @@ export async function extractFromGoogleSearch(
     (q: QParams) => `https://www.google.${q.tld}/search?q=${q.enc}&hl=${q.hl}&gl=${q.gl}`,
   ];
 
+  function rewriteUrl(originalUrl: string): string {
+    if (cfWorkerUrl) {
+      return `${cfWorkerUrl}?url=${encodeURIComponent(originalUrl)}`;
+    }
+    return originalUrl;
+  }
+
   for (const queryFormat of queryFormats) {
     if (allLeads.length >= targetLimit) break;
     if (signal?.aborted) break;
@@ -157,7 +173,8 @@ export async function extractFromGoogleSearch(
       const tld = tlds[Math.floor(Math.random() * tlds.length)];
       const hl = hls[Math.floor(Math.random() * hls.length)];
       const gl = gls[Math.floor(Math.random() * gls.length)];
-      const url = mode({ tld, enc: encodedQuery, hl, gl });
+      const googleUrl = mode({ tld, enc: encodedQuery, hl, gl });
+      const url = rewriteUrl(googleUrl);
 
       try {
         const controller = new AbortController();

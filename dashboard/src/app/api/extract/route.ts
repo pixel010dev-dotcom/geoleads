@@ -178,6 +178,7 @@ export async function POST(request: Request) {
             message: result.error,
             search_time_seconds: Math.round(result.totalTimeMs / 1000),
             completed_at: new Date().toISOString(),
+            delivered: true,
           });
         } else {
           await updateJob(jobId, {
@@ -189,6 +190,7 @@ export async function POST(request: Request) {
             message: `Extração concluída: ${result.leads.length} leads em ${Math.round(result.totalTimeMs / 1000)}s`,
             search_time_seconds: Math.round(result.totalTimeMs / 1000),
             completed_at: new Date().toISOString(),
+            delivered: true,
           });
         }
 

@@ -1,13 +1,16 @@
 import { chromium } from 'playwright';
-import type { SearchLead, ScoreQuality } from './lib/types';
+import type { SearchLead } from './lib/types';
 import { scoreLeadQuality } from './lib/types';
 import { extractFromGoogleSearch } from './strategies/google-search';
 import { extractFromPlaywrightMaps, extractMapsPlaceDetails } from './strategies/maps-scraper';
 import { extractFromBingMaps } from './strategies/bing-maps';
-import { extractFromOpenStreetMap } from './strategies/alternative-sources';
+import { extractFromOpenStreetMap, searchByCnaeAndCity, enrichLeadFromBrasilApi } from './strategies/alternative-sources';
+import { extractFromGooglePlacesApi } from './strategies/google-places-api';
 import { enrichLead } from './enrichment/website';
 import { normalizePhone, isValidBrazilianPhone } from './lib/validation';
 import { getNicheVariations, getCityBairros, shuffleArray, MAJOR_CITIES } from './lib/normalizers';
+import { getWorkingProxy } from './lib/proxy-pool';
+import { isTorEnabled, getPlaywrightProxyConfig } from './lib/proxy';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -28,6 +31,14 @@ export interface RunnerConfig {
   onDone?: (result: RunnerResult) => void;
   shouldCancel?: () => Promise<boolean>;
   maxTimeMs?: number;
+}
+
+interface StrategyResult {
+  leads: SearchLead[];
+  scanned: number;
+  source: string;
+  blocked: boolean;
+  error?: string;
 }
 
 function parseFilterRules(filterRule: string): string[] {
@@ -76,6 +87,26 @@ function applyMapsPlaceExtraDataToLead(lead: any, extraData: any): boolean {
   return changed;
 }
 
+function mergeLeadsData(existing: SearchLead, incoming: SearchLead): SearchLead {
+  return {
+    nome: existing.nome,
+    telefone: existing.telefone !== 'Não informado' ? existing.telefone : incoming.telefone,
+    site: existing.site !== 'Sem site' ? existing.site : incoming.site,
+    endereco: existing.endereco || incoming.endereco,
+    avaliacao: existing.avaliacao !== 'N/A' ? existing.avaliacao : incoming.avaliacao,
+    reviewCount: existing.reviewCount || incoming.reviewCount,
+    categoria: existing.categoria || incoming.categoria,
+    horarios: existing.horarios || incoming.horarios,
+    cep: existing.cep || incoming.cep,
+    placeUrl: existing.placeUrl || incoming.placeUrl,
+    email: existing.email || incoming.email,
+    instagram: existing.instagram || incoming.instagram,
+    facebook: existing.facebook || incoming.facebook,
+    tiktok: existing.tiktok || incoming.tiktok,
+    cnpj: existing.cnpj || incoming.cnpj,
+  };
+}
+
 export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]> {
   const {
     keyword, location, targetLimit, filterRule, isBroadRegion,
@@ -84,67 +115,163 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   } = config;
 
   const startTime = Date.now();
-  const allEnrichedLeads: SearchLead[] = [];
+  const allLeads: SearchLead[] = [];
+  const leadsByName = new Map<string, SearchLead>();
   const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
   const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
-  const seenAll = new Set<string>();
-  let citiesDone = 0;
   let scannedTotal = 0;
+  let citiesDone = 0;
   let blockedDetected = false;
-  let googleSearchReturned = false;
-  let mapsReturned = false;
+  let googleSucceeded = false;
 
   const maxTimeReached = () => (Date.now() - startTime) >= maxTimeMs;
   const cancelled = async () => shouldCancel ? await shouldCancel() : false;
 
-  const tryAddLeads = async (newLeads: SearchLead[], source: string) => {
-    for (const lead of newLeads) {
-      if (allEnrichedLeads.length >= targetLimit) break;
-      const key = lead.nome.toLowerCase();
-      if (seenAll.has(key)) continue;
-      if (scrapedNames.has(lead.nome)) continue;
-      if (lead.telefone !== 'Não informado' && scrapedPhones.has(lead.telefone)) continue;
-      seenAll.add(key);
-      scrapedNames.add(lead.nome);
-      if (lead.telefone !== 'Não informado') scrapedPhones.add(lead.telefone);
+  function addLead(lead: SearchLead): void {
+    const key = lead.nome.toLowerCase();
+    if (scrapedNames.has(key)) return;
+    if (lead.telefone !== 'Não informado' && scrapedPhones.has(lead.telefone)) return;
 
-      const enriched = await enrichLead(lead);
-      allEnrichedLeads.push(enriched);
+    if (leadsByName.has(key)) {
+      const existing = leadsByName.get(key)!;
+      const merged = mergeLeadsData(existing, lead);
+      leadsByName.set(key, merged);
+    } else {
+      leadsByName.set(key, lead);
     }
-  };
 
-  const notify = (extra?: string) => {
+    scrapedNames.add(key);
+    if (lead.telefone !== 'Não informado') scrapedPhones.add(lead.telefone);
+  }
+
+  function rebuildAllLeads(): void {
+    allLeads.length = 0;
+    for (const lead of leadsByName.values()) {
+      allLeads.push(lead);
+    }
+  }
+
+  const notify = (message?: string) => {
+    rebuildAllLeads();
     if (onProgress) {
       onProgress(
-        allEnrichedLeads,
+        allLeads,
         scannedTotal,
         citiesDone,
-        `${allEnrichedLeads.length} leads encontrados em ${citiesDone} locais${extra || ''}`
+        message || `${allLeads.length} leads encontrados em ${citiesDone} locais`
       );
     }
   };
+
+  async function processStrategyResult(result: StrategyResult): Promise<number> {
+    let added = 0;
+    for (const lead of result.leads) {
+      const key = lead.nome.toLowerCase();
+      if (scrapedNames.has(key)) {
+        const existing = leadsByName.get(key);
+        if (existing) {
+          const merged = mergeLeadsData(existing, lead);
+          leadsByName.set(key, merged);
+          added++;
+        }
+        continue;
+      }
+      if (lead.telefone !== 'Não informado' && scrapedPhones.has(lead.telefone)) continue;
+      addLead(lead);
+      added++;
+    }
+    scannedTotal += result.scanned;
+    rebuildAllLeads();
+    return added;
+  }
+
+  async function batchEnrichLeads(leads: SearchLead[]): Promise<void> {
+    const batchSize = 5;
+    for (let i = 0; i < leads.length && !maxTimeReached() && !(await cancelled()); i += batchSize) {
+      const batch = leads.slice(i, i + batchSize);
+      await Promise.all(batch.map(l => enrichLead(l)));
+      rebuildAllLeads();
+    }
+  }
+
+  const needsMore = () => targetLimit - allLeads.length;
 
   try {
     // =========================================================================
-    // PHASE 1: Google Search tbm=map (fetch, no browser)
+    // PHASE 0: Non-blocking sources (OSM + Brasil API) — immediate results
     // =========================================================================
-    if (!maxTimeReached() && !(await cancelled()) && allEnrichedLeads.length < targetLimit) {
-      const searchResult = await extractFromGoogleSearch(
-        keyword, location,
-        Math.max(targetLimit, targetLimit * 2),
-        new Set(existingLeadKeys)
-      );
-      if (searchResult.blocked) blockedDetected = true;
-      googleSearchReturned = searchResult.leads.length > 0;
-      await tryAddLeads(searchResult.leads, 'google-search');
-      scannedTotal += searchResult.leads.length;
-      notify(` (Google Search: ${searchResult.leads.length})`);
+    {
+      notify('Buscando em fontes abertas (OSM + Brasil API)...');
+      const existingForAlt = new Set<string>(Array.from(scrapedNames));
+
+      const [osmResult, cnaeResult] = await Promise.all([
+        extractFromOpenStreetMap(keyword, location, Math.max(needsMore(), targetLimit), existingForAlt),
+        searchByCnaeAndCity(keyword, location, Math.max(needsMore(), targetLimit), existingForAlt),
+      ]);
+
+      const altResults: StrategyResult[] = [
+        { leads: osmResult, scanned: osmResult.length, source: 'osm', blocked: false },
+        { leads: cnaeResult, scanned: cnaeResult.length, source: 'brasil-api', blocked: false },
+      ];
+
+      for (const result of altResults) {
+        const added = await processStrategyResult(result);
+        if (added > 0) citiesDone++;
+      }
+
+      notify(`Fontes abertas: ${allLeads.length} leads encontrados`);
+
+      if (allLeads.length > 0) {
+        batchEnrichLeads(allLeads.slice(0, Math.min(allLeads.length, 20)));
+        notify(`Enriquecimento em andamento: ${allLeads.length} leads`);
+      }
     }
 
     // =========================================================================
-    // PHASE 2: Playwright Maps DOM Scraping
+    // PHASE 1: Google Search (via CF Worker, Tor, proxy, or Places API)
     // =========================================================================
-    if (allEnrichedLeads.length < targetLimit && !maxTimeReached() && !(await cancelled())) {
+    if (needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
+      notify(`Complementando via Google... (${allLeads.length}/${targetLimit})`);
+
+      const cfWorkerUrl = process.env.CF_WORKER_URL || '';
+      const existingForGoogle = new Set<string>(Array.from(scrapedNames));
+
+      const searchResult = await extractFromGoogleSearch(
+        keyword, location,
+        Math.max(needsMore(), targetLimit),
+        existingForGoogle,
+        cfWorkerUrl ? { cfWorkerUrl } as any : undefined
+      );
+
+      if (!searchResult.blocked && searchResult.leads.length > 0) {
+        const added = await processStrategyResult({
+          leads: searchResult.leads, scanned: searchResult.leads.length,
+          source: 'google-search', blocked: false,
+        });
+        googleSucceeded = true;
+        notify(`Google: +${added} leads (total: ${allLeads.length})`);
+      } else if (searchResult.blocked) {
+        blockedDetected = true;
+
+        const placesLeads = await extractFromGooglePlacesApi(
+          keyword, location, needsMore(), existingForGoogle
+        );
+
+        if (placesLeads.length > 0) {
+          await processStrategyResult({
+            leads: placesLeads, scanned: placesLeads.length,
+            source: 'google-places-api', blocked: false,
+          });
+          googleSucceeded = true;
+          notify(`Google Places API: +${placesLeads.length} leads (total: ${allLeads.length})`);
+        }
+      }
+    }
+
+    // =========================================================================
+    // PHASE 2: Playwright Maps (with Tor proxy if available)
+    // =========================================================================
+    if (needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
       let searchLocations: string[];
 
       if (isBroadRegion) {
@@ -163,21 +290,24 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
       const maxScrollPerCity = isBroadRegion ? 15 : Math.max(15, Math.min(60, targetLimit));
       const kwVariations = getNicheVariations(keyword);
+      const proxyConfig = getPlaywrightProxyConfig();
+      const proxyUrl = await getWorkingProxy();
 
       let browser: any = null;
       try {
         browser = await chromium.launch({
           headless: true,
           args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+          proxy: proxyConfig || (proxyUrl ? { server: proxyUrl } : undefined),
         });
 
         for (const searchLoc of searchLocations) {
-          if (allEnrichedLeads.length >= targetLimit) break;
+          if (needsMore() <= 0) break;
           if (maxTimeReached()) break;
           if (await cancelled()) break;
 
           for (const kwVar of kwVariations) {
-            if (allEnrichedLeads.length >= targetLimit) break;
+            if (needsMore() <= 0) break;
             if (maxTimeReached()) break;
             if (await cancelled()) break;
 
@@ -185,33 +315,27 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
             const mapsResult = await extractFromPlaywrightMaps(
               browser, kwVar, searchLoc,
-              targetLimit - allEnrichedLeads.length,
+              needsMore(),
               existingForScrape,
               maxScrollPerCity
             );
 
-            if (mapsResult.blocked) blockedDetected = true;
+            if (mapsResult.blocked) {
+              blockedDetected = true;
+              continue;
+            }
             if (mapsResult.leads.length > 0) {
-              mapsReturned = true;
-              for (const lead of mapsResult.leads) {
-                if (allEnrichedLeads.length >= targetLimit) break;
-                if (seenAll.has(lead.nome.toLowerCase()) || scrapedNames.has(lead.nome)) continue;
-                seenAll.add(lead.nome.toLowerCase());
-                scrapedNames.add(lead.nome);
-                if (lead.telefone !== 'Não informado') scrapedPhones.add(lead.telefone);
-
-                allEnrichedLeads.push(lead);
-                scannedTotal += mapsResult.leads.length;
-              }
+              scannedTotal += mapsResult.leads.length;
+              await processStrategyResult({
+                leads: mapsResult.leads,
+                scanned: mapsResult.leads.length,
+                source: 'maps-scraper', blocked: false,
+              });
             }
           }
 
           if (!isBroadRegion) citiesDone++;
-          notify();
-
-          if (allEnrichedLeads.length > 0 && allEnrichedLeads.length % 10 === 0) {
-            notify(` (${allEnrichedLeads.length} leads)`);
-          }
+          notify(`${allLeads.length} leads encontrados`);
         }
       } finally {
         if (browser) try { await browser.close(); } catch {}
@@ -219,18 +343,20 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // PHASE 2b: Second pass - place pages (only for leads without phone/site)
+    // PHASE 2b: Place page enrichment
     // =========================================================================
-    if (allEnrichedLeads.length > 0 && !maxTimeReached() && !(await cancelled())) {
-      const candidates = allEnrichedLeads.filter(
+    if (allLeads.length > 0 && !maxTimeReached() && !(await cancelled())) {
+      const candidates = allLeads.filter(
         l => (l.telefone === 'Não informado' || !l.site || l.site === 'Sem site') && l.placeUrl
       );
       if (candidates.length > 0) {
+        const proxyConfig = getPlaywrightProxyConfig();
         let browser: any = null;
         try {
           browser = await chromium.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            proxy: proxyConfig,
           });
 
           for (let i = 0; i < candidates.length && !maxTimeReached() && !(await cancelled()); i += 3) {
@@ -251,42 +377,40 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // PHASE 3: Alternative sources (Bing Maps, OSM)
+    // PHASE 3: Bing Maps (last resort)
     // =========================================================================
-    if (allEnrichedLeads.length < targetLimit && !maxTimeReached() && !(await cancelled())) {
+    if (needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
       const existingForAlt = new Set<string>(Array.from(scrapedNames));
+      const bingLeads = await extractFromBingMaps(keyword, location, needsMore(), existingForAlt);
 
-      const bingLeads = await extractFromBingMaps(keyword, location, targetLimit - allEnrichedLeads.length, existingForAlt);
-      for (const lead of bingLeads) {
-        if (allEnrichedLeads.length >= targetLimit) break;
-        if (seenAll.has(lead.nome.toLowerCase()) || scrapedNames.has(lead.nome)) continue;
-        seenAll.add(lead.nome.toLowerCase());
-        scrapedNames.add(lead.nome);
-        allEnrichedLeads.push(lead);
-      }
-
-      if (allEnrichedLeads.length < targetLimit && isBroadRegion) {
-        const osmLeads = await extractFromOpenStreetMap(keyword, location, targetLimit - allEnrichedLeads.length, existingForAlt);
-        for (const lead of osmLeads) {
-          if (allEnrichedLeads.length >= targetLimit) break;
-          if (seenAll.has(lead.nome.toLowerCase()) || scrapedNames.has(lead.nome)) continue;
-          seenAll.add(lead.nome.toLowerCase());
-          scrapedNames.add(lead.nome);
-          allEnrichedLeads.push(lead);
-        }
+      if (bingLeads.length > 0) {
+        await processStrategyResult({
+          leads: bingLeads, scanned: bingLeads.length,
+          source: 'bing', blocked: false,
+        });
+        notify(`Bing: +${bingLeads.length} leads`);
       }
     }
 
     // =========================================================================
-    // FINAL: Apply post-filter and quality scoring
+    // FINAL: Post-filter, scoring, and dedup
     // =========================================================================
-    const validLeads = allEnrichedLeads.filter(l => postFilter(l, filterRule)).slice(0, targetLimit);
+    rebuildAllLeads();
+
+    const scoredLeads = allLeads.map(l => ({ lead: l, score: scoreLeadQuality(l) }));
+    scoredLeads.sort((a, b) => b.score.score - a.score.score);
+
+    const validLeads = scoredLeads
+      .filter(s => s.score.tier !== 'trash')
+      .map(s => s.lead)
+      .filter(l => postFilter(l, filterRule))
+      .slice(0, targetLimit);
 
     let error: string | undefined;
     if (validLeads.length === 0 && blockedDetected) {
-      error = 'Google bloqueou a busca. Tente novamente em alguns minutos.';
-    } else if (validLeads.length === 0 && !googleSearchReturned && !mapsReturned) {
-      error = 'Nenhum lead encontrado — Google pode estar bloqueando a conexão. Tente novamente mais tarde.';
+      error = 'Google bloqueou a busca. Conseguimos dados de fontes abertas, mas sem leads completos.';
+    } else if (validLeads.length === 0 && !googleSucceeded && allLeads.length > 0) {
+      error = 'Alguns leads foram encontrados, mas nenhum passou pelos filtros aplicados.';
     }
 
     if (onDone) {
@@ -302,7 +426,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     return validLeads;
   } catch (err: any) {
     console.error('[EXTRACT RUNNER] Fatal error:', err);
-    const partialLeads = allEnrichedLeads.filter(l => postFilter(l, filterRule)).slice(0, targetLimit);
+    rebuildAllLeads();
+    const partialLeads = allLeads.filter(l => postFilter(l, filterRule)).slice(0, targetLimit);
     if (onDone) {
       onDone({
         leads: partialLeads,
