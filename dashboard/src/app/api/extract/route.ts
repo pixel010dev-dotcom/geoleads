@@ -3,6 +3,7 @@ import { createRequestSupabaseClient, getAuthUser, requireFeature, createAdminSu
 import { type FeatureKey } from '@/lib/plans';
 import { runExtraction } from './runner';
 import { smartNormalizeQuery, isBroadLocation } from './lib/normalizers';
+import { checkExtractionRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -51,6 +52,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Não autenticado. Faça login para extrair leads.' }, { status: 401 });
     }
     const authedUser = auth;
+
+    const rateLimit = checkExtractionRateLimit(auth.user.id);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Muitas extrações. Aguarde 1 minuto.' }, { status: 429 });
+    }
 
     const { keyword: rawKeyword, location: rawLocation, limit, filterRule, existingLeadKeys } = await request.json();
     const requestSupabase = createRequestSupabaseClient(request);

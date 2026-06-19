@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, requireFeature } from '@/lib/server-auth';
 import { AIProvider } from '@/lib/ai-provider';
+import { checkApiRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -220,6 +221,11 @@ export async function POST(request: Request) {
 
     if (!requireFeature(auth.planId, 'aiCopy')) {
       return NextResponse.json({ error: 'Gerador de copys com IA exige plano Profissional ou superior.' }, { status: 403 });
+    }
+
+    const rateLimit = checkApiRateLimit(`ai-copy:${auth.user.id}`);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Muitas requisições. Aguarde 1 minuto.' }, { status: 429 });
     }
 
     const body = await request.json();
