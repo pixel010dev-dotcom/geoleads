@@ -409,6 +409,9 @@ export default function Home() {
 
   useEffect(() => {
     document.title = 'GeoLeads - Dashboard';
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
     const loadData = async () => {
       let sessionUserId = '';
       const { data: { session } } = await supabase.auth.getSession();
@@ -425,8 +428,8 @@ export default function Home() {
         setCheckoutNotice(`Pagamento recebido! Estamos liberando os tokens do plano ${planName}. Se o saldo não atualizar em 1 minuto, recarregue a página.`);
         if (sessionUserId) {
           await refreshProfile(sessionUserId);
-          window.setTimeout(() => refreshProfile(sessionUserId), 4000);
-          window.setTimeout(() => refreshProfile(sessionUserId), 12000);
+          timers.push(setTimeout(() => { if (!cancelled) refreshProfile(sessionUserId); }, 4000));
+          timers.push(setTimeout(() => { if (!cancelled) refreshProfile(sessionUserId); }, 12000));
         }
         params.delete('checkout'); params.delete('plan');
         const nextQuery = params.toString();
@@ -488,6 +491,11 @@ export default function Home() {
         setShowOnboarding(true);
       }
     } catch {}
+
+    return () => {
+      cancelled = true;
+      timers.forEach(t => clearTimeout(t));
+    };
   }, []);
 
   useEffect(() => {
@@ -1084,7 +1092,7 @@ export default function Home() {
     const messageEncoded = encodeURIComponent(msg);
     const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
     const url = options?.preferWeb && !isMobile ? `https://web.whatsapp.com/send?phone=55${number}&text=${messageEncoded}` : `https://wa.me/55${number}?text=${messageEncoded}`;
-    window.open(url, options?.target || '_blank');
+    window.open(url, options?.target || '_blank', 'noopener,noreferrer');
     if (options?.markSent !== false) setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
   };
 
