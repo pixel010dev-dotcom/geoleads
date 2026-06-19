@@ -1126,6 +1126,17 @@ export default function Home() {
   const paginatedCrmLeads = filteredCrmLeads.slice(safeCrmPage * CRM_PAGE_SIZE, (safeCrmPage + 1) * CRM_PAGE_SIZE);
   const displayLeads = leads.length > 0 ? leads : [];
 
+  if (!user) {
+    return (
+      <div className="app-shell min-h-screen text-white font-sans bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-400">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell min-h-screen text-white font-sans selection:bg-blue-500/30 relative pb-12 sm:pb-16 overflow-x-hidden">
       <Toast />

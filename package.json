@@ -1,16 +1,10 @@
 {
-  "name": "lead_extractor_saas",
+  "name": "geoleads",
   "version": "1.0.0",
-  "description": "",
-  "main": "motor_playwright.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "playwright": "^1.60.0"
+    "dev": "cd dashboard && npm run dev",
+    "build": "cd dashboard && npm run build",
+    "start": "cd dashboard && npm run start"
   }
 }

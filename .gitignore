@@ -1,5 +1,53 @@
+# Environment files
+.env
 .env.local
+.env.*.local
+
+# Build artifacts
+.next/
+out/
+build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Debug scripts (contain hardcoded credentials)
+check-auth.js
+check-tables.js
+run-sql.js
+verify-tables.js
+
+# Stale files
 build-log.txt
-GEOLEADS_AI_CONTEXT.md
-dashboard/AGENTS.md
+dashboard-dev*.log
+dashboard-start*.log
+motor_playwright.js
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Supabase temp
 supabase/.temp/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
+*.pem
+*.key
