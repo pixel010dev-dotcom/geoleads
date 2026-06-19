@@ -35,6 +35,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao processar indicação' }, { status: 500 });
   }
 }

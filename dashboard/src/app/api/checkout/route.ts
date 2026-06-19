@@ -96,12 +96,7 @@ export async function POST(request: Request) {
       currentTokens: profileTokens
     });
   } catch (error: unknown) {
-    let message = error instanceof Error ? error.message : 'Erro interno';
-    console.error('ERRO MERCADO PAGO:', message);
-    if (message.includes('Unauthorized use of live credentials')) {
-      message = 'Token de PRODUÇÃO não autorizado. Use um token de TESTE (TEST-...) '
-        + 'em mercadopago.com.br > Credenciais > Teste';
-    }
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('ERRO MERCADO PAGO:', error);
+    return NextResponse.json({ error: 'Erro ao processar pagamento. Tente novamente.' }, { status: 500 });
   }
 }

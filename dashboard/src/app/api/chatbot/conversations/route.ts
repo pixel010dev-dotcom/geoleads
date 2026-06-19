@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: 'Erro ao buscar conversas' }, { status: 500 });
   return NextResponse.json({ success: true, conversations: data, total: count });
 }
 
@@ -41,6 +41,6 @@ export async function POST(request: Request) {
     rule_id: body.ruleId || null,
   }).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: 'Erro ao salvar conversa' }, { status: 500 });
   return NextResponse.json({ success: true, conversation: data });
 }

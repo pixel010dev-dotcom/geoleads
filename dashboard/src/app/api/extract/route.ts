@@ -217,6 +217,6 @@ export async function POST(request: Request) {
     done();
     const msg = error instanceof Error ? error.message : String(error);
     console.error('ERRO AO CRIAR JOB:', msg);
-    return NextResponse.json({ error: 'Erro ao iniciar extração: ' + msg }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao iniciar extração. Tente novamente.' }, { status: 500 });
   }
 }

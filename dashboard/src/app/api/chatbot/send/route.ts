@@ -60,6 +60,6 @@ export async function POST(request: Request) {
       error_message: error?.message || 'Erro desconhecido ao enviar'
     });
 
-    return NextResponse.json({ error: `Falha ao enviar: ${error?.message || 'erro desconhecido'}` }, { status: 500 });
+    return NextResponse.json({ error: 'Falha ao enviar mensagem' }, { status: 500 });
   }
 }

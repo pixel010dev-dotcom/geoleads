@@ -127,6 +127,6 @@ export async function POST(request: Request) {
       unmappedColumns,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Erro ao processar CSV' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao processar CSV' }, { status: 500 });
   }
 }

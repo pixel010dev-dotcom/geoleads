@@ -276,11 +276,10 @@ export async function POST(request: Request) {
     });
 
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'erro desconhecido';
-    console.error('ERRO NO COPYWRITER IA:', message);
+    console.error('ERRO NO COPYWRITER IA:', error);
 
     return NextResponse.json({
-      error: `Erro ao gerar cópias: ${message}`
+      error: 'Erro ao gerar cópias. Tente novamente.'
     }, { status: 500 });
   }
 }

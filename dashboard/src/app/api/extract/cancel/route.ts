@@ -67,6 +67,6 @@ export async function POST(request: Request) {
     });
   } catch (err: any) {
     console.error('[CANCEL] Erro:', err.message);
-    return NextResponse.json({ error: err.message || 'Erro interno' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

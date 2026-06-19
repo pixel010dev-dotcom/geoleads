@@ -6,8 +6,12 @@ const FB_GRAPH = 'https://graph.facebook.com/v21.0';
 async function callFacebook(path: string, options?: RequestInit) {
   const token = process.env.FACEBOOK_ACCESS_TOKEN;
   if (!token) throw new Error('FACEBOOK_ACCESS_TOKEN não configurado');
-  const url = `${FB_GRAPH}${path}${path.includes('?') ? '&' : '?'}access_token=${token}`;
-  const res = await fetch(url, options || {});
+  const url = `${FB_GRAPH}${path}`;
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${token}`,
+    ...(options?.headers as Record<string, string> || {}),
+  };
+  const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || `Erro Facebook: ${res.status}`);
@@ -26,7 +30,8 @@ export async function GET() {
 
     return NextResponse.json({ campaigns: data.data || [] });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[FACEBOOK ADS] GET error:', err);
+    return NextResponse.json({ error: 'Erro ao buscar campanhas' }, { status: 500 });
   }
 }
 
@@ -48,7 +53,8 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[FACEBOOK ADS] PATCH error:', err);
+    return NextResponse.json({ error: 'Erro ao atualizar campanha' }, { status: 500 });
   }
 }
 
@@ -66,6 +72,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[FACEBOOK ADS] DELETE error:', err);
+    return NextResponse.json({ error: 'Erro ao excluir campanha' }, { status: 500 });
   }
 }

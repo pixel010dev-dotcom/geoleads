@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .limit(20);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: 'Erro ao buscar campanhas' }, { status: 500 });
   return NextResponse.json({ success: true, campaigns: data });
 }
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       total_leads: (body.leadKeys || []).length,
     }).select().single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: 'Erro ao criar campanha' }, { status: 500 });
     return NextResponse.json({ success: true, campaign: data });
   }
 
@@ -58,14 +58,14 @@ export async function POST(request: Request) {
       .eq('user_id', auth.user.id)
       .select().single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: 'Erro ao atualizar campanha' }, { status: 500 });
     return NextResponse.json({ success: true, campaign: data });
   }
 
   if (action === 'delete') {
     const { error } = await supabase.from('whatsapp_campaigns')
       .delete().eq('id', body.campaignId).eq('user_id', auth.user.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: 'Erro ao excluir campanha' }, { status: 500 });
     return NextResponse.json({ success: true });
   }
 
