@@ -1,9 +1,36 @@
-# Cole estas variaveis no Railway (Settings -> Variables)
-# Troque NEXT_PUBLIC_APP_URL quando o dominio estiver ativo
+# Variáveis de ambiente para Railway
+# Copie para Settings -> Variables no Railway
 
+# Supabase (obrigatório)
 NEXT_PUBLIC_SUPABASE_URL=https://mwnpwrzwgwrqqlomqhux.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<mesma do .env.local>
-SUPABASE_SERVICE_ROLE_KEY=<mesma do .env.local>
-MERCADO_PAGO_ACCESS_TOKEN=<mesma do .env.local>
-NEXT_PUBLIC_APP_URL=https://geoleads.com
-GEMINI_API_KEY=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<do .env.local>
+SUPABASE_SERVICE_ROLE_KEY=<do .env.local>
+
+# App URL
+NEXT_PUBLIC_APP_URL=https://geoleads-production.up.railway.app
+
+# Pagamento (obrigatório para cobrança)
+MERCADO_PAGO_ACCESS_TOKEN=<do .env.local>
+MERCADO_PAGO_WEBHOOK_SECRET=<criar no Mercado Pago>
+
+# IA (obrigatório para features de IA)
+GEMINI_API_KEY=<do .env.local>
+GEMINI_MODEL=gemini-1.5-flash
+
+# Extração
+CF_WORKER_URL=https://geoleads-proxy.pixel010dev.workers.dev
+TOR_ENABLED=true
+
+# Admin
+ADMIN_EMAIL=pixel010dev@gmail.com
+
+# WhatsApp (opcional)
+# FACEBOOK_ACCESS_TOKEN=
+# FACEBOOK_AD_ACCOUNT=
+
+# Email (opcional)
+# SMTP_HOST=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_USER=
+# SMTP_PASS=
+# NOTIFICATION_EMAIL=
