@@ -3,7 +3,7 @@ import { createEmptySearchLead } from '../lib/types';
 import { normalizePhone, isBusinessWebsiteCandidate } from '../lib/validation';
 import { getRandomHeaders } from '../lib/stealth';
 
-const BLOCKED_KEYWORDS = ['captcha', 'sorry', 'unusual traffic', 'tráfego incomum', 'please show you\'re not a robot', 'robô'];
+const BLOCKED_KEYWORDS = ['captcha', 'sorry', 'unusual traffic', 'tráfego incomum', 'please show you\'re not a robot', 'robô', 'consent'];
 
 function isBlockedPage(html: string, url: string): boolean {
   const lower = html.toLowerCase();
@@ -82,24 +82,80 @@ function parseLdJsonFromSearch(html: string): SearchLead[] {
   return leads;
 }
 
-// Try extracting from regular HTML search results when tbm=map is not available
 function parseSearchResultHtml(html: string): SearchLead[] {
   const leads: SearchLead[] = [];
   const seen = new Set<string>();
 
-  const nameRegex = /<h3[^>]*class="[^"]*LC20lb[^"]*"[^>]*>([\s\S]*?)<\/h3>/gi;
+  const nameRegex = /<h3[^>]*>([\s\S]*?)<\/h3>/gi;
   let match: RegExpExecArray | null;
 
   while ((match = nameRegex.exec(html)) !== null) {
     const name = match[1].replace(/<[^>]*>/g, '').trim();
-    if (!name || name.length < 2 || name.length > 200 || seen.has(name)) continue;
-    seen.add(name);
+    if (!name || name.length < 3 || name.length > 200 || seen.has(name.toLowerCase())) continue;
+    if (/google|maps|search|login|sign|account|privacy|terms/i.test(name)) continue;
+    seen.add(name.toLowerCase());
 
-    const snippetMatch = html.slice(match.index).match(/<span[^>]*class="[^"]*aCOpRe[^"]*"[^>]*>([\s\S]*?)<\/span>/);
-    const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]*>/g, '').trim() : '';
     const lead = createEmptySearchLead();
     lead.nome = name;
-    lead.categoria = snippet.slice(0, 100);
+
+    const afterH3 = html.slice(match.index + match[0].length, match.index + match[0].length + 1500);
+    const phoneMatch = afterH3.match(/\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/);
+    if (phoneMatch) lead.telefone = normalizePhone(phoneMatch[0]);
+
+    const siteMatch = afterH3.match(/href="(https?:\/\/[^"]+)"/);
+    if (siteMatch && isBusinessWebsiteCandidate(siteMatch[1])) {
+      lead.site = siteMatch[1];
+    }
+
+    const addrMatch = afterH3.match(/((?:Rua|Av\.?|Avenida|Travessa|Praça|Alameda|Rodovia|Estrada)\s[^<]{5,80})/i);
+    if (addrMatch) lead.endereco = addrMatch[1].trim();
+
+    leads.push(lead);
+  }
+
+  return leads;
+}
+
+function parseGoogleMapsSearch(html: string): SearchLead[] {
+  const leads: SearchLead[] = [];
+  const seen = new Set<string>();
+
+  const dataMatch = html.match(/\["(https:\/\/www\.google\.com\/maps\/place[^"]+)",\[(\d+\.?\d*),(-?\d+\.?\d*)\]/g);
+  if (dataMatch) {
+    for (const dm of dataMatch) {
+      const urlMatch = dm.match(/"(https:\/\/www\.google\.com\/maps\/place[^"]+)"/);
+      const latMatch = dm.match(/\[(-?\d+\.?\d*),(-?\d+\.?\d*)\]/);
+      if (urlMatch) {
+        const nameMatch = urlMatch[1].match(/maps\/place\/([^/@]+)/);
+        if (nameMatch) {
+          const name = decodeURIComponent(nameMatch[1]).replace(/\+/g, ' ').trim();
+          if (name && !seen.has(name.toLowerCase()) && name.length > 2 && name.length < 200) {
+            seen.add(name.toLowerCase());
+            const lead = createEmptySearchLead();
+            lead.nome = name;
+            if (latMatch) {
+              lead.placeUrl = `https://www.google.com/maps/search/?api=1&query=${latMatch[1]},${latMatch[2]}`;
+            }
+            leads.push(lead);
+          }
+        }
+      }
+    }
+  }
+
+  const jsonRegex = /\["([^"]{3,80})"\s*,\s*"(https?:\/\/[^"]+)"\s*,\s*\[([^\]]*)\]/g;
+  let jm: RegExpExecArray | null;
+  while ((jm = jsonRegex.exec(html)) !== null) {
+    const name = jm[1].replace(/\\u[\da-f]{4}/gi, '').trim();
+    const url = jm[2];
+    if (!name || name.length < 3 || seen.has(name.toLowerCase())) continue;
+    if (/google|maps|search|login|sign|account/i.test(name)) continue;
+    if (!url.includes('maps.place') && !url.includes('g.page') && !url.includes('goo.gl')) continue;
+
+    seen.add(name.toLowerCase());
+    const lead = createEmptySearchLead();
+    lead.nome = name;
+    if (url.includes('maps.place')) lead.placeUrl = url;
     leads.push(lead);
   }
 
@@ -116,39 +172,19 @@ export async function extractFromGoogleSearch(
   location: string,
   targetLimit: number,
   existingKeys: Set<string>,
-  signalOrOptions?: AbortSignal | { cfWorkerUrl?: string; signal?: AbortSignal }
+  options?: { cfWorkerUrl?: string; signal?: AbortSignal }
 ): Promise<GoogleSearchResult> {
   const allLeads: SearchLead[] = [];
   const seenNames = new Set<string>();
   let blocked = false;
 
-  const cfWorkerUrl = signalOrOptions && typeof signalOrOptions !== 'boolean' && 'cfWorkerUrl' in signalOrOptions
-    ? (signalOrOptions as any).cfWorkerUrl
-    : undefined;
-  const signal = signalOrOptions instanceof AbortSignal
-    ? signalOrOptions
-    : signalOrOptions && typeof signalOrOptions === 'object' && 'signal' in signalOrOptions
-      ? (signalOrOptions as any).signal
-      : undefined;
-
-  const tlds = ['com', 'com.br', 'com.mx', 'co.uk', 'com.au'];
-  const hls = ['pt-BR', 'pt', 'en', 'es'];
-  const gls = ['br', 'us', 'mx', 'ar'];
+  const cfWorkerUrl = options?.cfWorkerUrl;
+  const signal = options?.signal;
 
   const queryFormats = [
     `${keyword} ${location}`,
     `${keyword} em ${location}`,
     `${keyword}, ${location}`,
-    `${keyword} perto de ${location}`,
-    `melhor ${keyword} ${location}`,
-    `${keyword} endereço telefone ${location}`,
-  ];
-
-  interface QParams { tld: string; enc: string; hl: string; gl: string; }
-  const urlModes: ((q: QParams) => string)[] = [
-    (q: QParams) => `https://www.google.${q.tld}/search?q=${q.enc}&tbm=map&hl=${q.hl}&gl=${q.gl}&num=20`,
-    (q: QParams) => `https://www.google.${q.tld}/search?q=${q.enc}&tbm=lcl&hl=${q.hl}&gl=${q.gl}`,
-    (q: QParams) => `https://www.google.${q.tld}/search?q=${q.enc}&hl=${q.hl}&gl=${q.gl}`,
   ];
 
   function rewriteUrl(originalUrl: string): string {
@@ -165,20 +201,20 @@ export async function extractFromGoogleSearch(
     const query = queryFormat.replace(/\s+/g, ' ').trim();
     const encodedQuery = encodeURIComponent(query);
 
-    for (const mode of urlModes) {
+    const urls = [
+      rewriteUrl(`https://www.google.com.br/maps/search/${encodedQuery}?hl=pt-BR&gl=br`),
+      rewriteUrl(`https://www.google.com/search?q=${encodedQuery}&tbm=lcl&hl=pt-BR&gl=br`),
+      rewriteUrl(`https://www.google.com/search?q=${encodedQuery}+endereço+telefone&hl=pt-BR&gl=br`),
+    ];
+
+    for (const url of urls) {
       if (allLeads.length >= targetLimit) break;
       if (signal?.aborted) break;
       if (blocked) break;
 
-      const tld = tlds[Math.floor(Math.random() * tlds.length)];
-      const hl = hls[Math.floor(Math.random() * hls.length)];
-      const gl = gls[Math.floor(Math.random() * gls.length)];
-      const googleUrl = mode({ tld, enc: encodedQuery, hl, gl });
-      const url = rewriteUrl(googleUrl);
-
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
+        const timeout = setTimeout(() => controller.abort(), 20000);
 
         const response = await fetch(url, {
           signal: signal ? signalCombinator(signal, controller.signal) : controller.signal,
@@ -196,22 +232,31 @@ export async function extractFromGoogleSearch(
           continue;
         }
 
-        let ldLeads = parseLdJsonFromSearch(html);
-        if (ldLeads.length === 0) {
-          ldLeads = parseSearchResultHtml(html);
+        let newLeads: SearchLead[] = [];
+
+        const ldLeads = parseLdJsonFromSearch(html);
+        if (ldLeads.length > 0) newLeads.push(...ldLeads);
+
+        const mapsLeads = parseGoogleMapsSearch(html);
+        if (mapsLeads.length > 0) newLeads.push(...mapsLeads);
+
+        if (newLeads.length === 0) {
+          const htmlLeads = parseSearchResultHtml(html);
+          newLeads.push(...htmlLeads);
         }
 
-        for (const lead of ldLeads) {
+        for (const lead of newLeads) {
           if (allLeads.length >= targetLimit) break;
-          if (seenNames.has(lead.nome.toLowerCase())) continue;
-          if (existingKeys.has(lead.nome)) continue;
+          const nameKey = lead.nome.toLowerCase();
+          if (seenNames.has(nameKey)) continue;
+          if (existingKeys.has(nameKey)) continue;
 
-          seenNames.add(lead.nome.toLowerCase());
+          seenNames.add(nameKey);
           allLeads.push(lead);
         }
       } catch {}
 
-      if (!blocked) await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+      await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000));
     }
   }
 

@@ -222,7 +222,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       notify(`Fontes abertas: ${allLeads.length} leads encontrados`);
 
       if (allLeads.length > 0) {
-        batchEnrichLeads(allLeads.slice(0, Math.min(allLeads.length, 20)));
+        await batchEnrichLeads(allLeads.slice(0, Math.min(allLeads.length, 20)));
         notify(`Enriquecimento em andamento: ${allLeads.length} leads`);
       }
     }
@@ -291,7 +291,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       const maxScrollPerCity = isBroadRegion ? 15 : Math.max(15, Math.min(60, targetLimit));
       const kwVariations = getNicheVariations(keyword);
       const proxyConfig = getPlaywrightProxyConfig();
-      const proxyUrl = await getWorkingProxy();
+      const proxyUrl = proxyConfig ? undefined : await getWorkingProxy();
 
       let browser: any = null;
       try {
@@ -325,7 +325,6 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
               continue;
             }
             if (mapsResult.leads.length > 0) {
-              scannedTotal += mapsResult.leads.length;
               await processStrategyResult({
                 leads: mapsResult.leads,
                 scanned: mapsResult.leads.length,
@@ -408,9 +407,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
     let error: string | undefined;
     if (validLeads.length === 0 && blockedDetected) {
-      error = 'Google bloqueou a busca. Conseguimos dados de fontes abertas, mas sem leads completos.';
-    } else if (validLeads.length === 0 && !googleSucceeded && allLeads.length > 0) {
-      error = 'Alguns leads foram encontrados, mas nenhum passou pelos filtros aplicados.';
+      error = 'Google bloqueou a busca. Tente novamente em alguns minutos.';
+    } else if (validLeads.length === 0 && allLeads.length === 0) {
+      error = 'Nenhum lead encontrado. Verifique o termo e a localização.';
+    } else if (validLeads.length === 0 && allLeads.length > 0) {
+      error = 'Leads encontrados, mas nenhum passou pelos filtros aplicados.';
     }
 
     if (onDone) {

@@ -110,11 +110,13 @@ function osmElementToLead(el: any): SearchLead | null {
     lead.site = ws;
   }
 
-  if (tags.contact?.email) lead.email = tags['contact:email'] || '';
+  if (tags['contact:email']) lead.email = tags['contact:email'];
   if (tags.email && !lead.email) lead.email = tags.email;
 
-  if (tags.contact?.instagram) lead.instagram = tags['contact:instagram'];
-  if (tags.contact?.facebook) lead.facebook = tags['contact:facebook'];
+  if (tags['contact:instagram']) lead.instagram = tags['contact:instagram'];
+  if (tags['contact:facebook']) lead.facebook = tags['contact:facebook'];
+  if (tags['contact:phone']) lead.telefone = normalizePhone(tags['contact:phone']);
+  if (tags['contact:website'] && !lead.site) lead.site = tags['contact:website'];
 
   if (tags.opening_hours) lead.horarios = tags.opening_hours;
 
@@ -271,87 +273,11 @@ export function enrichLeadFromBrasilApi(lead: SearchLead, brasilData: any): Sear
   return lead;
 }
 
-function cnaeToBrasilApi(cnae: string): string {
-  return cnae.replace(/\//g, '').replace(/-/g, '');
-}
-
-const CNAE_API_CACHE = new Map<string, any[]>();
-
-function extractBrasilApiListUrl(cnae: string, city: string, state: string): string {
-  const cnaeClean = cnaeToBrasilApi(cnae);
-  const cityEnc = encodeURIComponent(city);
-  return `https://brasilapi.com.br/api/cnpj/v1/${cnaeClean}?municipio=${cityEnc}&uf=${state}`;
-}
-
 export async function searchByCnaeAndCity(
-  keyword: string,
-  location: string,
-  targetLimit: number,
-  existingKeys: Set<string>
+  _keyword: string,
+  _location: string,
+  _targetLimit: number,
+  _existingKeys: Set<string>
 ): Promise<SearchLead[]> {
-  const leads: SearchLead[] = [];
-  const seenNames = new Set<string>(Array.from(existingKeys).map(k => k.toLowerCase()));
-
-  const kwLower = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const kwParts = kwLower.split(/\s+/);
-  let cnaeCodes: string[] = [];
-
-  for (const part of kwParts) {
-    if (NICHE_TO_CNAE[part]) {
-      cnaeCodes = NICHE_TO_CNAE[part];
-      break;
-    }
-  }
-
-  if (cnaeCodes.length === 0) return leads;
-
-  const { city, state } = extractCityState(location);
-  if (!city || !state) return leads;
-
-  for (const cnae of cnaeCodes) {
-    if (leads.length >= targetLimit) break;
-
-    try {
-      const url = extractBrasilApiListUrl(cnae, city, state);
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'GeoLeads/1.0' },
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (!res.ok) continue;
-      const companies = await res.json();
-      if (!Array.isArray(companies)) continue;
-
-      for (const company of companies) {
-        if (leads.length >= targetLimit) break;
-
-        const name = company.nome_fantasia || company.razao_social || '';
-        if (!name || seenNames.has(name.toLowerCase())) continue;
-        seenNames.add(name.toLowerCase());
-
-        const fullData = await extractFromBrasilApiCNPJ(company.cnpj);
-        if (!fullData) continue;
-
-        const lead = createEmptySearchLead();
-        lead.nome = name;
-        lead.cnpj = company.cnpj || '';
-        if (fullData.telefone) lead.telefone = normalizePhone(String(fullData.telefone));
-        if (fullData.email) lead.email = fullData.email;
-        const addrParts = [fullData.logradouro, fullData.bairro, fullData.municipio, fullData.uf].filter(Boolean);
-        if (addrParts.length > 0) lead.endereco = addrParts.join(', ');
-        if (fullData.cep) lead.cep = fullData.cep;
-
-        const nomeLower = name.toLowerCase();
-        const keywordMatch = kwParts.some(part => nomeLower.includes(part));
-        if (!keywordMatch) continue;
-        leads.push(lead);
-
-        await new Promise(r => setTimeout(r, 200 + Math.random() * 300));
-      }
-
-      await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
-    } catch {}
-  }
-
-  return leads;
+  return [];
 }
