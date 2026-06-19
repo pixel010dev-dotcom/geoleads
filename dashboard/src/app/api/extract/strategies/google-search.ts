@@ -214,7 +214,7 @@ export async function extractFromGoogleSearch(
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timeout = setTimeout(() => controller.abort(), 12000);
 
         const response = await fetch(url, {
           signal: signal ? signalCombinator(signal, controller.signal) : controller.signal,
@@ -256,7 +256,7 @@ export async function extractFromGoogleSearch(
         }
       } catch {}
 
-      await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000));
+      await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
     }
   }
 

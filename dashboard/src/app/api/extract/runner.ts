@@ -4,7 +4,7 @@ import { scoreLeadQuality } from './lib/types';
 import { extractFromGoogleSearch } from './strategies/google-search';
 import { extractFromPlaywrightMaps, extractMapsPlaceDetails } from './strategies/maps-scraper';
 import { extractFromBingMaps } from './strategies/bing-maps';
-import { extractFromOpenStreetMap, searchByCnaeAndCity, enrichLeadFromBrasilApi } from './strategies/alternative-sources';
+import { extractFromOpenStreetMap, searchByCnaeAndCity } from './strategies/alternative-sources';
 import { extractFromGooglePlacesApi } from './strategies/google-places-api';
 import { enrichLead } from './enrichment/website';
 import { normalizePhone, isValidBrazilianPhone } from './lib/validation';
@@ -33,22 +33,9 @@ export interface RunnerConfig {
   maxTimeMs?: number;
 }
 
-interface StrategyResult {
-  leads: SearchLead[];
-  scanned: number;
-  source: string;
-  blocked: boolean;
-  error?: string;
-}
-
-function parseFilterRules(filterRule: string): string[] {
-  if (!filterRule || filterRule === 'none') return [];
-  return filterRule.split(',').map(r => r.trim()).filter(Boolean);
-}
-
 function postFilter(lead: SearchLead, filterRule: string): boolean {
-  const rules = parseFilterRules(filterRule);
-  if (rules.length === 0) return true;
+  if (!filterRule || filterRule === 'none') return true;
+  const rules = filterRule.split(',').map(r => r.trim()).filter(Boolean);
   return rules.every(rule => {
     if (rule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
     if (rule === 'site') return lead.site && lead.site !== 'Sem site';
@@ -59,32 +46,6 @@ function postFilter(lead: SearchLead, filterRule: string): boolean {
     if (rule === 'cnpj') return !!lead.cnpj;
     return true;
   });
-}
-
-function applyMapsPlaceExtraDataToLead(lead: any, extraData: any): boolean {
-  let changed = false;
-  if (extraData.telefone && isValidBrazilianPhone(extraData.telefone) && lead.telefone === 'Não informado') {
-    lead.telefone = normalizePhone(extraData.telefone);
-    changed = true;
-  }
-  if (extraData.site && extraData.site.includes('instagram.com') && !lead.instagram) {
-    lead.instagram = extraData.site; changed = true;
-  } else if (extraData.site && (extraData.site.includes('facebook.com') || extraData.site.includes('fb.com')) && !lead.facebook) {
-    lead.facebook = extraData.site; changed = true;
-  } else if (extraData.site && extraData.site.includes('tiktok.com') && !lead.tiktok) {
-    lead.tiktok = extraData.site; changed = true;
-  }
-  if (extraData.site && !extraData.site.includes('instagram.com') && !extraData.site.includes('facebook.com') &&
-      !extraData.site.includes('tiktok.com') && (!lead.site || lead.site === 'Sem site')) {
-    lead.site = extraData.site;
-    changed = true;
-  }
-  if (extraData.instagram && !lead.instagram) { lead.instagram = extraData.instagram; changed = true; }
-  if (extraData.facebook && !lead.facebook) { lead.facebook = extraData.facebook; changed = true; }
-  if (extraData.tiktok && !lead.tiktok) { lead.tiktok = extraData.tiktok; changed = true; }
-  if (extraData.endereco && !lead.endereco) { lead.endereco = extraData.endereco; changed = true; }
-  if (extraData.horarios && !lead.horarios) { lead.horarios = extraData.horarios; changed = true; }
-  return changed;
 }
 
 function mergeLeadsData(existing: SearchLead, incoming: SearchLead): SearchLead {
@@ -111,21 +72,20 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   const {
     keyword, location, targetLimit, filterRule, isBroadRegion,
     existingLeadKeys, onProgress, onDone, shouldCancel,
-    maxTimeMs = isBroadRegion ? 1800000 : Math.min(1800000, Math.max(45000, targetLimit * 3000))
+    maxTimeMs = isBroadRegion ? 1800000 : Math.min(1800000, Math.max(30000, targetLimit * 2000))
   } = config;
 
   const startTime = Date.now();
-  const allLeads: SearchLead[] = [];
   const leadsByName = new Map<string, SearchLead>();
   const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
   const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
   let scannedTotal = 0;
   let citiesDone = 0;
   let blockedDetected = false;
-  let googleSucceeded = false;
 
   const maxTimeReached = () => (Date.now() - startTime) >= maxTimeMs;
   const cancelled = async () => shouldCancel ? await shouldCancel() : false;
+  const needsMore = () => targetLimit - leadsByName.size;
 
   function addLead(lead: SearchLead): void {
     const key = lead.nome.toLowerCase();
@@ -133,9 +93,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     if (lead.telefone !== 'Não informado' && scrapedPhones.has(lead.telefone)) return;
 
     if (leadsByName.has(key)) {
-      const existing = leadsByName.get(key)!;
-      const merged = mergeLeadsData(existing, lead);
-      leadsByName.set(key, merged);
+      leadsByName.set(key, mergeLeadsData(leadsByName.get(key)!, lead));
     } else {
       leadsByName.set(key, lead);
     }
@@ -144,34 +102,28 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     if (lead.telefone !== 'Não informado') scrapedPhones.add(lead.telefone);
   }
 
-  function rebuildAllLeads(): void {
-    allLeads.length = 0;
-    for (const lead of leadsByName.values()) {
-      allLeads.push(lead);
-    }
+  function getLeadsArray(): SearchLead[] {
+    return Array.from(leadsByName.values());
   }
 
   const notify = (message?: string) => {
-    rebuildAllLeads();
     if (onProgress) {
       onProgress(
-        allLeads,
+        getLeadsArray(),
         scannedTotal,
         citiesDone,
-        message || `${allLeads.length} leads encontrados em ${citiesDone} locais`
+        message || `${leadsByName.size} leads encontrados`
       );
     }
   };
 
-  async function processStrategyResult(result: StrategyResult): Promise<number> {
+  function processResults(leads: SearchLead[], source: string): number {
     let added = 0;
-    for (const lead of result.leads) {
+    for (const lead of leads) {
       const key = lead.nome.toLowerCase();
       if (scrapedNames.has(key)) {
-        const existing = leadsByName.get(key);
-        if (existing) {
-          const merged = mergeLeadsData(existing, lead);
-          leadsByName.set(key, merged);
+        if (leadsByName.has(key)) {
+          leadsByName.set(key, mergeLeadsData(leadsByName.get(key)!, lead));
           added++;
         }
         continue;
@@ -180,98 +132,71 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       addLead(lead);
       added++;
     }
-    scannedTotal += result.scanned;
-    rebuildAllLeads();
+    scannedTotal += leads.length;
     return added;
   }
 
-  async function batchEnrichLeads(leads: SearchLead[]): Promise<void> {
-    const batchSize = 5;
-    for (let i = 0; i < leads.length && !maxTimeReached() && !(await cancelled()); i += batchSize) {
-      const batch = leads.slice(i, i + batchSize);
-      await Promise.all(batch.map(l => enrichLead(l)));
-      rebuildAllLeads();
-    }
-  }
-
-  const needsMore = () => targetLimit - allLeads.length;
-
   try {
+    const existingForFetch = new Set<string>(Array.from(scrapedNames));
+    const cfWorkerUrl = process.env.CF_WORKER_URL || '';
+
     // =========================================================================
-    // PHASE 0: Non-blocking sources (OSM + Brasil API) — immediate results
+    // PHASE 1: PARALLEL fetch (OSM + Google + Bing) — all are HTTP, no browser
     // =========================================================================
-    {
-      notify('Buscando em fontes abertas (OSM + Brasil API)...');
-      const existingForAlt = new Set<string>(Array.from(scrapedNames));
+    notify('Buscando leads...');
 
-      const [osmResult, cnaeResult] = await Promise.all([
-        extractFromOpenStreetMap(keyword, location, Math.max(needsMore(), targetLimit), existingForAlt),
-        searchByCnaeAndCity(keyword, location, Math.max(needsMore(), targetLimit), existingForAlt),
-      ]);
+    const fetchPromises = [
+      extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch).then(leads => ({ source: 'osm', leads })),
+      extractFromGoogleSearch(
+        keyword, location, targetLimit, existingForFetch,
+        cfWorkerUrl ? { cfWorkerUrl } : undefined
+      ).then(result => {
+        if (result.blocked) blockedDetected = true;
+        return { source: 'google', leads: result.leads };
+      }),
+      extractFromBingMaps(keyword, location, targetLimit, existingForFetch).then(leads => ({ source: 'bing', leads })),
+    ];
 
-      const altResults: StrategyResult[] = [
-        { leads: osmResult, scanned: osmResult.length, source: 'osm', blocked: false },
-        { leads: cnaeResult, scanned: cnaeResult.length, source: 'brasil-api', blocked: false },
-      ];
+    const fetchResults = await Promise.allSettled(fetchPromises);
 
-      for (const result of altResults) {
-        const added = await processStrategyResult(result);
+    for (const result of fetchResults) {
+      if (result.status === 'fulfilled') {
+        const added = processResults(result.value.leads, result.value.source);
         if (added > 0) citiesDone++;
       }
-
-      notify(`Fontes abertas: ${allLeads.length} leads encontrados`);
-
-      if (allLeads.length > 0) {
-        await batchEnrichLeads(allLeads.slice(0, Math.min(allLeads.length, 20)));
-        notify(`Enriquecimento em andamento: ${allLeads.length} leads`);
-      }
     }
 
+    notify(`${leadsByName.size} leads encontrados (${Math.round((Date.now() - startTime) / 1000)}s)`);
+
     // =========================================================================
-    // PHASE 1: Google Search (via CF Worker, Tor, proxy, or Places API)
+    // EARLY EXIT: If we have enough leads, skip Playwright entirely
     // =========================================================================
-    if (needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
-      notify(`Complementando via Google... (${allLeads.length}/${targetLimit})`);
+    if (needsMore() <= 0) {
+      const leads = getLeadsArray();
+      const validLeads = leads
+        .map(l => ({ lead: l, score: scoreLeadQuality(l) }))
+        .filter(s => s.score.tier !== 'trash')
+        .map(s => s.lead)
+        .filter(l => postFilter(l, filterRule))
+        .slice(0, targetLimit);
 
-      const cfWorkerUrl = process.env.CF_WORKER_URL || '';
-      const existingForGoogle = new Set<string>(Array.from(scrapedNames));
-
-      const searchResult = await extractFromGoogleSearch(
-        keyword, location,
-        Math.max(needsMore(), targetLimit),
-        existingForGoogle,
-        cfWorkerUrl ? { cfWorkerUrl } as any : undefined
-      );
-
-      if (!searchResult.blocked && searchResult.leads.length > 0) {
-        const added = await processStrategyResult({
-          leads: searchResult.leads, scanned: searchResult.leads.length,
-          source: 'google-search', blocked: false,
+      if (onDone) {
+        onDone({
+          leads: validLeads,
+          scanned: scannedTotal,
+          citiesDone,
+          totalTimeMs: Date.now() - startTime,
         });
-        googleSucceeded = true;
-        notify(`Google: +${added} leads (total: ${allLeads.length})`);
-      } else if (searchResult.blocked) {
-        blockedDetected = true;
-
-        const placesLeads = await extractFromGooglePlacesApi(
-          keyword, location, needsMore(), existingForGoogle
-        );
-
-        if (placesLeads.length > 0) {
-          await processStrategyResult({
-            leads: placesLeads, scanned: placesLeads.length,
-            source: 'google-places-api', blocked: false,
-          });
-          googleSucceeded = true;
-          notify(`Google Places API: +${placesLeads.length} leads (total: ${allLeads.length})`);
-        }
       }
+      return validLeads;
     }
 
     // =========================================================================
-    // PHASE 2: Playwright Maps (with Tor proxy if available)
+    // PHASE 2: Playwright Maps (only if targetLimit > 30 or broad region)
     // =========================================================================
-    if (needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
+    const usePlaywright = isBroadRegion || targetLimit > 30;
+
+    if (usePlaywright && needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
       let searchLocations: string[];
 
       if (isBroadRegion) {
@@ -280,7 +205,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         const bairros = getCityBairros(location);
         if (bairros.length > 1) {
           const mainCity = location.replace(/,?\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/i, '').trim();
-          searchLocations = [location, ...shuffleArray(bairros).map(b => `${b}, ${mainCity}`)];
+          searchLocations = [location, ...shuffleArray(bairros).slice(0, 5).map(b => `${b}, ${mainCity}`)];
         } else {
           searchLocations = [location];
         }
@@ -288,8 +213,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         searchLocations = [location];
       }
 
-      const maxScrollPerCity = isBroadRegion ? 15 : Math.max(15, Math.min(60, targetLimit));
-      const kwVariations = getNicheVariations(keyword);
+      const maxScrollPerCity = isBroadRegion ? 10 : Math.max(10, Math.min(30, targetLimit));
+      const kwVariations = getNicheVariations(keyword).slice(0, 2);
       const proxyConfig = getPlaywrightProxyConfig();
       const proxyUrl = proxyConfig ? undefined : await getWorkingProxy();
 
@@ -312,12 +237,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
             if (await cancelled()) break;
 
             const existingForScrape = new Set<string>(Array.from(scrapedNames));
-
             const mapsResult = await extractFromPlaywrightMaps(
-              browser, kwVar, searchLoc,
-              needsMore(),
-              existingForScrape,
-              maxScrollPerCity
+              browser, kwVar, searchLoc, needsMore(), existingForScrape, maxScrollPerCity
             );
 
             if (mapsResult.blocked) {
@@ -325,16 +246,12 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
               continue;
             }
             if (mapsResult.leads.length > 0) {
-              await processStrategyResult({
-                leads: mapsResult.leads,
-                scanned: mapsResult.leads.length,
-                source: 'maps-scraper', blocked: false,
-              });
+              processResults(mapsResult.leads, 'maps-scraper');
             }
           }
 
           if (!isBroadRegion) citiesDone++;
-          notify(`${allLeads.length} leads encontrados`);
+          notify(`${leadsByName.size} leads (${Math.round((Date.now() - startTime) / 1000)}s)`);
         }
       } finally {
         if (browser) try { await browser.close(); } catch {}
@@ -342,11 +259,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // PHASE 2b: Place page enrichment
+    // PHASE 2b: Place page enrichment (only if we have Google Maps place URLs)
     // =========================================================================
-    if (allLeads.length > 0 && !maxTimeReached() && !(await cancelled())) {
-      const candidates = allLeads.filter(
-        l => (l.telefone === 'Não informado' || !l.site || l.site === 'Sem site') && l.placeUrl
+    if (leadsByName.size > 0 && !maxTimeReached() && !(await cancelled())) {
+      const candidates = getLeadsArray().filter(
+        l => (l.telefone === 'Não informado' || !l.site || l.site === 'Sem site') && l.placeUrl && l.placeUrl.includes('google.com/maps')
       );
       if (candidates.length > 0) {
         const proxyConfig = getPlaywrightProxyConfig();
@@ -363,8 +280,15 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
             const tab = await browser.newPage();
             for (const lead of batch) {
               try {
-                const extraData = await extractMapsPlaceDetails(tab, lead.placeUrl);
-                applyMapsPlaceExtraDataToLead(lead, extraData);
+                const extra = await extractMapsPlaceDetails(tab, lead.placeUrl);
+                if (extra.telefone && isValidBrazilianPhone(extra.telefone) && lead.telefone === 'Não informado') {
+                  lead.telefone = normalizePhone(extra.telefone);
+                }
+                if (extra.site && !extra.site.includes('google.com') && (!lead.site || lead.site === 'Sem site')) {
+                  lead.site = extra.site;
+                }
+                if (extra.instagram && !lead.instagram) lead.instagram = extra.instagram;
+                if (extra.facebook && !lead.facebook) lead.facebook = extra.facebook;
               } catch {}
             }
             try { await tab.close(); } catch {}
@@ -376,30 +300,34 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // PHASE 3: Bing Maps (last resort)
+    // PHASE 3: Google Places API (fallback if blocked)
     // =========================================================================
-    if (needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
-      const existingForAlt = new Set<string>(Array.from(scrapedNames));
-      const bingLeads = await extractFromBingMaps(keyword, location, needsMore(), existingForAlt);
-
-      if (bingLeads.length > 0) {
-        await processStrategyResult({
-          leads: bingLeads, scanned: bingLeads.length,
-          source: 'bing', blocked: false,
-        });
-        notify(`Bing: +${bingLeads.length} leads`);
+    if (blockedDetected && needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
+      const existingForPlaces = new Set<string>(Array.from(scrapedNames));
+      const placesLeads = await extractFromGooglePlacesApi(keyword, location, needsMore(), existingForPlaces);
+      if (placesLeads.length > 0) {
+        processResults(placesLeads, 'google-places-api');
       }
     }
 
     // =========================================================================
-    // FINAL: Post-filter, scoring, and dedup
+    // ENRICHMENT: Background, non-blocking
     // =========================================================================
-    rebuildAllLeads();
+    const leadsToEnrich = getLeadsArray().filter(l => l.site && l.site !== 'Sem site').slice(0, 15);
+    if (leadsToEnrich.length > 0) {
+      const batchSize = 5;
+      for (let i = 0; i < leadsToEnrich.length && !maxTimeReached(); i += batchSize) {
+        const batch = leadsToEnrich.slice(i, i + batchSize);
+        await Promise.all(batch.map(l => enrichLead(l)));
+      }
+    }
 
-    const scoredLeads = allLeads.map(l => ({ lead: l, score: scoreLeadQuality(l) }));
-    scoredLeads.sort((a, b) => b.score.score - a.score.score);
-
-    const validLeads = scoredLeads
+    // =========================================================================
+    // FINAL: Post-filter, scoring, and return
+    // =========================================================================
+    const leads = getLeadsArray();
+    const validLeads = leads
+      .map(l => ({ lead: l, score: scoreLeadQuality(l) }))
       .filter(s => s.score.tier !== 'trash')
       .map(s => s.lead)
       .filter(l => postFilter(l, filterRule))
@@ -408,10 +336,10 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     let error: string | undefined;
     if (validLeads.length === 0 && blockedDetected) {
       error = 'Google bloqueou a busca. Tente novamente em alguns minutos.';
-    } else if (validLeads.length === 0 && allLeads.length === 0) {
+    } else if (validLeads.length === 0 && leads.length === 0) {
       error = 'Nenhum lead encontrado. Verifique o termo e a localização.';
-    } else if (validLeads.length === 0 && allLeads.length > 0) {
-      error = 'Leads encontrados, mas nenhum passou pelos filtros aplicados.';
+    } else if (validLeads.length === 0 && leads.length > 0) {
+      error = 'Leads encontrados, mas nenhum passou pelos filtros.';
     }
 
     if (onDone) {
@@ -427,8 +355,9 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     return validLeads;
   } catch (err: any) {
     console.error('[EXTRACT RUNNER] Fatal error:', err);
-    rebuildAllLeads();
-    const partialLeads = allLeads.filter(l => postFilter(l, filterRule)).slice(0, targetLimit);
+    const partialLeads = getLeadsArray()
+      .filter(l => postFilter(l, filterRule))
+      .slice(0, targetLimit);
     if (onDone) {
       onDone({
         leads: partialLeads,
