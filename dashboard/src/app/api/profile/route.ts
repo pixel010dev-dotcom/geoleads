@@ -43,7 +43,8 @@ export async function GET(request: Request) {
   }
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[PROFILE] Error:', error);
+    return NextResponse.json({ error: 'Erro ao buscar perfil' }, { status: 500 });
   }
 
   const tokens = typeof profile?.tokens === 'number' ? profile.tokens : auth.tokens;
