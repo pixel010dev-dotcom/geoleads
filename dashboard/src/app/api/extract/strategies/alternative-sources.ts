@@ -161,30 +161,22 @@ export async function extractFromOpenStreetMap(
     if (NICHE_TO_OSM_TAGS[part]) { baseKeyword = part; break; }
   }
 
-  const allQueries: string[] = [];
-
-  if (osmTags.length > 0) {
-    for (const tag of osmTags) {
-      const [key, value] = tag.split('=');
-      if (key && value) {
-        allQueries.push(`[out:json][timeout:15];nwr["${key}"="${value}"](${geo.bbox});out body;`);
-      }
+  const tagFilters: string[] = [];
+  for (const tag of osmTags) {
+    const [key, value] = tag.split('=');
+    if (key && value) {
+      tagFilters.push(`nwr["${key}"="${value}"](${geo.bbox})`);
     }
   }
 
-  allQueries.push(`[out:json][timeout:15];nwr[name~"${kwLower}",i](${geo.bbox});out body;`);
+  tagFilters.push(`nwr[name~"${kwLower}",i](${geo.bbox})`);
+
+  const unionBody = tagFilters.join(';\n');
+  const unifiedQuery = `[out:json][timeout:15];\n(${unionBody};\n);\nout body;`;
+
+  const results = await runOverpass(unifiedQuery, 20000);
 
   const wildcardTags = ['amenity', 'shop', 'office', 'craft', 'leisure', 'tourism', 'healthcare'];
-  allQueries.push(`[out:json][timeout:15];nwr[~"^(amenity|shop|office|craft|leisure|tourism|healthcare)$"~"."](${geo.bbox});out body;`);
-
-  const results: any[] = [];
-
-  for (const query of allQueries) {
-    if (leads.length >= targetLimit) break;
-    const elements = await runOverpass(query, 15000);
-    results.push(...elements);
-    await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
-  }
 
   const seenElementIds = new Set<number>();
 

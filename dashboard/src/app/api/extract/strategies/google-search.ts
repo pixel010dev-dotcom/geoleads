@@ -183,8 +183,6 @@ export async function extractFromGoogleSearch(
 
   const queryFormats = [
     `${keyword} ${location}`,
-    `${keyword} em ${location}`,
-    `${keyword}, ${location}`,
   ];
 
   function rewriteUrl(originalUrl: string): string {
@@ -203,7 +201,6 @@ export async function extractFromGoogleSearch(
 
     const urls = [
       rewriteUrl(`https://www.google.com.br/maps/search/${encodedQuery}?hl=pt-BR&gl=br`),
-      rewriteUrl(`https://www.google.com/search?q=${encodedQuery}&tbm=lcl&hl=pt-BR&gl=br`),
       rewriteUrl(`https://www.google.com/search?q=${encodedQuery}+endereço+telefone&hl=pt-BR&gl=br`),
     ];
 

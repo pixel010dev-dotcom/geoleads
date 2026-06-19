@@ -146,15 +146,24 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     notify('Buscando leads...');
 
     const fetchPromises = [
-      extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch).then(leads => ({ source: 'osm', leads })),
-      extractFromGoogleSearch(
-        keyword, location, targetLimit, existingForFetch,
-        cfWorkerUrl ? { cfWorkerUrl } : undefined
-      ).then(result => {
+      Promise.race([
+        extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000)),
+      ]).then(leads => ({ source: 'osm', leads: leads as SearchLead[] })).catch(() => ({ source: 'osm', leads: [] as SearchLead[] })),
+      Promise.race([
+        extractFromGoogleSearch(
+          keyword, location, targetLimit, existingForFetch,
+          cfWorkerUrl ? { cfWorkerUrl } : undefined
+        ),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000)),
+      ]).then(result => {
         if (result.blocked) blockedDetected = true;
         return { source: 'google', leads: result.leads };
-      }),
-      extractFromBingMaps(keyword, location, targetLimit, existingForFetch).then(leads => ({ source: 'bing', leads })),
+      }).catch(() => ({ source: 'google', leads: [] as SearchLead[] })),
+      Promise.race([
+        extractFromBingMaps(keyword, location, targetLimit, existingForFetch),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
+      ]).then(leads => ({ source: 'bing', leads: leads as SearchLead[] })).catch(() => ({ source: 'bing', leads: [] as SearchLead[] })),
     ];
 
     const fetchResults = await Promise.allSettled(fetchPromises);
