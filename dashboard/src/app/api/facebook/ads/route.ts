@@ -17,9 +17,6 @@ async function callFacebook(path: string, options?: RequestInit) {
 
 export async function GET() {
   try {
-    const auth = await getAuthUser(new Request('http://localhost'));
-    if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-
     const accountId = process.env.FACEBOOK_AD_ACCOUNT;
     if (!accountId) return NextResponse.json({ error: 'FACEBOOK_AD_ACCOUNT não configurado' }, { status: 400 });
 

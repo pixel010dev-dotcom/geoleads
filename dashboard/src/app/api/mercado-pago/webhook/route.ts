@@ -10,7 +10,10 @@ type MpEvent = {
 
 function verifyMercadoPagoSignature(request: Request, body: string): boolean {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (!secret) return true; // Sem segredo configurado, aceita qualquer requisição
+  if (!secret) {
+    console.warn('MERCADO_PAGO_WEBHOOK_SECRET não configurado — webhook rejeitado');
+    return false;
+  }
   const signature = request.headers.get('x-signature');
   const requestId = request.headers.get('x-request-id');
   if (!signature || !requestId) return false;
@@ -80,20 +83,6 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
-  try {
-    const url = new URL(request.url);
-    const topic = url.searchParams.get('topic') || url.searchParams.get('type');
-    const id = url.searchParams.get('id') || url.searchParams.get('data.id');
-
-    if (topic === 'payment' && id) {
-      return handlePaymentNotification(id);
-    }
-
-    return NextResponse.json({ received: true }, { status: 200 });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'erro desconhecido';
-    console.error('ERRO WEBHOOK MERCADO PAGO (GET):', message);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+export async function GET() {
+  return NextResponse.json({ error: 'Use POST para webhooks' }, { status: 405 });
 }

@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@/lib/server-auth';
+import { createAdminSupabaseClient, getAuthUser } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const WEBHOOK_SECRET = process.env.AUTOVENDAS_WEBHOOK_SECRET || '';
+
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (!WEBHOOK_SECRET || authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { campaignId, leadPhone, responseText } = body;
 
@@ -23,7 +30,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (findError || !lead) {
-      return NextResponse.json({ received: true, note: 'Lead não encontrado para esta campanha.' }, { status: 200 });
+      return NextResponse.json({ received: true, note: 'Lead não encontrado.' }, { status: 200 });
     }
 
     await supabase

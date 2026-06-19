@@ -47,11 +47,15 @@ export async function POST(request: Request) {
 
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
+    const safeFilename = (filename || 'geoleads-leads')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .slice(0, 100) + '.xlsx';
+
     return new NextResponse(buf, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${filename || 'geoleads-leads.xlsx'}"`,
+        'Content-Disposition': `attachment; filename="${safeFilename}"`,
       },
     });
   } catch (err: any) {

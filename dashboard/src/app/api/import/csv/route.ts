@@ -80,6 +80,10 @@ export async function POST(request: Request) {
     const file = formData.get('file') as File | null;
     if (!file) return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
 
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Arquivo muito grande (máx. 10MB)' }, { status: 400 });
+    }
+
     const text = await file.text();
     const { rows, delimiter } = parseCsv(text);
     if (rows.length === 0) return NextResponse.json({ error: 'CSV vazio ou formato inválido. Verifique se o arquivo tem cabeçalho e pelo menos uma linha de dados.' }, { status: 400 });

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient, getAuthUser } from '@/lib/server-auth';
 
-const ADMIN_EMAIL = 'pixel010dev@gmail.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'pixel010dev@gmail.com';
 
 export async function GET(request: Request) {
   const auth = await getAuthUser(request);
