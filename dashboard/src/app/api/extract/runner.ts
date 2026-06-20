@@ -72,7 +72,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   const {
     keyword, location, targetLimit, filterRule, isBroadRegion,
     existingLeadKeys, onProgress, onDone, shouldCancel,
-    maxTimeMs = isBroadRegion ? 120000 : Math.min(90000, Math.max(20000, targetLimit * 1500))
+    maxTimeMs = isBroadRegion ? 120000 : Math.min(90000, Math.max(25000, targetLimit * 1200))
   } = config;
 
   const startTime = Date.now();
@@ -205,16 +205,16 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // PHASE 2: Playwright Maps — ONLY if targetLimit > 20 AND found < 30%
+    // PHASE 2: Playwright Maps — fallback when fetch sources aren't enough
+    // Tight limits: 3 scrolls max, 10s per page, single location only
     // =========================================================================
-    const foundPercent = leadsByName.size / targetLimit;
-    const usePlaywright = targetLimit > 20 && foundPercent < 0.3 && !maxTimeReached() && !(await cancelled());
+    const usePlaywright = needsMore() > 0 && !maxTimeReached() && !(await cancelled());
 
     if (usePlaywright) {
       let searchLocations: string[];
 
       if (isBroadRegion) {
-        searchLocations = shuffleArray([...MAJOR_CITIES]).slice(0, 3);
+        searchLocations = shuffleArray([...MAJOR_CITIES]).slice(0, 2);
       } else if (targetLimit >= 100) {
         const bairros = getCityBairros(location);
         if (bairros.length > 1) {
@@ -227,8 +227,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         searchLocations = [location];
       }
 
-      const maxScrollPerCity = Math.min(5, Math.max(3, Math.ceil(targetLimit / 10)));
-      const kwVariations = getNicheVariations(keyword).slice(0, 2);
+      const maxScrollPerCity = Math.min(3, Math.max(2, Math.ceil(targetLimit / 15)));
+      const kwVariations = getNicheVariations(keyword).slice(0, 1);
       const proxyConfig = getPlaywrightProxyConfig();
       const proxyUrl = proxyConfig ? undefined : await getWorkingProxy();
 

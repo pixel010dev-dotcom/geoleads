@@ -259,7 +259,7 @@ export async function extractFromPlaywrightMaps(
     try {
       await page.goto(`https://www.google.com/maps/search/${encodedQuery}`, {
         waitUntil: 'domcontentloaded',
-        timeout: 30000,
+        timeout: 15000,
       });
 
       const pageUrl = page.url();
@@ -273,11 +273,11 @@ export async function extractFromPlaywrightMaps(
       }
 
       try {
-        await page.waitForSelector('div[role="feed"], div[role="main"]', { timeout: 20000 });
+        await page.waitForSelector('div[role="feed"], div[role="main"]', { timeout: 10000 });
         foundResults = true;
       } catch {
         try {
-          await page.waitForSelector('a[href*="/maps/place"]', { timeout: 10000 });
+          await page.waitForSelector('a[href*="/maps/place"]', { timeout: 5000 });
           foundResults = true;
         } catch {
           continue;
@@ -291,9 +291,9 @@ export async function extractFromPlaywrightMaps(
     return { leads: allLeads, blocked: wasBlocked };
   }
 
-  await page.waitForTimeout(1000 + Math.random() * 1000);
+  await page.waitForTimeout(500 + Math.random() * 500);
   try {
-    await page.waitForSelector('a[href*="/maps/place"]', { timeout: 8000 });
+    await page.waitForSelector('a[href*="/maps/place"]', { timeout: 5000 });
   } catch (e) { console.error(e); }
 
   let scrollCount = 0;
@@ -317,7 +317,7 @@ export async function extractFromPlaywrightMaps(
 
     if (newLeads.length === 0) {
       emptyScrolls++;
-      if (emptyScrolls >= 12) break;
+      if (emptyScrolls >= 6) break;
     } else {
       emptyScrolls = 0;
     }
@@ -327,7 +327,7 @@ export async function extractFromPlaywrightMaps(
         const feed = document.querySelector('div[role="feed"]');
         if (feed) feed.scrollBy(0, 1000 + Math.random() * 500);
       });
-      await page.waitForTimeout(1200 + Math.random() * 800);
+      await page.waitForTimeout(600 + Math.random() * 400);
     }
     scrollCount++;
   }
