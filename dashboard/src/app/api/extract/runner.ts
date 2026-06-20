@@ -304,13 +304,20 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     if (onDone) {
-      onDone({
-        leads: validLeads,
-        scanned: scannedTotal,
-        citiesDone,
-        totalTimeMs: Date.now() - startTime,
-        error,
-      });
+      try {
+        await onDone({
+          leads: validLeads,
+          scanned: scannedTotal,
+          citiesDone,
+          totalTimeMs: Date.now() - startTime,
+          error,
+        });
+      } catch (e) {
+        console.error('[EXTRACT RUNNER] onDone failed:', e);
+        if (onProgress) {
+          onProgress(validLeads, scannedTotal, citiesDone, `Extração concluída: ${validLeads.length} leads`);
+        }
+      }
     }
 
     // =========================================================================

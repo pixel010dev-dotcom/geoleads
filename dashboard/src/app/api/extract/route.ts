@@ -143,61 +143,85 @@ export async function POST(request: Request) {
         });
       },
       onDone: async (result) => {
-        const gastos = result.leads.length;
-
-        if (gastos > 0) {
-          let deducted = false;
-          const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
-            p_user_id: authedUser.user.id, p_amount: gastos
-          });
-          if (deductError && !deductError.message?.includes('does not exist')) {
-            console.warn('RPC deduct_tokens falhou, usando fallback:', deductError.message);
-          }
-          if (!deductError) deducted = true;
-          if (!deducted) {
-            await requestSupabase.from('profiles')
-              .update({ tokens: Math.max(0, authedUser.tokens - gastos) })
-              .eq('id', authedUser.user.id)
-              .gte('tokens', gastos);
-          }
-        }
-
         try {
-          await requestSupabase.from('extraction_history').insert({
-            user_id: authedUser.user.id, keyword, location,
-            filter_rule: filterRule || '',
-            leads_found: result.leads.length,
-            leads_requested: targetLimit,
-            tokens_spent: gastos,
-            search_time_seconds: Math.round(result.totalTimeMs / 1000),
-          });
-        } catch (e) { console.error(e); }
+          const gastos = result.leads.length;
 
-        if (result.error) {
-          await updateJob(jobId, {
-            status: 'failed',
-            error: result.error,
-            leads: result.leads,
-            leads_count: result.leads.length,
-            scanned: result.scanned,
-            cities_scanned: result.citiesDone,
-            message: result.error,
-            search_time_seconds: Math.round(result.totalTimeMs / 1000),
-            completed_at: new Date().toISOString(),
-            delivered: true,
-          });
-        } else {
-          await updateJob(jobId, {
-            status: 'completed',
-            leads: result.leads,
-            leads_count: result.leads.length,
-            scanned: result.scanned,
-            cities_scanned: result.citiesDone,
-            message: `Extração concluída: ${result.leads.length} leads em ${Math.round(result.totalTimeMs / 1000)}s`,
-            search_time_seconds: Math.round(result.totalTimeMs / 1000),
-            completed_at: new Date().toISOString(),
-            delivered: true,
-          });
+          if (gastos > 0) {
+            let deducted = false;
+            try {
+              const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
+                p_user_id: authedUser.user.id, p_amount: gastos
+              });
+              if (!deductError) deducted = true;
+            } catch (e) {
+              console.warn('[EXTRACT] deduct_tokens RPC failed:', e);
+            }
+            if (!deducted) {
+              try {
+                await requestSupabase.from('profiles')
+                  .update({ tokens: Math.max(0, authedUser.tokens - gastos) })
+                  .eq('id', authedUser.user.id)
+                  .gte('tokens', gastos);
+              } catch (e) {
+                console.warn('[EXTRACT] fallback token deduct failed:', e);
+              }
+            }
+          }
+
+          try {
+            await requestSupabase.from('extraction_history').insert({
+              user_id: authedUser.user.id, keyword, location,
+              filter_rule: filterRule || '',
+              leads_found: result.leads.length,
+              leads_requested: targetLimit,
+              tokens_spent: gastos,
+              search_time_seconds: Math.round(result.totalTimeMs / 1000),
+            });
+          } catch (e) { console.error('[EXTRACT] history insert failed:', e); }
+
+          if (result.error) {
+            await updateJob(jobId, {
+              status: 'failed',
+              error: result.error,
+              leads: result.leads,
+              leads_count: result.leads.length,
+              scanned: result.scanned,
+              cities_scanned: result.citiesDone,
+              message: result.error,
+              search_time_seconds: Math.round(result.totalTimeMs / 1000),
+              completed_at: new Date().toISOString(),
+              delivered: true,
+            });
+          } else {
+            await updateJob(jobId, {
+              status: 'completed',
+              leads: result.leads,
+              leads_count: result.leads.length,
+              scanned: result.scanned,
+              cities_scanned: result.citiesDone,
+              message: `Extração concluída: ${result.leads.length} leads em ${Math.round(result.totalTimeMs / 1000)}s`,
+              search_time_seconds: Math.round(result.totalTimeMs / 1000),
+              completed_at: new Date().toISOString(),
+              delivered: true,
+            });
+          }
+        } catch (e) {
+          console.error('[EXTRACT] onDone critical error:', e);
+          try {
+            await updateJob(jobId, {
+              status: 'completed',
+              leads: result.leads,
+              leads_count: result.leads.length,
+              scanned: result.scanned,
+              cities_scanned: result.citiesDone,
+              message: `Extração concluída: ${result.leads.length} leads`,
+              search_time_seconds: Math.round(result.totalTimeMs / 1000),
+              completed_at: new Date().toISOString(),
+              delivered: true,
+            });
+          } catch (e2) {
+            console.error('[EXTRACT] onDone fallback updateJob failed:', e2);
+          }
         }
 
         done();
