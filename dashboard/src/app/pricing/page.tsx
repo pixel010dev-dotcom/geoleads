@@ -90,9 +90,7 @@ export default function Pricing() {
             router.push(`/?checkout=success&plan=${selectedPlanId}`);
           }, 1500);
         }
-      } catch {
-        /* ignore poll errors */
-      }
+      } catch (e) { console.error(e); }
     }, 5000);
   }, [selectedPlanId, stopPolling]);
 

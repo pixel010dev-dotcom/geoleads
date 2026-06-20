@@ -4,6 +4,7 @@ import { getAuthUser } from '@/lib/server-auth';
 const FB_GRAPH = 'https://graph.facebook.com/v21.0';
 
 async function callFacebook(path: string, options?: RequestInit) {
+  // TODO: All users currently share one FACEBOOK_ACCESS_TOKEN. This needs per-user tokens.
   const token = process.env.FACEBOOK_ACCESS_TOKEN;
   if (!token) throw new Error('FACEBOOK_ACCESS_TOKEN não configurado');
   const url = `${FB_GRAPH}${path}`;

@@ -60,7 +60,7 @@ export const makeSupabaseAuthState = async (userId: string) => {
             const key = `${type}-${id}`;
             let value = keysData[key];
             if (type === 'app-state-sync-key' && value) {
-              try { value = proto.Message.AppStateSyncKeyData.fromObject(value); } catch {}
+              try { value = proto.Message.AppStateSyncKeyData.fromObject(value); } catch (e) { console.error(e); }
             }
             data[id] = value;
           }

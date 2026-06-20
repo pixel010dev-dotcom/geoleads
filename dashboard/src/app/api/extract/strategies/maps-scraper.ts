@@ -191,7 +191,7 @@ async function extractCardsFromPage(page: any): Promise<any[]> {
         const placeUrl = (anchor as HTMLAnchorElement).href || '';
 
         chunk.push({ nome, telefone, avaliacao, site, placeUrl, cep, reviewCount, categoria, endereco, horarios });
-      } catch {}
+      } catch (e) { console.error(e); }
     }
     return chunk;
   });
@@ -294,7 +294,7 @@ export async function extractFromPlaywrightMaps(
   await page.waitForTimeout(1000 + Math.random() * 1000);
   try {
     await page.waitForSelector('a[href*="/maps/place"]', { timeout: 8000 });
-  } catch {}
+  } catch (e) { console.error(e); }
 
   let scrollCount = 0;
   let emptyScrolls = 0;
@@ -339,7 +339,7 @@ export async function extractFromPlaywrightMaps(
         finalTitle.toLowerCase().includes('captcha') || finalTitle.toLowerCase().includes('sorry')) {
       wasBlocked = true;
     }
-  } catch {}
+  } catch (e) { console.error(e); }
   await context.close();
   return { leads: allLeads, blocked: wasBlocked };
 }
@@ -354,7 +354,7 @@ export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promi
         timeout: 15000,
         referer: 'https://www.google.com/maps'
       });
-    } catch {}
+    } catch (e) { console.error(e); }
 
     try {
       await tab.waitForFunction(() => {
@@ -366,7 +366,7 @@ export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promi
         return text.includes('Sugerir mudança') || text.includes('Suggest an edit') || text.includes('Adicionar website');
       }, null, { timeout: 10000 });
     } catch {
-      try { await tab.waitForTimeout(2000); } catch {}
+      try { await tab.waitForTimeout(2000); } catch (e) { console.error(e); }
     }
 
     const extraData = await tab.evaluate(() => {
@@ -396,7 +396,7 @@ export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promi
               r.endereco = addr;
             }
           }
-        } catch {}
+        } catch (e) { console.error(e); }
       }
 
       if (!r.telefone) {
@@ -461,7 +461,7 @@ export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promi
       });
       mergeMapsPlaceExtraData(result, retryData);
     }
-  } catch {}
+  } catch (e) { console.error(e); }
 
   return result;
 }

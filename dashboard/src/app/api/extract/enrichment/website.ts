@@ -87,7 +87,7 @@ export async function enrichLead(lead: any): Promise<any> {
         tiktok: lead.tiktok,
       });
     }
-  } catch {}
+  } catch (e) { console.error(e); }
 
   return lead;
 }

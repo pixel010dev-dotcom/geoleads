@@ -263,7 +263,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
           notify(`${leadsByName.size} leads (${Math.round((Date.now() - startTime) / 1000)}s)`);
         }
       } finally {
-        if (browser) try { await browser.close(); } catch {}
+        if (browser) try { await browser.close(); } catch (e) { console.error(e); }
       }
     }
 
@@ -298,12 +298,12 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
                 }
                 if (extra.instagram && !lead.instagram) lead.instagram = extra.instagram;
                 if (extra.facebook && !lead.facebook) lead.facebook = extra.facebook;
-              } catch {}
+              } catch (e) { console.error(e); }
             }
-            try { await tab.close(); } catch {}
+            try { await tab.close(); } catch (e) { console.error(e); }
           }
         } finally {
-          if (browser) try { await browser.close(); } catch {}
+          if (browser) try { await browser.close(); } catch (e) { console.error(e); }
         }
       }
     }

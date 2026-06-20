@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createRequestSupabaseClient, getAuthUser, requireFeature } from '@/lib/server-auth';
+import { isSafeUrl } from '@/app/api/extract/lib/validation';
 
 export const runtime = 'nodejs';
 
@@ -68,7 +69,7 @@ function normalizeSocialUrl(rawUrl: string, baseUrl: string) {
     if (host === 'instagram.com' && /^\/[a-zA-Z0-9._]+$/.test(path) && !/^\/(p|reel|reels|stories|explore|accounts|privacy|terms)\b/i.test(path)) return { key: 'instagram', url: `https://instagram.com${path}` };
     if (['facebook.com', 'fb.com'].includes(host) && path.length > 1 && !/^\/(sharer|share|dialog|plugins|events|groups|login|privacy|help)\b/i.test(path)) return { key: 'facebook', url: `https://facebook.com${path}` };
     if (host === 'tiktok.com' && /^\/@[a-zA-Z0-9._]+$/.test(path)) return { key: 'tiktok', url: `https://www.tiktok.com${path}` };
-  } catch {}
+  } catch (e) { console.error(e); }
   return null;
 }
 
@@ -115,11 +116,11 @@ function pickMapsData(html: string) {
               if (host.startsWith('instagram') && !result.instagram) result.instagram = url;
               else if ((host.startsWith('facebook') || host.startsWith('fb.com')) && !result.facebook) result.facebook = url;
               else if (host.startsWith('tiktok') && !result.tiktok) result.tiktok = url;
-            } catch {}
+            } catch (e) { console.error(e); }
           }
         }
       }
-    } catch {}
+    } catch (e) { console.error(e); }
   }
 
   // 2. HTML meta/link fallbacks (when LD+JSON doesn't have everything)
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
     let enriched: any = {};
 
     // 1. Enrich from Maps placeUrl (LD+JSON + HTML fallbacks)
-    if (placeUrl && !placeUrl.includes('Sem site')) {
+    if (placeUrl && !placeUrl.includes('Sem site') && isSafeUrl(placeUrl)) {
       const mapsHtml = await fetchHtml(placeUrl, MAPS_UA);
       if (mapsHtml) {
         const mapsData = pickMapsData(mapsHtml);
@@ -168,7 +169,7 @@ export async function POST(request: Request) {
 
     // 2. Enrich from site (if available and different from Maps)
     const finalSite = enriched.site || site;
-    if (finalSite && finalSite !== 'Sem site') {
+    if (finalSite && finalSite !== 'Sem site' && isSafeUrl(finalSite)) {
       const domain = (() => { try { const u = new URL(finalSite); return u.hostname.replace(/^www\./, '').toLowerCase(); } catch { return null; } })();
       const html = await fetchHtml(finalSite, SITE_UA);
       if (html) {

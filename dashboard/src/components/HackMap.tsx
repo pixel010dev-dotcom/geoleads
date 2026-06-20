@@ -18,7 +18,7 @@ async function geocodeCity(city: string): Promise<[number, number] | null> {
       CITY_CACHE[key] = coord;
       return coord;
     }
-  } catch {}
+  } catch (e) { console.error(e); }
   return null;
 }
 

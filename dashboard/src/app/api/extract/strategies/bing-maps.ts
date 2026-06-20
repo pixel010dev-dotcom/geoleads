@@ -65,7 +65,7 @@ export async function extractFromBingMaps(
 
             leads.push(lead);
           }
-        } catch {}
+        } catch (e) { console.error(e); }
       }
 
       if (leads.length < targetLimit) {
@@ -100,7 +100,7 @@ export async function extractFromBingMaps(
       }
 
       await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
-    } catch {}
+    } catch (e) { console.error(e); }
   }
 
   return leads;

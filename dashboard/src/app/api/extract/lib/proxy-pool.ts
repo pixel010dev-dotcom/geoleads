@@ -50,8 +50,7 @@ async function refreshProxyPool(): Promise<void> {
 
     cachedProxies = sample;
     lastCacheUpdate = Date.now();
-  } catch {
-  }
+  } catch (e) { console.error(e); }
 }
 
 async function ensureProxiesLoaded(): Promise<void> {

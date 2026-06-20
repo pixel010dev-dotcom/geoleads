@@ -26,7 +26,7 @@ export default function Login() {
     const next = params.get('next') || '/app/dashboard';
     const plan = params.get('plan');
     const ref = params.get('ref');
-    if (ref) localStorage.setItem('pending_ref', ref);
+    if (ref) { try { localStorage.setItem('pending_ref', ref); } catch { /* ignore */ } }
     return plan ? `${next}?plan=${encodeURIComponent(plan)}` : next;
   };
 

@@ -194,7 +194,7 @@ export function pickContactUrls(html: string, baseUrl: string): string[] {
       if (!/(contato|contact|sobre|about|quem-somos|institucional|empresa|localizacao|unidades)/i.test(path)) continue;
       if (!urls.includes(url.toString())) urls.push(url.toString());
       if (urls.length >= 2) break;
-    } catch {}
+    } catch (e) { console.error(e); }
   }
   return urls;
 }
@@ -242,7 +242,7 @@ export function cleanMapsUrlCandidate(rawUrl: string): string {
       const redirected = url.searchParams.get('q') || url.searchParams.get('url');
       if (redirected) candidate = redirected;
     }
-  } catch {}
+  } catch (e) { console.error(e); }
   return candidate;
 }
 

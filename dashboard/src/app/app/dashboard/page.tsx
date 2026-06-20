@@ -231,7 +231,7 @@ export default function Home() {
 
   const saveChatbotConfig = async (silent = false) => {
     const config = getChatbotConfig();
-    localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config));
+    try { localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config)); } catch { /* ignore */ }
     let cloudSyncFailed = false;
     let runtimeSyncFailed = false;
     if (user?.id) {
@@ -436,16 +436,18 @@ export default function Home() {
         const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
         window.history.replaceState({}, '', nextUrl);
       }
-      const localCrm = localStorage.getItem('geoleads_crm');
+      let localCrm: string | null = null;
+      try { localCrm = localStorage.getItem('geoleads_crm'); } catch { localCrm = null; }
       let parsedCrm: any[] = [];
-      if (localCrm) { try { parsedCrm = JSON.parse(localCrm).map(normalizeCrmLead); } catch(e) {} }
-      const localChatbotConfig = localStorage.getItem('geoleads_chatbot_config');
-      if (localChatbotConfig) { try { applyChatbotConfig(JSON.parse(localChatbotConfig)); } catch(e) {} }
+      if (localCrm) { try { parsedCrm = JSON.parse(localCrm).map(normalizeCrmLead); } catch(e) { console.error(e); } }
+      let localChatbotConfig: string | null = null;
+      try { localChatbotConfig = localStorage.getItem('geoleads_chatbot_config'); } catch { localChatbotConfig = null; }
+      if (localChatbotConfig) { try { applyChatbotConfig(JSON.parse(localChatbotConfig)); } catch(e) { console.error(e); } }
       if (sessionUserId) {
         try {
           setCrmSyncStatus('syncing'); setCrmSyncMessage('Carregando nuvem...');
           const cloudCrm = await loadCrmFromCloud(sessionUserId);
-          if (cloudCrm.length > 0) { parsedCrm = cloudCrm; localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm)); }
+          if (cloudCrm.length > 0) { parsedCrm = cloudCrm; try { localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm)); } catch { /* ignore */ } }
           else if (parsedCrm.length > 0) { await syncCrmToCloud(parsedCrm, sessionUserId); }
           else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
         } catch (error: any) { console.warn('CRM cloud load failed:', error.message); setCrmSyncStatus('error'); setCrmSyncMessage('Modo local'); }
@@ -459,13 +461,13 @@ export default function Home() {
               useAI: cloudChatbotConfig.use_ai, aiInstructions: cloudChatbotConfig.ai_instructions
             };
             applyChatbotConfig(config);
-            localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config));
+            try { localStorage.setItem('geoleads_chatbot_config', JSON.stringify(config)); } catch { /* ignore */ }
           }
         } catch (error: any) { console.warn('Chatbot cloud config load failed:', error.message); }
       }
       if (!Array.isArray(parsedCrm) || parsedCrm.length === 0) {
         parsedCrm = sampleCrmLeads();
-        localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm));
+        try { localStorage.setItem('geoleads_crm', JSON.stringify(parsedCrm)); } catch { /* ignore */ }
       }
       setCrmLeads(parsedCrm);
       const dispatchable = parsedCrm.filter(l => l.telefone && l.telefone !== 'Não informado').map(getLeadKey);
@@ -474,9 +476,10 @@ export default function Home() {
     loadData();
 
     // Pending referral from signup
-    const pendingRef = localStorage.getItem('pending_ref');
+    let pendingRef: string | null = null;
+    try { pendingRef = localStorage.getItem('pending_ref'); } catch { pendingRef = null; }
     if (pendingRef) {
-      localStorage.removeItem('pending_ref');
+      try { localStorage.removeItem('pending_ref'); } catch { /* ignore */ }
       (async () => {
         const h = await getAuthedJsonHeaders();
         if (!h) return;
@@ -485,12 +488,11 @@ export default function Home() {
     }
 
     // Onboarding check
-    try {
-      const onboardingDone = localStorage.getItem('geoleads_onboarding_done');
-      if (!onboardingDone) {
-        setShowOnboarding(true);
-      }
-    } catch {}
+    let onboardingDone = '';
+    try { onboardingDone = localStorage.getItem('geoleads_onboarding_done') || ''; } catch { onboardingDone = ''; }
+    if (!onboardingDone) {
+      setShowOnboarding(true);
+    }
 
     return () => {
       cancelled = true;
@@ -514,7 +516,7 @@ export default function Home() {
   const saveCrm = (updatedCrm: any[]) => {
     const normalized = updatedCrm.map(normalizeCrmLead);
     setCrmLeads(normalized);
-    localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
+    try { localStorage.setItem('geoleads_crm', JSON.stringify(normalized)); } catch { /* ignore */ }
     syncCrmToCloud(normalized);
   };
 
@@ -632,7 +634,7 @@ export default function Home() {
           if (idx >= 0) { updated[idx] = { ...updated[idx], ...data.enriched }; }
           enriched++;
         }
-      } catch {}
+      } catch (e) { console.error(e); }
     }
     saveCrm(updated);
     setEnrichLoading(false);
@@ -766,7 +768,7 @@ export default function Home() {
       const res = await fetch('/api/chatbot/messages', { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json();
       if (json.success) setWaSentMessages(json.messages || []);
-    } catch {} finally { setWaSentMessagesLoading(false); }
+    } catch (e) { console.error(e); } finally { setWaSentMessagesLoading(false); }
   };
 
   const handleLoadWaStats = async () => {
@@ -778,7 +780,7 @@ export default function Home() {
       const res = await fetch('/api/chatbot/stats', { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json();
       if (json.success) setWaStats(json.stats);
-    } catch {}
+    } catch (e) { console.error(e); }
   };
 
   const handleLoadCampaigns = async () => {
@@ -790,7 +792,7 @@ export default function Home() {
       const res = await fetch('/api/chatbot/campaign', { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json();
       if (json.success) setCampaigns(json.campaigns || []);
-    } catch {}
+    } catch (e) { console.error(e); }
   };
 
   const handleCreateCampaign = async () => {
@@ -809,7 +811,7 @@ export default function Home() {
       const json = await res.json();
       if (json.success) { showToast('Campanha agendada!', 'success'); handleLoadCampaigns(); }
       else showToast(json.error || 'Erro ao criar campanha.', 'error');
-    } catch {}
+    } catch (e) { console.error(e); }
   };
 
   const handleLoadConversations = async () => {
@@ -822,7 +824,7 @@ export default function Home() {
       const res = await fetch('/api/chatbot/conversations?limit=30', { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json();
       if (json.success) setConversations(json.conversations || []);
-    } catch {} finally { setConversationsLoading(false); }
+    } catch (e) { console.error(e); } finally { setConversationsLoading(false); }
   };
 
   const handleLoadChatbotStats = async () => {
@@ -834,7 +836,7 @@ export default function Home() {
       const res = await fetch('/api/chatbot/stats', { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json();
       if (json.success) setChatbotStats(json.stats);
-    } catch {}
+    } catch (e) { console.error(e); }
   };
 
   const handleUpdateCRMLead = (nome: string, field: 'stage' | 'notes' | 'tags', value: string, telefone?: string, cidade?: string) => {
@@ -848,7 +850,7 @@ export default function Home() {
   const startPolling = (jobId: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
     currentJobIdRef.current = jobId;
-    localStorage.setItem('lastJobId', jobId);
+        try { localStorage.setItem('lastJobId', jobId); } catch { /* ignore */ }
     pollRef.current = setInterval(async () => {
       if (currentJobIdRef.current !== jobId) return;
       try {
@@ -884,7 +886,7 @@ export default function Home() {
                 if (toAdd.length > 0) {
                   const normalized = [...toAdd, ...crmLeads].map(normalizeCrmLead);
                   setCrmLeads(normalized);
-                  localStorage.setItem('geoleads_crm', JSON.stringify(normalized));
+                  try { localStorage.setItem('geoleads_crm', JSON.stringify(normalized)); } catch { /* ignore */ }
                   const rows = normalized.map(lead => crmLeadToRow(lead, user.id!));
                   supabase.from('crm_leads').upsert(rows, { onConflict: 'user_id,lead_key' }).then(({ error }) => {
                     if (error) console.warn('CRM auto-sync failed:', error.message);
@@ -901,7 +903,7 @@ export default function Home() {
             }
             setIsExtracting(false);
             if (pollRef.current) clearInterval(pollRef.current);
-            localStorage.removeItem('lastJobId');
+            try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
             if (user?.id) refreshProfile(user.id);
           } else if (j.status === 'running') {
             setHasSearched(false);
@@ -910,11 +912,11 @@ export default function Home() {
             setIsExtracting(false);
             setHasSearched(true);
             if (pollRef.current) clearInterval(pollRef.current);
-            localStorage.removeItem('lastJobId');
+            try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
             if (j.status === 'failed') showToast("Erro: " + (j.error || 'Falha na extração'), 'error');
           }
         }
-      } catch {}
+      } catch (e) { console.error(e); }
     }, 3000);
   };
 
@@ -952,7 +954,8 @@ export default function Home() {
 
   // Recuperar job pendente ao carregar a página
   useEffect(() => {
-    const lastJobId = localStorage.getItem('lastJobId');
+    let lastJobId: string | null = null;
+    try { lastJobId = localStorage.getItem('lastJobId'); } catch { lastJobId = null; }
     if (lastJobId && !isExtracting) {
       (async () => {
         try {
@@ -967,9 +970,9 @@ export default function Home() {
             setExtractStats(null);
             startPolling(lastJobId);
           } else {
-            localStorage.removeItem('lastJobId');
+            try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
           }
-        } catch { localStorage.removeItem('lastJobId'); }
+        } catch (e) { console.error(e); try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ } }
       })();
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -992,11 +995,11 @@ export default function Home() {
       } else {
         showToast(data.error || 'Erro ao cancelar extração.', 'error');
       }
-    } catch {}
+    } catch (e) { console.error(e); }
     if (pollRef.current) clearInterval(pollRef.current);
     setIsExtracting(false);
     setHasSearched(true);
-    localStorage.removeItem('lastJobId');
+    try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
   };
 
   const logout = async () => { await supabase.auth.signOut(); router.push('/login'); };
@@ -1009,7 +1012,7 @@ export default function Home() {
       const res = await fetch('/api/extract/history', { headers });
       const data = await res.json();
       if (data.success) setHistoryData(data.history || []);
-    } catch {} finally { setHistoryLoading(false); }
+    } catch (e) { console.error(e); } finally { setHistoryLoading(false); }
   };
 
   const exportToCSV = () => {

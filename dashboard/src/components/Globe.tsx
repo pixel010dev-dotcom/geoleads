@@ -67,7 +67,7 @@ export default function Globe({ size = 36, className = "" }: GlobeProps) {
 
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {}
+    } catch (e) { console.error(e); }
   };
 
   return (

@@ -77,7 +77,7 @@ function parseLdJsonFromSearch(html: string): SearchLead[] {
         }
         if (lead.nome) leads.push(lead);
       }
-    } catch {}
+    } catch (e) { console.error(e); }
   }
   return leads;
 }
@@ -249,11 +249,11 @@ export async function extractFromGoogleSearch(
           if (existingKeys.has(nameKey)) continue;
 
           seenNames.add(nameKey);
-          allLeads.push(lead);
-        }
-      } catch {}
+        allLeads.push(lead);
+      }
+    } catch (e) { console.error(e); }
 
-      await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
+    await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
     }
   }
 

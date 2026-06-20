@@ -1,11 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { getAuthUser, requireFeature } from '@/lib/server-auth';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project-url.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
+import { getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 
 const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
 
@@ -54,6 +48,7 @@ async function fetchCnpjFromReceita(cnpj: string) {
 }
 
 async function searchCnpjByName(name: string, city?: string) {
+  const supabase = createAdminSupabaseClient();
   try {
     const { data, error } = await supabase.rpc('search_cnpj_by_name', {
       search_name: name,
@@ -82,6 +77,7 @@ export async function POST(request: Request) {
     const { cnpj, name, city } = body;
 
     if (cnpj) {
+      const supabase = createAdminSupabaseClient();
       const normalized = normalizeCnpj(cnpj);
       if (normalized.length !== 14) {
         return NextResponse.json({ error: 'CNPJ invalido.' }, { status: 400 });

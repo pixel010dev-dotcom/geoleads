@@ -33,7 +33,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadTranslations().then(() => {
-      const saved = localStorage.getItem('geoleads_locale') as Locale | null;
+      let saved: Locale | null = null;
+      try { saved = localStorage.getItem('geoleads_locale') as Locale | null; } catch { saved = null; }
       if (saved && locales.includes(saved)) {
         setLocaleState(saved);
       }
@@ -43,7 +44,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
-    try { localStorage.setItem('geoleads_locale', newLocale); } catch {}
+    try { localStorage.setItem('geoleads_locale', newLocale); } catch (e) { console.error(e); }
   }, []);
 
   const t = useCallback((key: string, vars?: Record<string, string | number>): string => {

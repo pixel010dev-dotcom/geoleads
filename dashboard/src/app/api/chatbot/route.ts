@@ -338,7 +338,7 @@ const startBotSession = async (session: BotSession) => {
 
   try {
     session.socket?.end?.();
-  } catch {}
+  } catch (e) { console.error(e); }
 
   const { state, saveCreds } = await makeSupabaseAuthState(session.userId);
 
@@ -506,7 +506,7 @@ const startBotSession = async (session: BotSession) => {
               direction: 'incoming',
               rule_id: null,
             });
-          } catch {}
+          } catch (e) { console.error(e); }
         })();
 
         // Auto-capture lead if enabled
@@ -537,7 +537,7 @@ const startBotSession = async (session: BotSession) => {
                   });
                 }
               }
-            } catch {}
+            } catch (e) { console.error(e); }
           })();
         }
 
@@ -604,7 +604,7 @@ const startBotSession = async (session: BotSession) => {
               direction: 'outgoing',
               rule_id: matchedRuleId,
             });
-          } catch {}
+          } catch (e) { console.error(e); }
         })();
 
         session.replyThrottle.set(jid, now);
@@ -686,7 +686,7 @@ export async function POST(request: Request) {
     }
     try {
       session.socket?.end?.();
-    } catch {}
+    } catch (e) { console.error(e); }
     session.pairingCode = '';
     session.qrDataUrl = '';
     session.qr = '';
@@ -779,7 +779,7 @@ export async function POST(request: Request) {
           setTimeout(async () => {
             try {
               await startBotSession(session);
-            } catch {}
+            } catch (e) { console.error(e); }
           }, retryDelay);
         } else {
           session.status = 'disconnected';
@@ -810,11 +810,11 @@ export async function POST(request: Request) {
   if (action === 'disconnect') {
     try {
       await session.socket?.logout?.();
-    } catch {}
+    } catch (e) { console.error(e); }
 
     try {
       session.socket?.end?.();
-    } catch {}
+    } catch (e) { console.error(e); }
 
     session.socket = undefined;
     session.status = 'disconnected';
@@ -826,7 +826,7 @@ export async function POST(request: Request) {
   if (action === 'reset_session') {
     try {
       session.socket?.end?.();
-    } catch {}
+    } catch (e) { console.error(e); }
     session.socket = undefined;
 
     const supabase = createAdminSupabaseClient();

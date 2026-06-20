@@ -1,11 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { getAuthUser, requireFeature } from '@/lib/server-auth';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project-url.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
-);
+import { getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 
 type SocialResult = {
   instagram?: string;
@@ -155,6 +149,8 @@ export async function POST(request: Request) {
     }
 
     const cacheKey = `${normalizeName(name)}|${normalizeName(city || '')}`;
+
+    const supabase = createAdminSupabaseClient();
 
     const { data: cached } = await supabase
       .from('social_enrichment_cache')

@@ -171,7 +171,7 @@ export async function POST(request: Request) {
             tokens_spent: gastos,
             search_time_seconds: Math.round(result.totalTimeMs / 1000),
           });
-        } catch {}
+        } catch (e) { console.error(e); }
 
         if (result.error) {
           await updateJob(jobId, {

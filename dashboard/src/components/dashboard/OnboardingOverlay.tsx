@@ -54,14 +54,14 @@ export default function OnboardingOverlay() {
     setVisible(false);
     try {
       localStorage.setItem('geoleads_onboarding_done', 'true');
-    } catch {}
+    } catch (e) { console.error(e); }
   };
 
   const handleFinish = () => {
     if (dontShowAgain) {
       try {
         localStorage.setItem('geoleads_onboarding_done', 'true');
-      } catch {}
+      } catch (e) { console.error(e); }
     }
     setVisible(false);
   };
