@@ -284,19 +284,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // ENRICHMENT: Parallel batch website scraping
-    // =========================================================================
-    const leadsToEnrich = getLeadsArray().filter(l => l.site && l.site !== 'Sem site').slice(0, 15);
-    if (leadsToEnrich.length > 0) {
-      const batchSize = 5;
-      for (let i = 0; i < leadsToEnrich.length && !maxTimeReached(); i += batchSize) {
-        const batch = leadsToEnrich.slice(i, i + batchSize);
-        await Promise.all(batch.map(l => enrichLead(l)));
-      }
-    }
-
-    // =========================================================================
-    // FINAL: Post-filter, scoring, and return
+    // FINAL: Post-filter, scoring, and deliver leads IMMEDIATELY
     // =========================================================================
     const leads = getLeadsArray();
     const validLeads = leads
@@ -323,6 +311,22 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         totalTimeMs: Date.now() - startTime,
         error,
       });
+    }
+
+    // =========================================================================
+    // ENRICHMENT: Runs AFTER onDone — background, non-blocking
+    // Updates job via onProgress so frontend sees enriched data live
+    // =========================================================================
+    const leadsToEnrich = validLeads.filter(l => l.site && l.site !== 'Sem site').slice(0, 10);
+    if (leadsToEnrich.length > 0) {
+      const batchSize = 5;
+      for (let i = 0; i < leadsToEnrich.length; i += batchSize) {
+        const batch = leadsToEnrich.slice(i, i + batchSize);
+        await Promise.all(batch.map(l => enrichLead(l)));
+        if (onProgress) {
+          onProgress(validLeads, scannedTotal, citiesDone, `Enriquecendo sites (${Math.min(i + batchSize, leadsToEnrich.length)}/${leadsToEnrich.length})...`);
+        }
+      }
     }
 
     return validLeads;

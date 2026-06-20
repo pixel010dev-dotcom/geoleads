@@ -1,56 +1,38 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useTranslations } from '@/lib/i18n';
 
 interface HackerRadarProps {
   keyword: string;
   location: string;
+  extractStats?: {
+    scanned?: number;
+    time?: number;
+    message?: string;
+    total?: number;
+  } | null;
 }
 
-export default function HackerRadar({ keyword, location }: HackerRadarProps) {
+export default function HackerRadar({ keyword, location, extractStats }: HackerRadarProps) {
   const { t } = useTranslations();
   const [logs, setLogs] = useState<string[]>([]);
   const [blips, setBlips] = useState<{ x: number; y: number; id: number; color: string; life: number }[]>([]);
+  const lastMessageRef = useRef('');
+  const startTimeRef = useRef(Date.now());
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const startTime = Date.now();
+    startTimeRef.current = Date.now();
     setElapsed(0);
+    lastMessageRef.current = '';
 
     setLogs([
-      `[SYS] MOTOR DE VARREDURA INICIADO EM: ${new Date().toLocaleTimeString()}`,
-      `[SYS] PESQUISA PARAMETRIZADA: "${keyword || 'Geral'}" EM "${location || 'Brasil'}"`,
-      `[GRID] Estabelecendo conexões via proxies residenciais seguros...`,
-      `[GRID] Acessando canais de dados públicos de geolocalização...`
+      `[SYS] Motor de varredura iniciado em: ${new Date().toLocaleTimeString()}`,
+      `[SYS] Pesquisa: "${keyword || 'Geral'}" em "${location || 'Brasil'}"`,
+      `[GRID] Conectando a fontes de dados públicos...`,
     ]);
 
-    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
-
-    const logTemplates = [
-      () => `[PING] Servidor Google Maps respondeu em ${Math.floor(Math.random() * 80) + 15}ms.`,
-      () => `[SEARCH] Varrendo blocos de coordenadas lat/long na região de ${location || 'Local'}.`,
-      () => `[TARGET] Potencial lead "${keyword || 'Empresa'}" detectado no quadrante.`,
-      () => `[DECODE] Descriptografando metadados de API pública...`,
-      () => `[SCRAPE] Extraído contato telefônico através de links de ação direta.`,
-      () => `[ENRICH] Efetuando requisição silenciosa no site oficial para pescar redes sociais.`,
-      () => `[FILTER] Lead atende às métricas de filtros ativos. Adicionando ao buffer.`,
-      () => `[BUFFER] Lead válido registrado temporariamente na fila de saída.`,
-      () => `[SYS] Proxies atualizados com sucesso.`,
-      () => `[PARSE] Normalizando endereço e região metropolitana.`,
-      () => `[HASH] Checksum do lead verificado. Integridade confirmada.`,
-      () => `[MAP] Tile ${Math.floor(Math.random()*100)}x${Math.floor(Math.random()*100)} carregado.`,
-      () => `[CACHE] Dados do Google Places armazenados em buffer volátil.`,
-      () => `[SOCIAL] Verificando presença digital em plataformas parceiras...`,
-    ];
-
-    const logInterval = setInterval(() => {
-      const randomTemplate = logTemplates[Math.floor(Math.random() * logTemplates.length)];
-      setLogs(prev => {
-        const next = [...prev, randomTemplate()];
-        if (next.length > 10) next.shift();
-        return next;
-      });
-    }, 800);
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000)), 1000);
 
     const blipInterval = setInterval(() => {
       setBlips(prev => {
@@ -71,11 +53,39 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
     }, 600);
 
     return () => {
-      clearInterval(logInterval);
       clearInterval(blipInterval);
       clearInterval(timer);
     };
   }, [keyword, location]);
+
+  useEffect(() => {
+    if (!extractStats) return;
+
+    const displayTime = extractStats.time || Math.floor((Date.now() - startTimeRef.current) / 1000);
+    setElapsed(displayTime);
+
+    const msg = extractStats.message || '';
+    if (msg && msg !== lastMessageRef.current) {
+      lastMessageRef.current = msg;
+      setLogs(prev => {
+        const next = [...prev, `[RUNTIME] ${msg}`];
+        if (next.length > 10) next.shift();
+        return next;
+      });
+    }
+
+    if (extractStats.scanned && extractStats.scanned > 0) {
+      const scanMsg = `[SCAN] ${extractStats.scanned} empresas escaneadas`;
+      setLogs(prev => {
+        if (prev.some(l => l.includes(`${extractStats.scanned} empresas escaneadas`))) return prev;
+        const next = [...prev, scanMsg];
+        if (next.length > 10) next.shift();
+        return next;
+      });
+    }
+  }, [extractStats]);
+
+  const displayTime = extractStats?.time || elapsed;
 
   return (
     <div className="flex flex-col items-center justify-center p-6 bg-black/60 border border-green-500/20 rounded-[2rem] w-full max-w-2xl mx-auto shadow-[0_0_35px_rgba(0,255,102,0.1)] relative overflow-hidden backdrop-blur-2xl">
@@ -148,14 +158,14 @@ export default function HackerRadar({ keyword, location }: HackerRadarProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               {t('hackerRadar.status')}
             </span>
-            <span>● {elapsed}s</span>
+            <span>● {displayTime}s</span>
           </div>
         </div>
       </div>
       
       <p className="text-gray-400 text-xs text-center mt-6 tracking-wide leading-relaxed">
         {t('hackerRadar.footer')} <br />
-        <span className="text-gray-600 text-[10px]">{t('hackerRadar.elapsedTime', { elapsed })}</span>
+        <span className="text-gray-600 text-[10px]">Tempo decorrido: {displayTime}s</span>
       </p>
     </div>
   );

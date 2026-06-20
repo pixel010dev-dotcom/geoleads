@@ -313,7 +313,7 @@ export default function ExtractorSection({
             {/* Loading State (High-tech Hacker Radar) */}
             {isExtracting && (
               <div className="flex-1 py-4">
-                <HackerRadar keyword={keyword} location={location} />
+                <HackerRadar keyword={keyword} location={location} extractStats={extractStats} />
               </div>
             )}
 

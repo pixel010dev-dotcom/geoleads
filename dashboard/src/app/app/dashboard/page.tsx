@@ -846,13 +846,32 @@ export default function Home() {
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentJobIdRef = useRef<string | null>(null);
+  const pollCountRef = useRef(0);
+  const pollStartTimeRef = useRef(0);
 
   const startPolling = (jobId: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
     currentJobIdRef.current = jobId;
-        try { localStorage.setItem('lastJobId', jobId); } catch { /* ignore */ }
+    pollCountRef.current = 0;
+    pollStartTimeRef.current = Date.now();
+    try { localStorage.setItem('lastJobId', jobId); } catch { /* ignore */ }
     pollRef.current = setInterval(async () => {
       if (currentJobIdRef.current !== jobId) return;
+      pollCountRef.current++;
+
+      if (pollCountRef.current > 200 || (Date.now() - pollStartTimeRef.current) > 600000) {
+        setIsExtracting(false);
+        setHasSearched(true);
+        if (pollRef.current) clearInterval(pollRef.current);
+        try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
+        showToast('Extração expirou. Tente novamente.', 'error');
+        try {
+          const headers = await getAuthedJsonHeaders();
+          if (headers) await fetch(`/api/extract/cancel`, { method: 'POST', headers, body: JSON.stringify({ jobId }) });
+        } catch { /* ignore */ }
+        return;
+      }
+
       try {
         const headers = await getAuthedJsonHeaders();
         if (!headers) return;
@@ -874,7 +893,6 @@ export default function Home() {
               setLeads(j.leads || []);
               setHasSearched(true);
               const newLeads = j.leads || [];
-              // Auto-salva leads no CRM
               if (newLeads.length > 0 && user?.id) {
                 const toAdd = newLeads.filter((l: any) => {
                   const key = getLeadKey(l);
@@ -963,14 +981,26 @@ export default function Home() {
           if (!headers) return;
           const res = await fetch(`/api/extract/job/${lastJobId}`, { headers });
           const data = await res.json();
-          if (data.success && (data.job?.status === 'running' || data.job?.status === 'pending')) {
-            setIsExtracting(true);
-            setHasSearched(false);
-            setLeads([]);
-            setExtractStats(null);
-            startPolling(lastJobId);
-          } else {
-            try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
+          if (data.success && data.job) {
+            const j = data.job;
+            const startedAt = j.started_at ? new Date(j.started_at).getTime() : 0;
+            const isStale = startedAt > 0 && (Date.now() - startedAt) > 300000;
+            if (isStale && (j.status === 'running' || j.status === 'pending')) {
+              try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
+              try {
+                await fetch('/api/extract/cancel', { method: 'POST', headers, body: JSON.stringify({ jobId: lastJobId }) });
+              } catch { /* ignore */ }
+              return;
+            }
+            if (j.status === 'running' || j.status === 'pending') {
+              setIsExtracting(true);
+              setHasSearched(false);
+              setLeads([]);
+              setExtractStats(null);
+              startPolling(lastJobId);
+            } else {
+              try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
+            }
           }
         } catch (e) { console.error(e); try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ } }
       })();

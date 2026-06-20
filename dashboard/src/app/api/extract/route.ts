@@ -213,6 +213,7 @@ export async function POST(request: Request) {
         status: 'failed',
         error: err?.message || 'Erro inesperado',
         completed_at: new Date().toISOString(),
+        delivered: true,
       });
       done();
     });
