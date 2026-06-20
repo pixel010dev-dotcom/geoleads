@@ -182,109 +182,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     notify(`${leadsByName.size} leads encontrados (${Math.round((Date.now() - startTime) / 1000)}s)`);
 
     // =========================================================================
-    // EARLY EXIT: If we have enough leads, skip Playwright entirely
-    // =========================================================================
-    if (needsMore() <= 0) {
-      const leads = getLeadsArray();
-      const validLeads = leads
-        .map(l => ({ lead: l, score: scoreLeadQuality(l) }))
-        .filter(s => s.score.tier !== 'trash')
-        .map(s => s.lead)
-        .filter(l => postFilter(l, filterRule))
-        .slice(0, targetLimit);
-
-      if (onDone) {
-        onDone({
-          leads: validLeads,
-          scanned: scannedTotal,
-          citiesDone,
-          totalTimeMs: Date.now() - startTime,
-        });
-      }
-      return validLeads;
-    }
-
-    // =========================================================================
-    // PHASE 2: Playwright Maps — fallback when fetch sources aren't enough
-    // Tight limits: 3 scrolls max, 10s per page, single location only
-    // =========================================================================
-    const usePlaywright = needsMore() > 0 && !maxTimeReached() && !(await cancelled());
-
-    if (usePlaywright) {
-      let searchLocations: string[];
-
-      if (isBroadRegion) {
-        searchLocations = shuffleArray([...MAJOR_CITIES]).slice(0, 2);
-      } else if (targetLimit >= 100) {
-        const bairros = getCityBairros(location);
-        if (bairros.length > 1) {
-          const mainCity = location.replace(/,?\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/i, '').trim();
-          searchLocations = [location, ...shuffleArray(bairros).slice(0, 2).map(b => `${b}, ${mainCity}`)];
-        } else {
-          searchLocations = [location];
-        }
-      } else {
-        searchLocations = [location];
-      }
-
-      const maxScrollPerCity = Math.min(3, Math.max(2, Math.ceil(targetLimit / 15)));
-      const kwVariations = getNicheVariations(keyword).slice(0, 1);
-      const proxyConfig = getPlaywrightProxyConfig();
-      const proxyUrl = proxyConfig ? undefined : await getWorkingProxy();
-
-      let browser: any = null;
-      try {
-        browser = await chromium.launch({
-          headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-          proxy: proxyConfig || (proxyUrl ? { server: proxyUrl } : undefined),
-        });
-
-        for (const searchLoc of searchLocations) {
-          if (needsMore() <= 0) break;
-          if (maxTimeReached()) break;
-          if (await cancelled()) break;
-
-          for (const kwVar of kwVariations) {
-            if (needsMore() <= 0) break;
-            if (maxTimeReached()) break;
-            if (await cancelled()) break;
-
-            const existingForScrape = new Set<string>(Array.from(scrapedNames));
-            const mapsResult = await extractFromPlaywrightMaps(
-              browser, kwVar, searchLoc, needsMore(), existingForScrape, maxScrollPerCity
-            );
-
-            if (mapsResult.blocked) {
-              blockedDetected = true;
-              continue;
-            }
-            if (mapsResult.leads.length > 0) {
-              processResults(mapsResult.leads, 'maps-scraper');
-              notify(`${leadsByName.size} leads (${Math.round((Date.now() - startTime) / 1000)}s)`);
-            }
-          }
-
-          if (!isBroadRegion) citiesDone++;
-        }
-      } finally {
-        if (browser) try { await browser.close(); } catch (e) { console.error(e); }
-      }
-    }
-
-    // =========================================================================
-    // PHASE 3: Google Places API (fallback if blocked and need more)
-    // =========================================================================
-    if (blockedDetected && needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
-      const existingForPlaces = new Set<string>(Array.from(scrapedNames));
-      const placesLeads = await extractFromGooglePlacesApi(keyword, location, needsMore(), existingForPlaces);
-      if (placesLeads.length > 0) {
-        processResults(placesLeads, 'google-places-api');
-      }
-    }
-
-    // =========================================================================
-    // FINAL: Post-filter, scoring, and deliver leads IMMEDIATELY
+    // EARLY EXIT: Always deliver what Phase 1 found. No Playwright fallback.
+    // If user needs more, they can run extraction again.
     // =========================================================================
     const leads = getLeadsArray();
     const validLeads = leads
@@ -304,34 +203,23 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     if (onDone) {
-      try {
-        await onDone({
-          leads: validLeads,
-          scanned: scannedTotal,
-          citiesDone,
-          totalTimeMs: Date.now() - startTime,
-          error,
-        });
-      } catch (e) {
-        console.error('[EXTRACT RUNNER] onDone failed:', e);
-        if (onProgress) {
-          onProgress(validLeads, scannedTotal, citiesDone, `Extração concluída: ${validLeads.length} leads`);
-        }
-      }
+      await onDone({
+        leads: validLeads,
+        scanned: scannedTotal,
+        citiesDone,
+        totalTimeMs: Date.now() - startTime,
+        error,
+      });
     }
 
-    // =========================================================================
-    // ENRICHMENT: Runs AFTER onDone — background, non-blocking
-    // Updates job via onProgress so frontend sees enriched data live
-    // =========================================================================
+    // Enrichment in background — don't block delivery
     const leadsToEnrich = validLeads.filter(l => l.site && l.site !== 'Sem site').slice(0, 10);
     if (leadsToEnrich.length > 0) {
-      const batchSize = 5;
-      for (let i = 0; i < leadsToEnrich.length; i += batchSize) {
-        const batch = leadsToEnrich.slice(i, i + batchSize);
+      for (let i = 0; i < leadsToEnrich.length; i += 5) {
+        const batch = leadsToEnrich.slice(i, i + 5);
         await Promise.all(batch.map(l => enrichLead(l)));
         if (onProgress) {
-          onProgress(validLeads, scannedTotal, citiesDone, `Enriquecendo sites (${Math.min(i + batchSize, leadsToEnrich.length)}/${leadsToEnrich.length})...`);
+          onProgress(validLeads, scannedTotal, citiesDone, `Enriquecendo sites...`);
         }
       }
     }
