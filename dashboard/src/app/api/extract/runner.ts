@@ -2,15 +2,15 @@ import { chromium } from 'playwright';
 import type { SearchLead } from './lib/types';
 import { scoreLeadQuality } from './lib/types';
 import { extractFromGoogleSearch } from './strategies/google-search';
-import { extractFromPlaywrightMaps, extractMapsPlaceDetails } from './strategies/maps-scraper';
+import { extractFromPlaywrightMaps } from './strategies/maps-scraper';
 import { extractFromBingMaps } from './strategies/bing-maps';
-import { extractFromOpenStreetMap, searchByCnaeAndCity } from './strategies/alternative-sources';
+import { extractFromOpenStreetMap } from './strategies/alternative-sources';
 import { extractFromGooglePlacesApi } from './strategies/google-places-api';
+import { extractFromDuckDuckGo } from './strategies/duckduckgo';
 import { enrichLead } from './enrichment/website';
-import { normalizePhone, isValidBrazilianPhone } from './lib/validation';
 import { getNicheVariations, getCityBairros, shuffleArray, MAJOR_CITIES } from './lib/normalizers';
 import { getWorkingProxy } from './lib/proxy-pool';
-import { isTorEnabled, getPlaywrightProxyConfig } from './lib/proxy';
+import { getPlaywrightProxyConfig } from './lib/proxy';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -72,7 +72,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   const {
     keyword, location, targetLimit, filterRule, isBroadRegion,
     existingLeadKeys, onProgress, onDone, shouldCancel,
-    maxTimeMs = isBroadRegion ? 1800000 : Math.min(1800000, Math.max(30000, targetLimit * 2000))
+    maxTimeMs = isBroadRegion ? 120000 : Math.min(90000, Math.max(20000, targetLimit * 1500))
   } = config;
 
   const startTime = Date.now();
@@ -141,29 +141,33 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     const cfWorkerUrl = process.env.CF_WORKER_URL || '';
 
     // =========================================================================
-    // PHASE 1: PARALLEL fetch (OSM + Google + Bing) — all are HTTP, no browser
+    // PHASE 1: PARALLEL fetch (OSM + Google + Bing + DuckDuckGo) — all HTTP
     // =========================================================================
     notify('Buscando leads...');
 
     const fetchPromises = [
       Promise.race([
         extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
       ]).then(leads => ({ source: 'osm', leads: leads as SearchLead[] })).catch(() => ({ source: 'osm', leads: [] as SearchLead[] })),
       Promise.race([
         extractFromGoogleSearch(
           keyword, location, targetLimit, existingForFetch,
           cfWorkerUrl ? { cfWorkerUrl } : undefined
         ),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
       ]).then(result => {
         if (result.blocked) blockedDetected = true;
         return { source: 'google', leads: result.leads };
       }).catch(() => ({ source: 'google', leads: [] as SearchLead[] })),
       Promise.race([
         extractFromBingMaps(keyword, location, targetLimit, existingForFetch),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
       ]).then(leads => ({ source: 'bing', leads: leads as SearchLead[] })).catch(() => ({ source: 'bing', leads: [] as SearchLead[] })),
+      Promise.race([
+        extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+      ]).then(leads => ({ source: 'duckduckgo', leads: leads as SearchLead[] })).catch(() => ({ source: 'duckduckgo', leads: [] as SearchLead[] })),
     ];
 
     const fetchResults = await Promise.allSettled(fetchPromises);
@@ -201,20 +205,21 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // PHASE 2: Playwright Maps (only if targetLimit > 30 or broad region)
+    // PHASE 2: Playwright Maps — ONLY if targetLimit > 20 AND found < 30%
     // =========================================================================
-    const usePlaywright = isBroadRegion || targetLimit > 30;
+    const foundPercent = leadsByName.size / targetLimit;
+    const usePlaywright = targetLimit > 20 && foundPercent < 0.3 && !maxTimeReached() && !(await cancelled());
 
-    if (usePlaywright && needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
+    if (usePlaywright) {
       let searchLocations: string[];
 
       if (isBroadRegion) {
-        searchLocations = shuffleArray([...MAJOR_CITIES]);
+        searchLocations = shuffleArray([...MAJOR_CITIES]).slice(0, 3);
       } else if (targetLimit >= 100) {
         const bairros = getCityBairros(location);
         if (bairros.length > 1) {
           const mainCity = location.replace(/,?\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/i, '').trim();
-          searchLocations = [location, ...shuffleArray(bairros).slice(0, 5).map(b => `${b}, ${mainCity}`)];
+          searchLocations = [location, ...shuffleArray(bairros).slice(0, 2).map(b => `${b}, ${mainCity}`)];
         } else {
           searchLocations = [location];
         }
@@ -222,7 +227,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         searchLocations = [location];
       }
 
-      const maxScrollPerCity = isBroadRegion ? 10 : Math.max(10, Math.min(30, targetLimit));
+      const maxScrollPerCity = Math.min(5, Math.max(3, Math.ceil(targetLimit / 10)));
       const kwVariations = getNicheVariations(keyword).slice(0, 2);
       const proxyConfig = getPlaywrightProxyConfig();
       const proxyUrl = proxyConfig ? undefined : await getWorkingProxy();
@@ -256,11 +261,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
             }
             if (mapsResult.leads.length > 0) {
               processResults(mapsResult.leads, 'maps-scraper');
+              notify(`${leadsByName.size} leads (${Math.round((Date.now() - startTime) / 1000)}s)`);
             }
           }
 
           if (!isBroadRegion) citiesDone++;
-          notify(`${leadsByName.size} leads (${Math.round((Date.now() - startTime) / 1000)}s)`);
         }
       } finally {
         if (browser) try { await browser.close(); } catch (e) { console.error(e); }
@@ -268,48 +273,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // PHASE 2b: Place page enrichment (only if we have Google Maps place URLs)
-    // =========================================================================
-    if (leadsByName.size > 0 && !maxTimeReached() && !(await cancelled())) {
-      const candidates = getLeadsArray().filter(
-        l => (l.telefone === 'Não informado' || !l.site || l.site === 'Sem site') && l.placeUrl && l.placeUrl.includes('google.com/maps')
-      );
-      if (candidates.length > 0) {
-        const proxyConfig = getPlaywrightProxyConfig();
-        let browser: any = null;
-        try {
-          browser = await chromium.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-            proxy: proxyConfig,
-          });
-
-          for (let i = 0; i < candidates.length && !maxTimeReached() && !(await cancelled()); i += 3) {
-            const batch = candidates.slice(i, i + 3);
-            const tab = await browser.newPage();
-            for (const lead of batch) {
-              try {
-                const extra = await extractMapsPlaceDetails(tab, lead.placeUrl);
-                if (extra.telefone && isValidBrazilianPhone(extra.telefone) && lead.telefone === 'Não informado') {
-                  lead.telefone = normalizePhone(extra.telefone);
-                }
-                if (extra.site && !extra.site.includes('google.com') && (!lead.site || lead.site === 'Sem site')) {
-                  lead.site = extra.site;
-                }
-                if (extra.instagram && !lead.instagram) lead.instagram = extra.instagram;
-                if (extra.facebook && !lead.facebook) lead.facebook = extra.facebook;
-              } catch (e) { console.error(e); }
-            }
-            try { await tab.close(); } catch (e) { console.error(e); }
-          }
-        } finally {
-          if (browser) try { await browser.close(); } catch (e) { console.error(e); }
-        }
-      }
-    }
-
-    // =========================================================================
-    // PHASE 3: Google Places API (fallback if blocked)
+    // PHASE 3: Google Places API (fallback if blocked and need more)
     // =========================================================================
     if (blockedDetected && needsMore() > 0 && !maxTimeReached() && !(await cancelled())) {
       const existingForPlaces = new Set<string>(Array.from(scrapedNames));
@@ -320,7 +284,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     // =========================================================================
-    // ENRICHMENT: Background, non-blocking
+    // ENRICHMENT: Parallel batch website scraping
     // =========================================================================
     const leadsToEnrich = getLeadsArray().filter(l => l.site && l.site !== 'Sem site').slice(0, 15);
     if (leadsToEnrich.length > 0) {
