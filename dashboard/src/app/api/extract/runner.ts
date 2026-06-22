@@ -1,16 +1,9 @@
-import { chromium } from 'playwright';
 import type { SearchLead } from './lib/types';
 import { scoreLeadQuality } from './lib/types';
 import { extractFromGoogleSearch } from './strategies/google-search';
-import { extractFromPlaywrightMaps } from './strategies/maps-scraper';
 import { extractFromBingMaps } from './strategies/bing-maps';
 import { extractFromOpenStreetMap } from './strategies/alternative-sources';
-import { extractFromGooglePlacesApi } from './strategies/google-places-api';
 import { extractFromDuckDuckGo } from './strategies/duckduckgo';
-import { enrichLead } from './enrichment/website';
-import { getNicheVariations, getCityBairros, shuffleArray, MAJOR_CITIES } from './lib/normalizers';
-import { getWorkingProxy } from './lib/proxy-pool';
-import { getPlaywrightProxyConfig } from './lib/proxy';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -210,18 +203,6 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         totalTimeMs: Date.now() - startTime,
         error,
       });
-    }
-
-    // Enrichment in background — don't block delivery
-    const leadsToEnrich = validLeads.filter(l => l.site && l.site !== 'Sem site').slice(0, 10);
-    if (leadsToEnrich.length > 0) {
-      for (let i = 0; i < leadsToEnrich.length; i += 5) {
-        const batch = leadsToEnrich.slice(i, i + 5);
-        await Promise.all(batch.map(l => enrichLead(l)));
-        if (onProgress) {
-          onProgress(validLeads, scannedTotal, citiesDone, `Enriquecendo sites...`);
-        }
-      }
     }
 
     return validLeads;
