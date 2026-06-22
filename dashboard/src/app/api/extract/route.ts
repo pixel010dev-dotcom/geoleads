@@ -146,7 +146,7 @@ export async function POST(request: Request) {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
-        updateJob(jobId, {
+        const jobUpdate = {
           status: result.error ? 'failed' : 'completed',
           error: result.error || undefined,
           leads: result.leads,
@@ -157,7 +157,15 @@ export async function POST(request: Request) {
           search_time_seconds: totalTimeSec,
           completed_at: new Date().toISOString(),
           delivered: true,
-        }).catch((e: any) => console.error('[EXTRACT] updateJob failed:', e));
+        };
+
+        const attemptUpdate = (retries: number) => {
+          updateJob(jobId, jobUpdate).catch((e: any) => {
+            console.error('[EXTRACT] updateJob failed:', e);
+            if (retries > 0) setTimeout(() => attemptUpdate(retries - 1), 2000);
+          });
+        };
+        attemptUpdate(3);
 
         done();
 

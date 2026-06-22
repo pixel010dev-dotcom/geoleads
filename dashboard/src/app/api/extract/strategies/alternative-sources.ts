@@ -49,7 +49,7 @@ async function geocodeLocation(location: string): Promise<{ bbox: string; lat: n
 
     const bboxRaw: string[] = place.boundingbox || [];
     if (bboxRaw.length >= 4) {
-      const bbox = `${bboxRaw[2]},${bboxRaw[0]},${bboxRaw[3]},${bboxRaw[1]}`;
+      const bbox = `${bboxRaw[0]},${bboxRaw[2]},${bboxRaw[1]},${bboxRaw[3]}`;
       const result = { bbox, lat, lon };
       GEO_CACHE.set(cacheKey, result);
       return result;
