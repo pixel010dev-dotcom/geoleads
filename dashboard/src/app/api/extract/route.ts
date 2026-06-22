@@ -28,7 +28,16 @@ function getGlobalConcurrent(): number {
 
 async function updateJob(jobId: string, updates: Record<string, any>) {
   const supabase = createAdminSupabaseClient();
-  await supabase.from('extraction_jobs').update(updates).eq('id', jobId);
+  console.log(`[EXTRACT] updateJob: setting status=${updates.status} delivered=${updates.delivered} for job ${jobId}`);
+  try {
+    await Promise.race([
+      supabase.from('extraction_jobs').update(updates).eq('id', jobId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout')), 10000)),
+    ]);
+    console.log(`[EXTRACT] updateJob: SUCCESS for job ${jobId}`);
+  } catch (e: any) {
+    console.error(`[EXTRACT] updateJob: FAILED for job ${jobId}:`, e.message);
+  }
 }
 
 export async function POST(request: Request) {
