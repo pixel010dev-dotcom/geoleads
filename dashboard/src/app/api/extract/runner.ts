@@ -157,19 +157,32 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     // Phase 1: Parallel fetch with GLOBAL timeout
     notify('Buscando leads...');
 
-    const fetchWithTimeout = (name: string, fn: () => Promise<SearchLead[]>, timeoutMs: number) =>
-      Promise.race([
+    const fetchWithTimeout = (name: string, fn: () => Promise<SearchLead[]>, timeoutMs: number): Promise<SearchLead[]> =>
+      new Promise<SearchLead[]>((resolve) => {
+        let done = false;
+        const timer = setTimeout(() => {
+          if (!done) {
+            done = true;
+            console.log(`[EXTRACT] ${name}: TIMEOUT after ${timeoutMs}ms`);
+            resolve([]);
+          }
+        }, timeoutMs);
+
         fn().then(leads => {
-          console.log(`[EXTRACT] ${name}: ${leads.length} leads in ${elapsed()}s`);
-          return leads;
-        }),
-        new Promise<SearchLead[]>((_, reject) => setTimeout(() => {
-          console.log(`[EXTRACT] ${name}: TIMEOUT after ${timeoutMs}ms`);
-          reject(new Error('timeout'));
-        }, timeoutMs)),
-      ]).catch(() => {
-        console.log(`[EXTRACT] ${name}: FAILED`);
-        return [] as SearchLead[];
+          if (!done) {
+            done = true;
+            clearTimeout(timer);
+            console.log(`[EXTRACT] ${name}: ${leads.length} leads in ${elapsed()}s`);
+            resolve(leads);
+          }
+        }).catch(() => {
+          if (!done) {
+            done = true;
+            clearTimeout(timer);
+            console.log(`[EXTRACT] ${name}: FAILED`);
+            resolve([]);
+          }
+        });
       });
 
     const fetchResults = await Promise.all([
