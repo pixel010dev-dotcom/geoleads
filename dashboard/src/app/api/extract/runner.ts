@@ -65,9 +65,9 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   const {
     keyword, location, targetLimit, filterRule, isBroadRegion,
     existingLeadKeys, onProgress, onDone, shouldCancel,
-    maxTimeMs = isBroadRegion ? 120000 : Math.min(90000, Math.max(25000, targetLimit * 1200))
   } = config;
 
+  const GLOBAL_TIMEOUT = 30000;
   const startTime = Date.now();
   const leadsByName = new Map<string, SearchLead>();
   const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
@@ -76,21 +76,18 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   let citiesDone = 0;
   let blockedDetected = false;
 
-  const maxTimeReached = () => (Date.now() - startTime) >= maxTimeMs;
+  const elapsed = () => Math.round((Date.now() - startTime) / 1000);
   const cancelled = async () => shouldCancel ? await shouldCancel() : false;
-  const needsMore = () => targetLimit - leadsByName.size;
 
   function addLead(lead: SearchLead): void {
     const key = lead.nome.toLowerCase();
     if (scrapedNames.has(key)) return;
     if (lead.telefone !== 'Não informado' && scrapedPhones.has(lead.telefone)) return;
-
     if (leadsByName.has(key)) {
       leadsByName.set(key, mergeLeadsData(leadsByName.get(key)!, lead));
     } else {
       leadsByName.set(key, lead);
     }
-
     scrapedNames.add(key);
     if (lead.telefone !== 'Não informado') scrapedPhones.add(lead.telefone);
   }
@@ -98,17 +95,6 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   function getLeadsArray(): SearchLead[] {
     return Array.from(leadsByName.values());
   }
-
-  const notify = (message?: string) => {
-    if (onProgress) {
-      onProgress(
-        getLeadsArray(),
-        scannedTotal,
-        citiesDone,
-        message || `${leadsByName.size} leads encontrados`
-      );
-    }
-  };
 
   function processResults(leads: SearchLead[], source: string): number {
     let added = 0;
@@ -129,56 +115,18 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     return added;
   }
 
-  try {
-    const existingForFetch = new Set<string>(Array.from(scrapedNames));
-    const cfWorkerUrl = process.env.CF_WORKER_URL || '';
-
-    // =========================================================================
-    // PHASE 1: PARALLEL fetch (OSM + Google + Bing + DuckDuckGo) — all HTTP
-    // =========================================================================
-    notify('Buscando leads...');
-
-    const fetchPromises = [
-      Promise.race([
-        extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
-      ]).then(leads => ({ source: 'osm', leads: leads as SearchLead[] })).catch(() => ({ source: 'osm', leads: [] as SearchLead[] })),
-      Promise.race([
-        extractFromGoogleSearch(
-          keyword, location, targetLimit, existingForFetch,
-          cfWorkerUrl ? { cfWorkerUrl } : undefined
-        ),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
-      ]).then(result => {
-        if (result.blocked) blockedDetected = true;
-        return { source: 'google', leads: result.leads };
-      }).catch(() => ({ source: 'google', leads: [] as SearchLead[] })),
-      Promise.race([
-        extractFromBingMaps(keyword, location, targetLimit, existingForFetch),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
-      ]).then(leads => ({ source: 'bing', leads: leads as SearchLead[] })).catch(() => ({ source: 'bing', leads: [] as SearchLead[] })),
-      Promise.race([
-        extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
-      ]).then(leads => ({ source: 'duckduckgo', leads: leads as SearchLead[] })).catch(() => ({ source: 'duckduckgo', leads: [] as SearchLead[] })),
-    ];
-
-    const fetchResults = await Promise.allSettled(fetchPromises);
-
-    for (const result of fetchResults) {
-      if (result.status === 'fulfilled') {
-        const added = processResults(result.value.leads, result.value.source);
-        if (added > 0) citiesDone++;
-      }
+  const notify = (message?: string) => {
+    if (onProgress) {
+      onProgress(
+        getLeadsArray(),
+        scannedTotal,
+        citiesDone,
+        message || `${leadsByName.size} leads encontrados`
+      );
     }
+  };
 
-    notify(`${leadsByName.size} leads encontrados (${Math.round((Date.now() - startTime) / 1000)}s)`);
-
-    // =========================================================================
-    // EARLY EXIT: Always deliver what Phase 1 found. No Playwright fallback.
-    // If user needs more, they can run extraction again.
-    // =========================================================================
-    const leads = getLeadsArray();
+  const finalize = (leads: SearchLead[], error?: string) => {
     const validLeads = leads
       .map(l => ({ lead: l, score: scoreLeadQuality(l) }))
       .filter(s => s.score.tier !== 'trash')
@@ -186,14 +134,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       .filter(l => postFilter(l, filterRule))
       .slice(0, targetLimit);
 
-    let error: string | undefined;
-    if (validLeads.length === 0 && blockedDetected) {
-      error = 'Google bloqueou a busca. Tente novamente em alguns minutos.';
-    } else if (validLeads.length === 0 && leads.length === 0) {
-      error = 'Nenhum lead encontrado. Verifique o termo e a localização.';
-    } else if (validLeads.length === 0 && leads.length > 0) {
-      error = 'Leads encontrados, mas nenhum passou pelos filtros.';
-    }
+    console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${scannedTotal} scanned in ${elapsed()}s`);
 
     if (onDone) {
       onDone({
@@ -204,22 +145,61 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         error,
       });
     }
-
     return validLeads;
-  } catch (err: any) {
-    console.error('[EXTRACT RUNNER] Fatal error:', err);
-    const partialLeads = getLeadsArray()
-      .filter(l => postFilter(l, filterRule))
-      .slice(0, targetLimit);
-    if (onDone) {
-      onDone({
-        leads: partialLeads,
-        scanned: scannedTotal,
-        citiesDone,
-        totalTimeMs: Date.now() - startTime,
-        error: `Erro na extração: ${err?.message || 'Erro inesperado'}`,
+  };
+
+  try {
+    const existingForFetch = new Set<string>(Array.from(scrapedNames));
+    const cfWorkerUrl = process.env.CF_WORKER_URL || '';
+
+    console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit}`);
+
+    // Phase 1: Parallel fetch with GLOBAL timeout
+    notify('Buscando leads...');
+
+    const fetchWithTimeout = (name: string, fn: () => Promise<SearchLead[]>, timeoutMs: number) =>
+      Promise.race([
+        fn().then(leads => {
+          console.log(`[EXTRACT] ${name}: ${leads.length} leads in ${elapsed()}s`);
+          return leads;
+        }),
+        new Promise<SearchLead[]>((_, reject) => setTimeout(() => {
+          console.log(`[EXTRACT] ${name}: TIMEOUT after ${timeoutMs}ms`);
+          reject(new Error('timeout'));
+        }, timeoutMs)),
+      ]).catch(() => {
+        console.log(`[EXTRACT] ${name}: FAILED`);
+        return [] as SearchLead[];
       });
+
+    const fetchResults = await Promise.all([
+      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), 15000),
+      fetchWithTimeout('Google', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch, cfWorkerUrl ? { cfWorkerUrl } : undefined).then(r => {
+        if (r.blocked) blockedDetected = true;
+        return r.leads;
+      }), 15000),
+      fetchWithTimeout('Bing', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), 10000),
+      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), 10000),
+    ]);
+
+    // Global timeout guard
+    if (elapsed() > 25) {
+      console.log(`[EXTRACT] WARNING: Phase 1 took ${elapsed()}s, returning what we have`);
     }
-    return partialLeads;
+
+    for (const leads of fetchResults) {
+      const added = processResults(leads, 'fetch');
+      if (added > 0) citiesDone++;
+    }
+
+    console.log(`[EXTRACT] Phase 1 done: ${leadsByName.size} leads in ${elapsed()}s`);
+
+    notify(`${leadsByName.size} leads encontrados (${elapsed()}s)`);
+
+    return finalize(getLeadsArray());
+
+  } catch (err: any) {
+    console.error('[EXTRACT] Fatal error:', err);
+    return finalize(getLeadsArray(), `Erro na extração: ${err?.message || 'Erro inesperado'}`);
   }
 }
