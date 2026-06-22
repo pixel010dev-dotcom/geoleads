@@ -196,7 +196,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     if (onDone) {
-      await onDone({
+      onDone({
         leads: validLeads,
         scanned: scannedTotal,
         citiesDone,

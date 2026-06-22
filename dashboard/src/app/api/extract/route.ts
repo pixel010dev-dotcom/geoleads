@@ -142,64 +142,55 @@ export async function POST(request: Request) {
           search_time_seconds: Math.round((Date.now() - extractionStartTime) / 1000),
         });
       },
-      onDone: async (result) => {
+      onDone: (result) => {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
-        // MARK COMPLETED FIRST — user sees leads immediately
-        try {
-          await updateJob(jobId, {
-            status: result.error ? 'failed' : 'completed',
-            error: result.error || undefined,
-            leads: result.leads,
-            leads_count: result.leads.length,
-            scanned: result.scanned,
-            cities_scanned: result.citiesDone,
-            message: result.error || `Extração concluída: ${result.leads.length} leads em ${totalTimeSec}s`,
-            search_time_seconds: totalTimeSec,
-            completed_at: new Date().toISOString(),
-            delivered: true,
-          });
-        } catch (e) {
-          console.error('[EXTRACT] updateJob failed:', e);
-        }
+        updateJob(jobId, {
+          status: result.error ? 'failed' : 'completed',
+          error: result.error || undefined,
+          leads: result.leads,
+          leads_count: result.leads.length,
+          scanned: result.scanned,
+          cities_scanned: result.citiesDone,
+          message: result.error || `Extração concluída: ${result.leads.length} leads em ${totalTimeSec}s`,
+          search_time_seconds: totalTimeSec,
+          completed_at: new Date().toISOString(),
+          delivered: true,
+        }).catch((e: any) => console.error('[EXTRACT] updateJob failed:', e));
 
         done();
 
-        // Fire-and-forget: token deduction (non-blocking)
         if (gastos > 0) {
-          let deducted = false;
-          try {
-            const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
-              p_user_id: authedUser.user.id, p_amount: gastos
-            });
-            if (!deductError) deducted = true;
-          } catch (e) {
-            console.warn('[EXTRACT] deduct_tokens RPC failed:', e);
-          }
-          if (!deducted) {
+          (async () => {
             try {
-              await requestSupabase.from('profiles')
-                .update({ tokens: Math.max(0, authedUser.tokens - gastos) })
-                .eq('id', authedUser.user.id)
-                .gte('tokens', gastos);
-            } catch (e) {
-              console.warn('[EXTRACT] fallback token deduct failed:', e);
+              const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
+                p_user_id: authedUser.user.id, p_amount: gastos
+              });
+              if (deductError) {
+                await requestSupabase.from('profiles')
+                  .update({ tokens: Math.max(0, authedUser.tokens - gastos) })
+                  .eq('id', authedUser.user.id)
+                  .gte('tokens', gastos);
+              }
+            } catch (e: any) {
+              console.warn('[EXTRACT] token deduct failed:', e);
             }
-          }
+          })();
         }
 
-        // Fire-and-forget: history insert (non-blocking)
-        try {
-          await requestSupabase.from('extraction_history').insert({
-            user_id: authedUser.user.id, keyword, location,
-            filter_rule: filterRule || '',
-            leads_found: result.leads.length,
-            leads_requested: targetLimit,
-            tokens_spent: gastos,
-            search_time_seconds: totalTimeSec,
-          });
-        } catch (e) { console.error('[EXTRACT] history insert failed:', e); }
+        (async () => {
+          try {
+            await requestSupabase.from('extraction_history').insert({
+              user_id: authedUser.user.id, keyword, location,
+              filter_rule: filterRule || '',
+              leads_found: result.leads.length,
+              leads_requested: targetLimit,
+              tokens_spent: gastos,
+              search_time_seconds: totalTimeSec,
+            });
+          } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
+        })();
       },
       shouldCancel: async () => {
         const supabase = createAdminSupabaseClient();
