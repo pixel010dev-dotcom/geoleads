@@ -11,7 +11,8 @@ export async function extractFromBingMaps(
   keyword: string,
   location: string,
   targetLimit: number,
-  existingKeys: Set<string>
+  existingKeys: Set<string>,
+  signal?: AbortSignal
 ): Promise<SearchLead[]> {
   const leads: SearchLead[] = [];
   const seenNames = new Set<string>(Array.from(existingKeys).map(k => k.toLowerCase()));
@@ -24,6 +25,8 @@ export async function extractFromBingMaps(
 
   for (const query of variants) {
     if (leads.length >= targetLimit) break;
+
+    if (signal?.aborted) break;
 
     try {
       const url = `https://www.bing.com/maps?q=${encodeURIComponent(query)}&lvl=15&setLang=pt-BR&style=g`;

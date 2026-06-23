@@ -144,7 +144,8 @@ export async function extractFromOpenStreetMap(
   keyword: string,
   location: string,
   targetLimit: number,
-  existingKeys: Set<string>
+  existingKeys: Set<string>,
+  signal?: AbortSignal
 ): Promise<SearchLead[]> {
   const leads: SearchLead[] = [];
   const seenNames = new Set<string>(Array.from(existingKeys).map(k => k.toLowerCase()));
@@ -153,12 +154,27 @@ export async function extractFromOpenStreetMap(
   if (!geo) return leads;
 
   const kwLower = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const osmTags = NICHE_TO_OSM_TAGS[kwLower] || [];
+
+  // Tenta match exato primeiro, depois tira plural, depois tira sufixos
+  let osmTags = NICHE_TO_OSM_TAGS[kwLower] || [];
+  if (osmTags.length === 0) {
+    // Tira plural 's' e tenta de novo (academias -> academia)
+    const singular = kwLower.replace(/s$/, '');
+    osmTags = NICHE_TO_OSM_TAGS[singular] || [];
+  }
+  if (osmTags.length === 0) {
+    // Tira 's' + 'es' (ex: restaurantes -> restaurante, ourives -> ourive? melhor nao)
+    const stem = kwLower.replace(/(?:[aeo]s|es)$/, '');
+    osmTags = NICHE_TO_OSM_TAGS[stem] || [];
+  }
 
   const kwParts = kwLower.split(/\s+/);
   let baseKeyword: string | null = null;
   for (const part of kwParts) {
     if (NICHE_TO_OSM_TAGS[part]) { baseKeyword = part; break; }
+    // Tenta sem plural
+    const singular = part.replace(/s$/, '');
+    if (NICHE_TO_OSM_TAGS[singular]) { baseKeyword = singular; break; }
   }
 
   const tagFilters: string[] = [];
@@ -174,6 +190,8 @@ export async function extractFromOpenStreetMap(
   const unionBody = tagFilters.join(';\n');
   const unifiedQuery = `[out:json][timeout:15];\n(${unionBody};\n);\nout body;`;
 
+  if (signal?.aborted) return leads;
+
   const results = await runOverpass(unifiedQuery, 20000);
 
   const wildcardTags = ['amenity', 'shop', 'office', 'craft', 'leisure', 'tourism', 'healthcare'];
@@ -182,6 +200,7 @@ export async function extractFromOpenStreetMap(
 
   for (const el of results) {
     if (leads.length >= targetLimit) break;
+    if (signal?.aborted) break;
     if (seenElementIds.has(el.id)) continue;
     seenElementIds.add(el.id);
 

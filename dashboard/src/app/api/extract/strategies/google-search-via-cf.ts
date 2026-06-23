@@ -145,70 +145,60 @@ export async function extractFromGoogleSearch(
     return fetchViaCfWorker(url, cfWorkerUrl, sig);
   } : fetchViaUrl;
 
+  // Apenas .com.br e .com - .com.mx removido (muito lento e raramente retorna leads BR)
+  const tlds = ['com.br', 'com'];
+  const hls = ['pt-BR', 'pt'];
+
   const queries = [
     `${keyword} ${location}`,
     `${keyword} em ${location}`,
-    `${keyword}, ${location}`,
   ];
-
-  const tlds = ['com', 'com.br', 'com.mx'];
-  const hls = ['pt-BR', 'pt', 'en'];
 
   for (const query of queries) {
     if (allLeads.length >= targetLimit) break;
     if (signal?.aborted) break;
-    if (blocked && !usedCfWorker && cfWorkerUrl) {
-      // If direct was blocked, try via CF worker
-      break;
-    }
+    if (blocked) break;
 
     const encoded = encodeURIComponent(query);
 
     for (const tld of tlds) {
       if (allLeads.length >= targetLimit) break;
       if (signal?.aborted) break;
+      if (blocked) break;
 
-      const hl = hls[Math.floor(Math.random() * hls.length)];
-      const urls = [
-        `https://www.google.${tld}/search?q=${encoded}&tbm=lcl&hl=${hl}&gl=br&num=20`,
-        `https://www.google.${tld}/search?q=${encoded}&hl=${hl}&gl=br`,
-      ];
+      // Tenta primeiro com tbm=lcl (Google Local), que tem mais dados estruturados
+      const url = `https://www.google.${tld}/search?q=${encoded}&tbm=lcl&hl=pt-BR&gl=br&num=10`;
 
-      for (const url of urls) {
-        if (allLeads.length >= targetLimit) break;
-        if (signal?.aborted) break;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const combinedSignal = signal ? combineSignals(signal, controller.signal) : controller.signal;
 
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 12000);
-          const combinedSignal = signal ? combineSignals(signal, controller.signal) : controller.signal;
+        const { html, blocked: wasBlocked } = await fetchFn(url, combinedSignal);
+        clearTimeout(timeout);
 
-          const { html, blocked: wasBlocked } = await fetchFn(url, combinedSignal);
-          clearTimeout(timeout);
+        if (wasBlocked) {
+          blocked = true;
+          console.log(`[GoogleSearch] Blocked on ${tld}`);
+          continue;
+        }
+        if (!html) continue;
 
-          if (wasBlocked) {
-            blocked = true;
-            console.log(`[GoogleSearch] Blocked on ${url}`);
-            continue;
-          }
-          if (!html) continue;
+        let newLeads = parseLdJson(html);
+        if (newLeads.length === 0) {
+          newLeads = parseHtmlResults(html);
+        }
 
-          let newLeads = parseLdJson(html);
-          if (newLeads.length === 0) {
-            newLeads = parseHtmlResults(html);
-          }
+        for (const lead of newLeads) {
+          if (allLeads.length >= targetLimit) break;
+          const key = lead.nome.toLowerCase();
+          if (seenNames.has(key)) continue;
+          seenNames.add(key);
+          allLeads.push(lead);
+        }
 
-          for (const lead of newLeads) {
-            if (allLeads.length >= targetLimit) break;
-            const key = lead.nome.toLowerCase();
-            if (seenNames.has(key)) continue;
-            seenNames.add(key);
-            allLeads.push(lead);
-          }
-
-          if (newLeads.length > 0) break; // Found results, no need more URLs
-        } catch { /* continue to next URL */ }
-      }
+        if (newLeads.length > 0) break; // Found results, no need more TLDs
+      } catch { /* continue to next TLD */ }
     }
 
     if (!blocked) await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));

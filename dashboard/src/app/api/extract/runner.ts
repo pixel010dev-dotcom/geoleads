@@ -72,9 +72,10 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   } = config;
 
   const startTime = Date.now();
-  const GLOBAL_TIMEOUT = Math.max(config.maxTimeMs || 60000, 60000); // default 60s
+  const GLOBAL_TIMEOUT = Math.max(config.maxTimeMs || 45000, 45000); // default 45s
   const hardDeadline = startTime + GLOBAL_TIMEOUT;
   let finalized = false;
+  const globalAbort = new AbortController();
   const leadsByName = new Map<string, SearchLead>();
   const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
   const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
@@ -206,12 +207,16 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     const ddgTimeout = Math.min(15000, remaining());
     const osmTimeout = Math.min(20000, remaining());
 
+    // Passa o AbortSignal para as estratégias permitirem cancelamento real
     const fetchResults = await Promise.all([
-      fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch).then(r => r.leads), googleTimeout),
-      fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), bingTimeout),
-      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), ddgTimeout),
-      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), osmTimeout),
+      fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch, globalAbort.signal).then(r => r.leads), googleTimeout),
+      fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch, globalAbort.signal), bingTimeout),
+      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch, globalAbort.signal), ddgTimeout),
+      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch, globalAbort.signal), osmTimeout),
     ]);
+
+    // Aborta qualquer estratégia que ainda esteja rodando em background
+    globalAbort.abort();
 
     if (elapsed() > 55) {
       console.log(`[EXTRACT] WARNING: Phase 1 took ${elapsed()}s, returning what we have`);
@@ -226,39 +231,56 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
     // =========================================================================
     // PHASE 2: Playwright as fallback (only if needed and time permits)
+    // Com TIMEOUT proprio para evitar que o browser hangue a extracao
     // =========================================================================
-    if (leadsByName.size < targetLimit && elapsed() < 50 && !isOverTime()) {
+    if (leadsByName.size < targetLimit && elapsed() < 45 && !isOverTime()) {
       console.log(`[EXTRACT] Phase 1 found ${leadsByName.size}/${targetLimit} leads, trying Playwright Maps...`);
       notify('Buscando mais leads via Maps...');
 
+      const PW_TIMEOUT = 60000; // 60s max para Playwright
       try {
-        const pw = await import('playwright');
-        const browser = await pw.chromium.launch({
-          headless: true,
-          proxy: getPlaywrightProxyConfig(),
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error(`Playwright timeout after ${PW_TIMEOUT}ms`)), PW_TIMEOUT);
+
+          (async () => {
+            try {
+              const pw = await import('playwright');
+              const browser = await pw.chromium.launch({
+                headless: true,
+                proxy: getPlaywrightProxyConfig(),
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+              });
+
+              try {
+                const { extractFromPlaywrightMaps } = await import('./strategies/maps-scraper');
+                const pwResult = await extractFromPlaywrightMaps(
+                  browser, keyword, location,
+                  targetLimit - leadsByName.size,
+                  new Set(Array.from(scrapedNames)),
+                  25, // maxScrolls reduzido
+                  globalAbort.signal,
+                );
+
+                if (pwResult.blocked) {
+                  console.log(`[EXTRACT] Playwright: blocked by Google`);
+                } else {
+                  const pwAdded = processResults(pwResult.leads, 'playwright');
+                  console.log(`[EXTRACT] Playwright: ${pwAdded} new leads (${pwResult.leads.length} total) in ${elapsed()}s`);
+                }
+              } finally {
+                await browser.close().catch(() => {});
+              }
+
+              clearTimeout(timer);
+              resolve();
+            } catch (e: any) {
+              clearTimeout(timer);
+              reject(e);
+            }
+          })();
         });
-
-        try {
-          const { extractFromPlaywrightMaps } = await import('./strategies/maps-scraper');
-          const pwResult = await extractFromPlaywrightMaps(
-            browser, keyword, location,
-            targetLimit - leadsByName.size,
-            new Set(Array.from(scrapedNames)),
-            30,
-          );
-
-          if (pwResult.blocked) {
-            console.log(`[EXTRACT] Playwright: blocked by Google`);
-          } else {
-            const pwAdded = processResults(pwResult.leads, 'playwright');
-            console.log(`[EXTRACT] Playwright: ${pwAdded} new leads (${pwResult.leads.length} total) in ${elapsed()}s`);
-          }
-        } finally {
-          await browser.close().catch(() => {});
-        }
       } catch (e: any) {
-        console.log(`[EXTRACT] Playwright failed: ${e?.message || e}`);
+        console.log(`[EXTRACT] Playwright failed/timeout: ${e?.message || e}`);
       }
     }
 
