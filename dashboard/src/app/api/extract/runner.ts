@@ -1,9 +1,10 @@
 import type { SearchLead } from './lib/types';
 import { scoreLeadQuality } from './lib/types';
-import { extractFromGoogleSearch } from './strategies/google-search';
-import { extractFromBingMaps } from './strategies/bing-maps';
+import { extractFromGoogleSearch } from './strategies/google-search-via-cf';
 import { extractFromOpenStreetMap } from './strategies/alternative-sources';
 import { extractFromDuckDuckGo } from './strategies/duckduckgo';
+import { extractFromBingMaps } from './strategies/bing-maps';
+import { getPlaywrightProxyConfig } from './lib/proxy';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -28,6 +29,9 @@ export interface RunnerConfig {
 
 function postFilter(lead: SearchLead, filterRule: string): boolean {
   if (!filterRule || filterRule === 'none') return true;
+  const score = scoreLeadQuality(lead);
+  if (score.score >= 25) return true;
+
   const rules = filterRule.split(',').map(r => r.trim()).filter(Boolean);
   return rules.every(rule => {
     if (rule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
@@ -67,14 +71,13 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     existingLeadKeys, onProgress, onDone, shouldCancel,
   } = config;
 
-  const GLOBAL_TIMEOUT = 30000;
+  const GLOBAL_TIMEOUT = 90000;
   const startTime = Date.now();
   const leadsByName = new Map<string, SearchLead>();
   const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
   const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
   let scannedTotal = 0;
   let citiesDone = 0;
-  let blockedDetected = false;
 
   const elapsed = () => Math.round((Date.now() - startTime) / 1000);
   const cancelled = async () => shouldCancel ? await shouldCancel() : false;
@@ -112,6 +115,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       added++;
     }
     scannedTotal += leads.length;
+    if (added > 0) console.log(`[EXTRACT] ${source}: +${added} leads (total: ${leadsByName.size})`);
     return added;
   }
 
@@ -134,7 +138,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       .filter(l => postFilter(l, filterRule))
       .slice(0, targetLimit);
 
-    console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${scannedTotal} scanned in ${elapsed()}s`);
+    console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${leadsByName.size} unique in ${elapsed()}s`);
 
     if (onDone) {
       onDone({
@@ -149,13 +153,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   };
 
   try {
-    const existingForFetch = new Set<string>(Array.from(scrapedNames));
     const cfWorkerUrl = process.env.CF_WORKER_URL || '';
-
     console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit}`);
+    console.log(`[EXTRACT] CF_WORKER_URL: ${cfWorkerUrl ? 'configured (' + cfWorkerUrl + ')' : 'NOT SET - Google Search will be direct'}`);
 
-    // Phase 1: Parallel fetch with GLOBAL timeout
-    notify('Buscando leads...');
+    notify('Buscando leads em múltiplas fontes...');
 
     const fetchWithTimeout = (name: string, fn: () => Promise<SearchLead[]>, timeoutMs: number): Promise<SearchLead[]> =>
       new Promise<SearchLead[]>((resolve) => {
@@ -185,18 +187,19 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         });
       });
 
+    // =========================================================================
+    // PHASE 1: Fetch-based strategies (parallel)
+    // =========================================================================
+    const existingForFetch = new Set<string>(Array.from(scrapedNames));
+
     const fetchResults = await Promise.all([
-      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), 15000),
-      fetchWithTimeout('Google', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch, cfWorkerUrl ? { cfWorkerUrl } : undefined).then(r => {
-        if (r.blocked) blockedDetected = true;
-        return r.leads;
-      }), 15000),
-      fetchWithTimeout('Bing', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), 10000),
-      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), 10000),
+      fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch).then(r => r.leads), 15000),
+      fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), 15000),
+      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), 15000),
+      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), 20000),
     ]);
 
-    // Global timeout guard
-    if (elapsed() > 25) {
+    if (elapsed() > 55) {
       console.log(`[EXTRACT] WARNING: Phase 1 took ${elapsed()}s, returning what we have`);
     }
 
@@ -206,6 +209,44 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
 
     console.log(`[EXTRACT] Phase 1 done: ${leadsByName.size} leads in ${elapsed()}s`);
+
+    // =========================================================================
+    // PHASE 2: Playwright as fallback (only if needed and time permits)
+    // =========================================================================
+    if (leadsByName.size < targetLimit && elapsed() < 50) {
+      console.log(`[EXTRACT] Phase 1 found ${leadsByName.size}/${targetLimit} leads, trying Playwright Maps...`);
+      notify('Buscando mais leads via Maps...');
+
+      try {
+        const pw = await import('playwright');
+        const browser = await pw.chromium.launch({
+          headless: true,
+          proxy: getPlaywrightProxyConfig(),
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        });
+
+        try {
+          const { extractFromPlaywrightMaps } = await import('./strategies/maps-scraper');
+          const pwResult = await extractFromPlaywrightMaps(
+            browser, keyword, location,
+            targetLimit - leadsByName.size,
+            new Set(Array.from(scrapedNames)),
+            30,
+          );
+
+          if (pwResult.blocked) {
+            console.log(`[EXTRACT] Playwright: blocked by Google`);
+          } else {
+            const pwAdded = processResults(pwResult.leads, 'playwright');
+            console.log(`[EXTRACT] Playwright: ${pwAdded} new leads (${pwResult.leads.length} total) in ${elapsed()}s`);
+          }
+        } finally {
+          await browser.close().catch(() => {});
+        }
+      } catch (e: any) {
+        console.log(`[EXTRACT] Playwright failed: ${e?.message || e}`);
+      }
+    }
 
     notify(`${leadsByName.size} leads encontrados (${elapsed()}s)`);
 

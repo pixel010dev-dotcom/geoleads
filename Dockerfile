@@ -26,16 +26,8 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     wget \
     xdg-utils \
-    tor \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /etc/tor && \
-    echo "SOCKSPort 9050" > /etc/tor/torrc && \
-    echo "ExitNodes {br},{us}" >> /etc/tor/torrc && \
-    echo "StrictNodes 0" >> /etc/tor/torrc && \
-    echo "MaxCircuitDirtiness 60" >> /etc/tor/torrc && \
-    echo "DNSPort 5353" >> /etc/tor/torrc
 
 WORKDIR /app/dashboard
 
@@ -51,16 +43,16 @@ ENV HOSTNAME=0.0.0.0
 
 ENV NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV MERCADO_PAGO_ACCESS_TOKEN
 ENV GEMINI_API_KEY
+ENV GEMINI_MODEL
 ENV NEXT_PUBLIC_APP_URL
 ENV SUPABASE_SERVICE_ROLE_KEY
+ENV GOOGLE_CSE_API_KEY
+ENV GOOGLE_CSE_ID
 ENV CF_WORKER_URL
-ENV GOOGLE_PLACES_API_KEY
-ENV TOR_ENABLED=true
 
 RUN npm run build
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "tor -f /etc/tor/torrc & sleep 2 && npm run start -- -H 0.0.0.0 -p ${PORT:-3000}"]
+CMD ["npm", "run", "start", "--", "-H", "0.0.0.0"]

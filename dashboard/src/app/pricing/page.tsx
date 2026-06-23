@@ -354,7 +354,7 @@ export default function Pricing() {
                   <div className="mb-1 text-4xl font-extrabold tracking-tight">
                     {formatPlanPrice(plan.price)}
                   </div>
-                  <p className="text-xs text-green-400 mb-5">{getCostPerLeadLabel(plan)}</p>
+                  <p className="text-xs text-green-400 mb-5">{getCostPerLeadLabel(plan, t)}</p>
 
                   <div className="rounded-xl bg-black/25 border border-white/8 p-3 mb-5">
                     <p className="text-xs text-gray-500">{t('pricing.tokensIncluded')}</p>
@@ -390,7 +390,7 @@ export default function Pricing() {
                   <p className="text-xs text-gray-500">{t('pricing.totalToday')}</p>
                   <p className="text-3xl font-extrabold">{formatPlanPrice(selectedPlan.price)}</p>
                 </div>
-                <p className="text-xs text-green-400 font-bold text-right">{getCostPerLeadLabel(selectedPlan)}</p>
+                <p className="text-xs text-green-400 font-bold text-right">{getCostPerLeadLabel(selectedPlan, t)}</p>
               </div>
             </div>
 
@@ -458,10 +458,9 @@ export default function Pricing() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {allFeatureKeys.map((fk) => {
-                  const label = featureLabels[fk];
                   return (
                     <tr key={fk} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3 text-gray-300 font-medium">{label}</td>
+                      <td className="px-4 py-3 text-gray-300 font-medium">{t(featureLabels[fk])}</td>
                       {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
                         const included = plans[pid].featureKeys.includes(fk);
                         return (

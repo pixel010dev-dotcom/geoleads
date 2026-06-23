@@ -806,7 +806,7 @@ export default function Home() {
       const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
       const res = await fetch('/api/chatbot/campaign', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: 'create', name: `Campanha ${new Date().toLocaleDateString('pt-BR')}`, messageTemplate: waTemplate, leadKeys: selected.map(getLeadKey), scheduledAt }),
+        body: JSON.stringify({ action: 'create', name: `Campanha ${new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR')}`, messageTemplate: waTemplate, leadKeys: selected.map(getLeadKey), scheduledAt }),
       });
       const json = await res.json();
       if (json.success) { showToast('Campanha agendada!', 'success'); handleLoadCampaigns(); }
@@ -1055,7 +1055,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `GeoLeads_${keyword}_${new Date().toLocaleDateString('pt-BR')}.csv`;
+    link.download = `GeoLeads_${keyword}_${new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR')}.csv`;
     link.click();
   };
 
@@ -1067,14 +1067,14 @@ export default function Home() {
       if (!headers) return;
       const res = await fetch('/api/export/xlsx', {
         method: 'POST', headers,
-        body: JSON.stringify({ leads, filename: `GeoLeads_${keyword}_${new Date().toLocaleDateString('pt-BR')}.xlsx` })
+        body: JSON.stringify({ leads, filename: `GeoLeads_${keyword}_${new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR')}.xlsx` })
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Erro ao exportar XLSX'); }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `GeoLeads_${keyword}_${new Date().toLocaleDateString('pt-BR')}.xlsx`;
+      link.download = `GeoLeads_${keyword}_${new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR')}.xlsx`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err: any) { showToast(err.message || 'Erro ao exportar XLSX', 'error'); }

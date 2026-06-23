@@ -101,11 +101,12 @@ export function scoreLeadQuality(lead: SearchLead): { score: number; tier: Score
   if (lead.instagram) score += 5;
   if (lead.facebook) score += 5;
   if (lead.avaliacao !== 'N/A') score += 5;
+  if (lead.placeUrl) score += 5;
 
   let tier: ScoreQuality;
   if (score >= 60) tier = 'high';
   else if (score >= 35) tier = 'medium';
-  else if (score >= 15) tier = 'low';
+  else if (score >= 5) tier = 'low';
   else tier = 'trash';
 
   return { score, tier };

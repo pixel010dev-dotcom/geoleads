@@ -43,7 +43,7 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace(/\./g, '');
+      const label = d.toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR', { month: 'short', year: '2-digit' }).replace(/\./g, '');
       last6.push({ month: label, leads: months[key] || 0 });
     }
     return last6;
@@ -64,7 +64,7 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
             style={{ width: `${Math.min(100, (tokens / 2000) * 100)}%` }}
           />
         </div>
-        <p className="text-[10px] text-gray-500 mt-2">{t('charts.planInfo', { plan: 'Max', used: tokens.toLocaleString('pt-BR'), total: '2.000' })}</p>
+        <p className="text-[10px] text-gray-500 mt-2">{t('charts.planInfo', { plan: 'Max', used: tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR'), total: '2.000' })}</p>
       </div>
 
       {/* Total Leads */}

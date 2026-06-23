@@ -3,6 +3,10 @@ import { createEmptySearchLead } from '../lib/types';
 import { normalizePhone, isBusinessWebsiteCandidate } from '../lib/validation';
 import { getRandomUserAgent } from '../lib/stealth';
 
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+const BAD_EMAIL = /sentry|wix|example|schema|wordpress|localhost|noreply|no-reply/i;
+const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
+
 export async function extractFromBingMaps(
   keyword: string,
   location: string,
@@ -10,97 +14,128 @@ export async function extractFromBingMaps(
   existingKeys: Set<string>
 ): Promise<SearchLead[]> {
   const leads: SearchLead[] = [];
-  const seenNames = new Set<string>();
+  const seenNames = new Set<string>(Array.from(existingKeys).map(k => k.toLowerCase()));
 
-  const queryVariants = [
+  const variants = [
     `${keyword} ${location}`,
     `${keyword} em ${location}`,
+    `${keyword} ${location} telefone`,
   ];
 
-  for (const query of queryVariants) {
+  for (const query of variants) {
     if (leads.length >= targetLimit) break;
 
     try {
-      const encodedQuery = encodeURIComponent(query);
-      const url = `https://www.bing.com/maps?q=${encodedQuery}&lvl=13&setLang=pt-BR&FORM=HDRSC6`;
+      const url = `https://www.bing.com/maps?q=${encodeURIComponent(query)}&lvl=15&setLang=pt-BR&style=g`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
 
       const response = await fetch(url, {
+        signal: controller.signal,
         headers: {
           'User-Agent': getRandomUserAgent(),
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept': 'text/html,application/xhtml+xml',
           'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
           'Referer': 'https://www.bing.com/',
         },
         redirect: 'follow',
-        signal: AbortSignal.timeout(15000),
       });
 
+      clearTimeout(timeout);
       if (!response.ok) continue;
 
       const html = await response.text();
 
-      const jsonBlobs = html.match(/\"entities\":\s*\[(\{[^]]*\})\]/g) || [];
-      for (const blob of jsonBlobs) {
-        try {
-          const entitiesStr = blob.replace(/^"entities":\s*/, '');
-          const entities = JSON.parse(entitiesStr);
-          for (const entity of entities) {
-            if (leads.length >= targetLimit) break;
-            const name = entity.name || entity.displayName || '';
-            if (!name || seenNames.has(name.toLowerCase())) continue;
-            seenNames.add(name.toLowerCase());
+      // Try to extract from JSON entity data embedded in the page
+      const entityRegex = /"localEntityResult|"entities":\s*\[([\s\S]*?)\]/g;
+      const businessRegex = /"name"\s*:\s*"([^"]{2,100})"/g;
+      const phoneRegex = /"phone"\s*:\s*"([^"]+)"/g;
+      const siteRegex = /"website"\s*:\s*"([^"]+)"/g;
+      const addrRegex = /"address"\s*:\s*"([^"]+)"/g;
+      const ratingRegex = /"rating"\s*:\s*([\d.]+)/g;
 
-            const lead = createEmptySearchLead();
-            lead.nome = name;
+      const names: string[] = [];
+      const phones: string[] = [];
+      const sites: string[] = [];
+      const addresses: string[] = [];
+      const ratings: string[] = [];
 
-            if (entity.phone) lead.telefone = normalizePhone(String(entity.phone));
-            if (entity.address) {
-              const addr = typeof entity.address === 'string' ? entity.address :
-                [entity.address.street, entity.address.city, entity.address.state, entity.address.postalCode].filter(Boolean).join(', ');
-              if (addr) lead.endereco = addr;
-            }
-            if (entity.url && isBusinessWebsiteCandidate(entity.url)) lead.site = entity.url;
-            if (entity.rating) lead.avaliacao = String(entity.rating);
-            if (entity.categoryName) lead.categoria = entity.categoryName;
-
-            leads.push(lead);
-          }
-        } catch (e) { console.error(e); }
-      }
-
-      if (leads.length < targetLimit) {
-        const nameRegex = /\"name\"\s*:\s*\"([^\"]{3,100})\"/gi;
-        let nameMatch: RegExpExecArray | null;
-        while ((nameMatch = nameRegex.exec(html)) !== null && leads.length < targetLimit) {
-          const name = nameMatch[1];
-          if (!name || seenNames.has(name.toLowerCase())) continue;
-          if (/bing|microsoft| maps |search|login|sign|account|privacy/i.test(name)) continue;
-          seenNames.add(name.toLowerCase());
-
-          const lead = createEmptySearchLead();
-          lead.nome = name;
-
-          const region = html.slice(Math.max(0, nameMatch.index - 200), nameMatch.index + 500);
-          const phoneMatch = region.match(/\"phone\"\s*:\s*\"([^\"]+)\"/);
-          if (phoneMatch) lead.telefone = normalizePhone(phoneMatch[1]);
-
-          const urlMatch = region.match(/\"url\"\s*:\s*\"(https?:\/\/[^\"]+)\"/);
-          if (urlMatch && isBusinessWebsiteCandidate(urlMatch[1])) lead.site = urlMatch[1];
-
-          const addrMatch = region.match(/\"address\"\s*:\s*\{([^}]+)\}/);
-          if (addrMatch) {
-            const streetM = addrMatch[1].match(/\"street\"\s*:\s*\"([^\"]+)\"/);
-            const cityM = addrMatch[1].match(/\"city\"\s*:\s*\"([^\"]+)\"/);
-            const parts = [streetM?.[1], cityM?.[1]].filter(Boolean);
-            if (parts.length > 0) lead.endereco = parts.join(', ');
-          }
-
-          leads.push(lead);
+      let m: RegExpExecArray | null;
+      while ((m = businessRegex.exec(html)) !== null) {
+        const name = m[1].replace(/\\u[0-9a-fA-F]{4}/g, '').trim();
+        if (name.length >= 2 && !seenNames.has(name.toLowerCase())) {
+          names.push(name);
         }
       }
 
-      await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
-    } catch (e) { console.error(e); }
+      const phoneMatches: string[] = [];
+      while ((m = phoneRegex.exec(html)) !== null) phoneMatches.push(m[1]);
+      while ((m = siteRegex.exec(html)) !== null) sites.push(m[1]);
+      while ((m = addrRegex.exec(html)) !== null) addresses.push(m[1]);
+      while ((m = ratingRegex.exec(html)) !== null) ratings.push(m[1]);
+
+      // Also try parsing from HTML structure
+      const htmlNameRegex = /aria-label="([^"]{3,100})"\s*(?:role|class)/g;
+      while ((m = htmlNameRegex.exec(html)) !== null) {
+        const name = m[1].trim();
+        if (!seenNames.has(name.toLowerCase())) {
+          names.push(name);
+        }
+      }
+
+      for (let i = 0; i < names.length && leads.length < targetLimit; i++) {
+        const name = names[i];
+        const nameKey = name.toLowerCase();
+        if (seenNames.has(nameKey)) continue;
+        seenNames.add(nameKey);
+
+        const lead = createEmptySearchLead();
+        lead.nome = name;
+
+        if (i < phoneMatches.length && phoneMatches[i]) {
+          lead.telefone = normalizePhone(phoneMatches[i]);
+        }
+
+        if (i < sites.length && sites[i] && isBusinessWebsiteCandidate(sites[i])) {
+          lead.site = sites[i].startsWith('http') ? sites[i] : `https://${sites[i]}`;
+        }
+
+        if (i < addresses.length && addresses[i]) {
+          lead.endereco = addresses[i].replace(/\\u[0-9a-fA-F]{4}/g, '');
+        }
+
+        if (i < ratings.length && ratings[i]) {
+          lead.avaliacao = ratings[i];
+        }
+
+        // Extract email/CNPJ/social from combined text context
+        const contextStart = Math.max(0, html.indexOf(name) - 200);
+        const contextEnd = Math.min(html.length, html.indexOf(name) + 500);
+        const context = html.slice(contextStart, contextEnd);
+
+        const emailMatch = context.match(EMAIL_REGEX);
+        if (emailMatch) {
+          const email = emailMatch.find(e => !BAD_EMAIL.test(e));
+          if (email) lead.email = email;
+        }
+
+        const cnpjMatch = context.match(CNPJ_REGEX);
+        if (cnpjMatch) lead.cnpj = cnpjMatch[0];
+
+        const instaMatch = context.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
+        if (instaMatch) lead.instagram = `https://www.instagram.com/${instaMatch[1]}`;
+
+        const fbMatch = context.match(/facebook\.com\/([a-zA-Z0-9._]+)/i);
+        if (fbMatch) lead.facebook = `https://www.facebook.com/${fbMatch[1]}`;
+
+        leads.push(lead);
+      }
+
+      await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
+    } catch {
+      // Bing failed, continue to next variant
+    }
   }
 
   return leads;
