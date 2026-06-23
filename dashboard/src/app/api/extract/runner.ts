@@ -71,8 +71,10 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     existingLeadKeys, onProgress, onDone, shouldCancel,
   } = config;
 
-  const GLOBAL_TIMEOUT = 90000;
   const startTime = Date.now();
+  const GLOBAL_TIMEOUT = Math.max(config.maxTimeMs || 60000, 60000); // default 60s
+  const hardDeadline = startTime + GLOBAL_TIMEOUT;
+  let finalized = false;
   const leadsByName = new Map<string, SearchLead>();
   const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
   const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
@@ -130,7 +132,12 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     }
   };
 
+  const isOverTime = () => Date.now() >= hardDeadline;
+
   const finalize = (leads: SearchLead[], error?: string) => {
+    if (finalized) return leads.slice(0, targetLimit); // already finalized
+    finalized = true;
+
     const validLeads = leads
       .map(l => ({ lead: l, score: scoreLeadQuality(l) }))
       .filter(s => s.score.tier !== 'trash')
@@ -192,11 +199,18 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     // =========================================================================
     const existingForFetch = new Set<string>(Array.from(scrapedNames));
 
+    // Calcula timeouts adaptativos baseados no deadline global
+    const remaining = () => Math.max(5000, hardDeadline - Date.now() - 2000);
+    const googleTimeout = Math.min(15000, remaining());
+    const bingTimeout = Math.min(15000, remaining());
+    const ddgTimeout = Math.min(15000, remaining());
+    const osmTimeout = Math.min(20000, remaining());
+
     const fetchResults = await Promise.all([
-      fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch).then(r => r.leads), 15000),
-      fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), 15000),
-      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), 15000),
-      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), 20000),
+      fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch).then(r => r.leads), googleTimeout),
+      fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), bingTimeout),
+      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), ddgTimeout),
+      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), osmTimeout),
     ]);
 
     if (elapsed() > 55) {
@@ -213,7 +227,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     // =========================================================================
     // PHASE 2: Playwright as fallback (only if needed and time permits)
     // =========================================================================
-    if (leadsByName.size < targetLimit && elapsed() < 50) {
+    if (leadsByName.size < targetLimit && elapsed() < 50 && !isOverTime()) {
       console.log(`[EXTRACT] Phase 1 found ${leadsByName.size}/${targetLimit} leads, trying Playwright Maps...`);
       notify('Buscando mais leads via Maps...');
 
@@ -248,12 +262,19 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       }
     }
 
+    if (isOverTime()) {
+      console.warn(`[EXTRACT] GLOBAL_TIMEOUT reached (${GLOBAL_TIMEOUT}ms). Forcing finalization with ${leadsByName.size} leads.`);
+      notify(`${leadsByName.size} leads (timeout ${Math.round(GLOBAL_TIMEOUT/1000)}s)`);
+      return finalize(getLeadsArray(), `Tempo limite de ${Math.round(GLOBAL_TIMEOUT/1000)}s atingido. Resultados parciais.`);
+    }
+
     notify(`${leadsByName.size} leads encontrados (${elapsed()}s)`);
 
     return finalize(getLeadsArray());
 
   } catch (err: any) {
     console.error('[EXTRACT] Fatal error:', err);
+    if (finalized) return getLeadsArray().slice(0, targetLimit);
     return finalize(getLeadsArray(), `Erro na extração: ${err?.message || 'Erro inesperado'}`);
   }
 }

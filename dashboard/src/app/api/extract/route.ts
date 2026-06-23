@@ -26,17 +26,19 @@ function getGlobalConcurrent(): number {
   return total;
 }
 
-async function updateJob(jobId: string, updates: Record<string, any>) {
+async function updateJob(jobId: string, updates: Record<string, any>): Promise<void> {
   const supabase = createAdminSupabaseClient();
   console.log(`[EXTRACT] updateJob: setting status=${updates.status} delivered=${updates.delivered} for job ${jobId}`);
   try {
-    await Promise.race([
+    const { error } = await Promise.race([
       supabase.from('extraction_jobs').update(updates).eq('id', jobId),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout')), 10000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout after 10s')), 10000)),
     ]);
+    if (error) throw error;
     console.log(`[EXTRACT] updateJob: SUCCESS for job ${jobId}`);
   } catch (e: any) {
-    console.error(`[EXTRACT] updateJob: FAILED for job ${jobId}:`, e.message);
+    console.error(`[EXTRACT] updateJob: FAILED for job ${jobId}:`, e.message || e);
+    throw e; // Propagar erro para que as retentativas funcionem
   }
 }
 
@@ -149,9 +151,11 @@ export async function POST(request: Request) {
           cities_scanned: citiesDone,
           message,
           search_time_seconds: Math.round((Date.now() - extractionStartTime) / 1000),
+        }).catch((e: any) => {
+          console.warn('[EXTRACT] onProgress update failed (non-critical):', e.message || e);
         });
       },
-      onDone: (result) => {
+      onDone: async (result) => {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
@@ -168,13 +172,30 @@ export async function POST(request: Request) {
           delivered: true,
         };
 
-        const attemptUpdate = (retries: number) => {
-          updateJob(jobId, jobUpdate).catch((e: any) => {
-            console.error('[EXTRACT] updateJob failed:', e);
-            if (retries > 0) setTimeout(() => attemptUpdate(retries - 1), 2000);
-          });
+        const doFinalUpdate = async (retries = 3) => {
+          try {
+            await updateJob(jobId, jobUpdate);
+          } catch (e: any) {
+            console.error(`[EXTRACT] Final update failed for job ${jobId}, retries=${retries}:`, e.message || e);
+            if (retries > 0) {
+              await new Promise(r => setTimeout(r, 2000));
+              return doFinalUpdate(retries - 1);
+            }
+            // Último recurso: tenta update sem leads pra pelo menos marcar como concluído
+            console.error(`[EXTRACT] All retries exhausted for job ${jobId}, trying minimal update...`);
+            try {
+              await updateJob(jobId, {
+                status: result.error ? 'failed' : 'completed',
+                delivered: true,
+                completed_at: new Date().toISOString(),
+                error: result.error || `Leads salvos parcialmente. Tente atualizar a página.`,
+              });
+            } catch (e2: any) {
+              console.error(`[EXTRACT] Even minimal update FAILED for job ${jobId}:`, e2.message || e2);
+            }
+          }
         };
-        attemptUpdate(3);
+        doFinalUpdate(3);
 
         done();
 
