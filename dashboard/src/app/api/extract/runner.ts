@@ -112,7 +112,6 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     for (const lead of leads) {
       // Bug #1: Ignora leads com nome vazio — vão para o Map com key="" e são filtrados como 'trash' no finalize
       if (!lead.nome || lead.nome.trim() === '') {
-        scannedTotal++;
         continue;
       }
       const key = lead.nome.toLowerCase();
@@ -149,14 +148,19 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     if (finalized) return leads.slice(0, targetLimit); // already finalized
     finalized = true;
 
-    const validLeads = leads
-      .map(l => ({ lead: l, score: scoreLeadQuality(l) }))
+    // DEBUG: loga cada lead com score e tier antes de filtrar
+    const scoredLeads = leads.map(l => ({ lead: l, score: scoreLeadQuality(l) }));
+    for (const s of scoredLeads) {
+      console.log(`[SCORE] "${s.lead.nome}" score=${s.score.score} tier=${s.score.tier} phone="${s.lead.telefone}" site="${s.lead.site}"`);
+    }
+
+    const validLeads = scoredLeads
       .filter(s => s.score.tier !== 'trash')
       .map(s => s.lead)
       .filter(l => postFilter(l, filterRule))
       .slice(0, targetLimit);
 
-    console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${leadsByName.size} unique in ${elapsed()}s`);
+    console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${leadsByName.size} unique (${scoredLeads.filter(s => s.score.tier === 'trash').length} trash) in ${elapsed()}s`);
 
     if (onDone) {
       onDone({
