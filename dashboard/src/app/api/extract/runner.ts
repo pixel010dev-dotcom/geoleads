@@ -110,6 +110,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   function processResults(leads: SearchLead[], source: string): number {
     let added = 0;
     for (const lead of leads) {
+      // Bug #1: Ignora leads com nome vazio — vão para o Map com key="" e são filtrados como 'trash' no finalize
+      if (!lead.nome || lead.nome.trim() === '') {
+        scannedTotal++;
+        continue;
+      }
       const key = lead.nome.toLowerCase();
       if (scrapedNames.has(key)) {
         if (leadsByName.has(key)) {
@@ -220,17 +225,18 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch, globalAbort.signal), osmTimeout),
     ]);
 
-    // Aborta qualquer estratégia que ainda esteja rodando em background
-    globalAbort.abort();
-
     if (elapsed() > 55) {
       console.log(`[EXTRACT] WARNING: Phase 1 took ${elapsed()}s, returning what we have`);
     }
 
+    // Processa resultados ANTES de abortar (Bug #3)
     for (const leads of fetchResults) {
       const added = processResults(leads, 'fetch');
       if (added > 0) citiesDone++;
     }
+
+    // Aborta qualquer estratégia que ainda esteja rodando em background (depois de processar)
+    globalAbort.abort();
 
     console.log(`[EXTRACT] Phase 1 done: ${leadsByName.size} leads in ${elapsed()}s`);
 

@@ -32,7 +32,7 @@ async function updateJob(jobId: string, updates: Record<string, any>): Promise<v
   try {
     const { error } = await Promise.race([
       supabase.from('extraction_jobs').update(updates).eq('id', jobId),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout after 10s')), 10000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout after 30s')), 30000)),
     ]);
     if (error) throw error;
     console.log(`[EXTRACT] updateJob: SUCCESS for job ${jobId}`);
@@ -195,9 +195,16 @@ export async function POST(request: Request) {
             }
           }
         };
-        doFinalUpdate(3);
 
-        done();
+        // Garante que done() sempre seja chamado, mesmo se o update falhar
+        try {
+          // Bug #2: AWAIT o update antes de chamar done() — sem await o delivered: true nunca chega no Supabase
+          await doFinalUpdate(3);
+        } catch (e: any) {
+          console.error(`[EXTRACT] onDone: all updates failed for job ${jobId}:`, e?.message || e);
+        } finally {
+          done();
+        }
 
         if (gastos > 0) {
           (async () => {
