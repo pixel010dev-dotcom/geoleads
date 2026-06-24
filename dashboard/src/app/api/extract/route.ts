@@ -4,6 +4,8 @@ import { type FeatureKey } from '@/lib/plans';
 import { runExtraction } from './runner';
 import { smartNormalizeQuery, isBroadLocation } from './lib/normalizers';
 import { checkExtractionRateLimit } from '@/lib/rate-limit';
+import { enrichLead } from './enrichment/website';
+import type { SearchLead } from './lib/types';
 
 export const runtime = 'nodejs';
 
@@ -236,6 +238,45 @@ export async function POST(request: Request) {
             });
           } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
         })();
+
+        // Enriquecimento em background (nao bloqueante)
+        // Para cada lead com site, tenta extrair email + redes sociais
+        // Para leads sem CNPJ, tenta BrasilAPI
+        if (result.leads.length > 0) {
+          (async () => {
+            const enrichedLeads: SearchLead[] = [];
+            for (const lead of result.leads) {
+              try {
+                // Enriquecimento via website (email, social) - somente se tiver site
+                if (lead.site && lead.site !== 'Sem site' && (!lead.email || !lead.instagram || !lead.facebook)) {
+                  const enriched = await enrichLead({ ...lead });
+                  if (enriched.email) lead.email = enriched.email;
+                  if (enriched.instagram) lead.instagram = enriched.instagram;
+                  if (enriched.facebook) lead.facebook = enriched.facebook;
+                  if (enriched.tiktok) lead.tiktok = enriched.tiktok;
+                  console.log(`[ENRICH] Website: "${lead.nome}" email=${!!lead.email} insta=${!!lead.instagram} fb=${!!lead.facebook}`);
+                }
+                enrichedLeads.push(lead);
+              } catch (e: any) {
+                console.warn(`[ENRICH] Failed for "${lead.nome}":`, e?.message || e);
+              }
+            }
+
+            // Salva leads enriquecidos no job
+            if (enrichedLeads.length > 0) {
+              try {
+                await updateJob(jobId, {
+                  leads: enrichedLeads,
+                  leads_count: enrichedLeads.length,
+                  message: `${enrichedLeads.length} leads com enriquecimento`,
+                });
+                console.log(`[ENRICH] Saved ${enrichedLeads.length} enriched leads`);
+              } catch (e: any) {
+                console.warn(`[ENRICH] Failed to save enriched leads:`, e?.message || e);
+              }
+            }
+          })();
+        }
       },
       shouldCancel: async () => {
         const supabase = createAdminSupabaseClient();

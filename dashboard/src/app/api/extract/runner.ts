@@ -4,7 +4,8 @@ import { extractFromGoogleSearch } from './strategies/google-search-via-cf';
 import { extractFromOpenStreetMap } from './strategies/alternative-sources';
 import { extractFromDuckDuckGo } from './strategies/duckduckgo';
 import { extractFromBingMaps } from './strategies/bing-maps';
-import { getPlaywrightProxyConfig } from './lib/proxy';
+import { extractFromGoogleMapsMobile } from './strategies/google-maps-mobile';
+import { getCachedQuery, setCachedQuery, generateQueryCacheKey } from './lib/cache';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -175,11 +176,31 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   };
 
   try {
+    // Verifica cache primeiro
+    const cacheKey = generateQueryCacheKey(keyword, location);
+    const cachedLeads = getCachedQuery(cacheKey);
+    if (cachedLeads && cachedLeads.length >= targetLimit) {
+      console.log(`[EXTRACT] Cache HIT: ${cachedLeads.length} leads for "${keyword}" in "${location}"`);
+      for (const lead of cachedLeads) {
+        if (leadsByName.size >= targetLimit) break;
+        processResults([lead], 'cache');
+      }
+      notify(`${leadsByName.size} leads (cache)`);
+      // Finaliza sem precisar rodar as estrategias
+      return finalize(getLeadsArray());
+    }
+
     const cfWorkerUrl = process.env.CF_WORKER_URL || '';
     console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit}`);
-    console.log(`[EXTRACT] CF_WORKER_URL: ${cfWorkerUrl ? 'configured (' + cfWorkerUrl + ')' : 'NOT SET - Google Search will be direct'}`);
+    console.log(`[EXTRACT] CF_WORKER_URL: ${cfWorkerUrl ? 'configured' : 'NOT SET'}`);
 
     notify('Buscando leads em múltiplas fontes...');
+
+    // =========================================================================
+    // SMART FETCH: estrategias em paralelo com abort inteligente
+    // Cada estrategia tem timeout de 8s (exceto OSM que tem 12s)
+    // Se uma estrategia ja achou leads suficientes, aborta as outras
+    // =========================================================================
 
     const fetchWithTimeout = (name: string, fn: () => Promise<SearchLead[]>, timeoutMs: number): Promise<SearchLead[]> =>
       new Promise<SearchLead[]>((resolve) => {
@@ -209,98 +230,77 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         });
       });
 
-    // =========================================================================
-    // PHASE 1: Fetch-based strategies (parallel)
-    // =========================================================================
     const existingForFetch = new Set<string>(Array.from(scrapedNames));
+    const existingForMobile = new Set<string>(Array.from(scrapedNames));
 
-    // Calcula timeouts adaptativos baseados no deadline global
-    const remaining = () => Math.max(5000, hardDeadline - Date.now() - 2000);
-    const googleTimeout = Math.min(15000, remaining());
-    const bingTimeout = Math.min(15000, remaining());
-    const ddgTimeout = Math.min(15000, remaining());
-    const osmTimeout = Math.min(20000, remaining());
+    // Timeouts otimizados para VELOCIDADE MAXIMA
+    // Google e Bing sao rapidos (6s), DuckDuckGo medio (8s), OSM lento (12s)
+    const googleTimeout = 8000;
+    const mobileTimeout = 6000;
+    const bingTimeout = 8000;
+    const ddgTimeout = 8000;
+    const osmTimeout = 12000;
 
-    // Passa o AbortSignal para as estratégias permitirem cancelamento real
-    const fetchResults = await Promise.all([
-      fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch, globalAbort.signal).then(r => r.leads), googleTimeout),
-      fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch, globalAbort.signal), bingTimeout),
-      fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch, globalAbort.signal), ddgTimeout),
-      fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch, globalAbort.signal), osmTimeout),
-    ]);
+    // Dispara todas as estrategias em paralelo
+    const strategyPromises = [
+      { name: 'GoogleSearch', promise: fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch, globalAbort.signal).then(r => r.leads), googleTimeout) },
+      { name: 'GoogleMobile', promise: fetchWithTimeout('GoogleMobile', () => extractFromGoogleMapsMobile(keyword, location, targetLimit, existingForMobile, globalAbort.signal), mobileTimeout) },
+      { name: 'BingMaps', promise: fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch, globalAbort.signal), bingTimeout) },
+      { name: 'DuckDuckGo', promise: fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch, globalAbort.signal), ddgTimeout) },
+      { name: 'OSM', promise: fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch, globalAbort.signal), osmTimeout) },
+    ];
 
-    if (elapsed() > 55) {
-      console.log(`[EXTRACT] WARNING: Phase 1 took ${elapsed()}s, returning what we have`);
-    }
+    // Smart: processa resultados conforme chegam (nao espera todos)
+    // A cada estrategia que completa, verifica se ja tem leads suficientes
+    const remainingPromises = [...strategyPromises];
+    const fetchResults: SearchLead[][] = [];
 
-    // Processa resultados ANTES de abortar (Bug #3)
-    for (const leads of fetchResults) {
-      const added = processResults(leads, 'fetch');
+    while (remainingPromises.length > 0 && !isOverTime()) {
+      const result = await Promise.race(remainingPromises.map(s => 
+        s.promise.then(leads => ({ name: s.name, leads, done: true }))
+      ));
+      
+      // Remove a que completou
+      const idx = remainingPromises.findIndex(s => s.name === result.name);
+      if (idx !== -1) remainingPromises.splice(idx, 1);
+
+      // Processa os leads dessa estrategia IMEDIATAMENTE
+      const added = processResults(result.leads, result.name);
       if (added > 0) citiesDone++;
-    }
+      fetchResults.push(result.leads);
 
-    // Aborta qualquer estratégia que ainda esteja rodando em background (depois de processar)
-    globalAbort.abort();
-
-    console.log(`[EXTRACT] Phase 1 done: ${leadsByName.size} leads in ${elapsed()}s`);
-
-    // =========================================================================
-    // PHASE 2: Playwright as fallback (only if needed and time permits)
-    // Usa AbortController proprio para evitar conflito com o sinal do Phase 1
-    // =========================================================================
-    const remainingTime = hardDeadline - Date.now();
-    if (leadsByName.size < targetLimit && remainingTime > 10000 && !isOverTime()) {
-      console.log(`[EXTRACT] Phase 1 found ${leadsByName.size}/${targetLimit} leads, trying Playwright Maps...`);
-      notify('Buscando mais leads via Maps...');
-
-      const PW_TIMEOUT = Math.min(60000, Math.max(15000, remainingTime - 5000)); // Pelo menos 15s, max 60s
-
-      // AbortController DEDICADO para o Playwright (sem conflito com globalAbort)
-      const pwAbort = new AbortController();
-      const pwTimeoutId = setTimeout(() => {
-        pwAbort.abort();
-        console.log(`[EXTRACT] Playwright: TIMEOUT after ${PW_TIMEOUT}ms, aborting...`);
-      }, PW_TIMEOUT);
-
-      try {
-        const pw = await import('playwright');
-        // Timeout HARD no launch do browser (nao pode travar a extracao)
-        const browser = await Promise.race([
-          pw.chromium.launch({
-            headless: true,
-            proxy: getPlaywrightProxyConfig(),
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-          }),
-          new Promise<any>((_, reject) =>
-            setTimeout(() => reject(new Error('Browser launch timeout after 30s')), 30000)
-          ),
-        ]);
-
-        try {
-          const { extractFromPlaywrightMaps } = await import('./strategies/maps-scraper');
-          const pwResult = await extractFromPlaywrightMaps(
-            browser, keyword, location,
-            targetLimit - leadsByName.size,
-            new Set(Array.from(scrapedNames)),
-            25,
-            pwAbort.signal, // Usa sinal DEDICADO (nao o globalAbort ja abortado)
-          );
-
-          if (pwResult.blocked) {
-            console.log(`[EXTRACT] Playwright: blocked by Google`);
-          } else {
-            const pwAdded = processResults(pwResult.leads, 'playwright');
-            console.log(`[EXTRACT] Playwright: ${pwAdded} new leads (${pwResult.leads.length} total) in ${elapsed()}s`);
-          }
-        } finally {
-          await browser.close().catch(() => {});
-        }
-      } catch (e: any) {
-        console.log(`[EXTRACT] Playwright failed: ${e?.message || e}`);
-      } finally {
-        clearTimeout(pwTimeoutId);
+      console.log(`[EXTRACT] ${result.name}: ${result.leads.length} leads (+${added} new) total=${leadsByName.size}/${targetLimit}`);
+      
+      // SMART ABORT: se ja temos leads suficientes, cancela o resto
+      if (leadsByName.size >= targetLimit || elapsed() >= 25) {
+        console.log(`[EXTRACT] Target met (${leadsByName.size}/${targetLimit}) or time up (${elapsed()}s), aborting remaining strategies`);
+        globalAbort.abort();
+        remainingPromises.length = 0; // Clear remaining
+        break;
       }
     }
+
+    // Se ainda tem promises pendentes (porque abortamos), espera so mais 2s
+    if (remainingPromises.length > 0) {
+      try {
+        await Promise.race([
+          Promise.all(remainingPromises.map(s => s.promise)),
+          new Promise(r => setTimeout(r, 2000)),
+        ]);
+      } catch {}
+    }
+
+    console.log(`[EXTRACT] All strategies done: ${leadsByName.size} leads in ${elapsed()}s`);
+
+    // Salva no cache para consultas futuras
+    if (leadsByName.size > 0) {
+      setCachedQuery(cacheKey, getLeadsArray());
+    }
+
+    // =========================================================================
+    // PHASE 2: removida (Playwright Chromium era instavel no Railway)
+    // Se precisar de mais leads, tente novamente com termo diferente
+    // =========================================================================
 
     if (isOverTime()) {
       console.warn(`[EXTRACT] GLOBAL_TIMEOUT reached (${GLOBAL_TIMEOUT}ms). Forcing finalization with ${leadsByName.size} leads.`);
