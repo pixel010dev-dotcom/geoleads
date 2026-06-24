@@ -3,12 +3,37 @@ import { createEmptySearchLead } from '../lib/types';
 import { normalizePhone, isBusinessWebsiteCandidate } from '../lib/validation';
 import { getRandomHeaders } from '../lib/stealth';
 
-const BLOCKED_KEYWORDS = ['captcha', 'sorry', 'unusual traffic', 'tráfego incomum', "please show you're not a robot", 'robô', 'automated queries'];
+const BLOCKED_KEYWORDS = ['captcha', 'sorry', 'unusual traffic', 'tráfego incomum', "please show you're not a robot", 'robô', 'automated queries', 'our systems have detected', 'nossos sistemas detectaram', 'automated queries', 'consulta automatizada', 'enter the code', 'digite o código'];
 
 function isBlocked(html: string, url: string): boolean {
   const lower = html.toLowerCase();
-  if (url.includes('sorry') || url.includes('captcha')) return true;
+  if (url.includes('sorry') || url.includes('captcha') || url.includes('consent')) return true;
   return BLOCKED_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function cleanName(raw: string): string {
+  return raw
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const BAD_TITLE_PATTERNS = [
+  /^(sign in|login|register|create account|google|maps|search|privacy|terms|sign up|entrar|criar conta|acessar)/i,
+  /\b(redirecionando|redirecting|carregando|loading)\b/i,
+  /^\d+$/,
+  /^(youtube|facebook|instagram|twitter|linkedin|tiktok|whatsapp|telegram)/i,
+  /^(imagem|image|foto|photo|video|vídeo)/i,
+];
+
+function isValidBusinessName(name: string): boolean {
+  if (!name || name.length < 2 || name.length > 200) return false;
+  return !BAD_TITLE_PATTERNS.some(p => p.test(name));
 }
 
 function parseLdJson(html: string): SearchLead[] {
@@ -73,19 +98,52 @@ function parseHtmlResults(html: string): SearchLead[] {
   const leads: SearchLead[] = [];
   const seen = new Set<string>();
 
-  // Try to find business names in result titles
-  const titleRegex = /<h3[^>]*>([\s\S]*?)<\/h3>/gi;
-  let match: RegExpExecArray | null;
+  // Múltiplos padrões de título para capturar diferentes estruturas HTML do Google
+  const titlePatterns = [
+    /<h3[^>]*>([\s\S]*?)<\/h3>/gi,
+    /<div[^>]*class="[^"]*BNeawe[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<span[^>]*class="[^"]*OSrXXb[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
+    /<a[^>]*class="[^"]*pstlQe[^"]*"[^>]*>([\s\S]*?)<\/a>/gi,
+    /aria-label="([^"]{3,200})"[^>]*role="link"/gi,
+  ];
 
-  while ((match = titleRegex.exec(html)) !== null) {
-    const name = match[1].replace(/<[^>]*>/g, '').trim();
-    if (!name || name.length < 2 || name.length > 200 || seen.has(name)) continue;
-    if (/^(sign in|login|register|create account|google|maps|search|privacy|terms)/i.test(name)) continue;
-    seen.add(name);
+  for (const pattern of titlePatterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(html)) !== null) {
+      const name = cleanName(match[1]);
+      if (!name || seen.has(name) || !isValidBusinessName(name)) continue;
+      seen.add(name);
 
-    const lead = createEmptySearchLead();
-    lead.nome = name;
-    leads.push(lead);
+      const lead = createEmptySearchLead();
+      lead.nome = name;
+
+      // Tenta extrair telefone do contexto próximo ao nome
+      const contextStart = Math.max(0, match.index - 300);
+      const contextEnd = Math.min(html.length, match.index + match[0].length + 500);
+      const context = html.slice(contextStart, contextEnd);
+
+      const phoneMatch = context.match(/\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/);
+      if (phoneMatch) lead.telefone = normalizePhone(phoneMatch[0]);
+
+      // Tenta extrair site dos links próximos
+      const siteMatch = context.match(/href="(https?:\/\/[^"]+)"[^>]*>/gi);
+      if (siteMatch) {
+        for (const sm of siteMatch) {
+          const hrefMatch = sm.match(/href="([^"]+)"/);
+          if (hrefMatch && isBusinessWebsiteCandidate(hrefMatch[1])) {
+            lead.site = hrefMatch[1];
+            break;
+          }
+        }
+      }
+
+      // Tenta extrair endereço
+      const addrMatch = context.match(/((?:Rua|Av\.?|Avenida|Travessa|Praça|Alameda)\s[^,]{5,80})/i);
+      if (addrMatch) lead.endereco = addrMatch[1].trim();
+
+      leads.push(lead);
+    }
+    if (leads.length > 0) break; // Se um padrão funcionou, não precisa dos outros
   }
 
   return leads;
@@ -145,14 +203,19 @@ export async function extractFromGoogleSearch(
     return fetchViaCfWorker(url, cfWorkerUrl, sig);
   } : fetchViaUrl;
 
-  // Apenas .com.br e .com - .com.mx removido (muito lento e raramente retorna leads BR)
+  // Múltiplos TLDs e variações de query para maximizar resultados
   const tlds = ['com.br', 'com'];
-  const hls = ['pt-BR', 'pt'];
 
+  // Gera múltiplas variações de busca
   const queries = [
     `${keyword} ${location}`,
     `${keyword} em ${location}`,
+    `${keyword} ${location} telefone endereço`,
+    `${keyword} ${location} site contato`,
+    `${keyword} ${location} whatsapp email`,
   ];
+
+  const BATCH_DELAY = 1200; // ms entre batches de requisições
 
   for (const query of queries) {
     if (allLeads.length >= targetLimit) break;
@@ -160,26 +223,28 @@ export async function extractFromGoogleSearch(
     if (blocked) break;
 
     const encoded = encodeURIComponent(query);
+    let foundInThisQuery = false;
 
     for (const tld of tlds) {
       if (allLeads.length >= targetLimit) break;
       if (signal?.aborted) break;
       if (blocked) break;
+      if (foundInThisQuery) break; // Se uma TLD retornou resultados, não precisa da outra
 
-      // Tenta primeiro com tbm=lcl (Google Local), que tem mais dados estruturados
-      const url = `https://www.google.${tld}/search?q=${encoded}&tbm=lcl&hl=pt-BR&gl=br&num=10`;
+      // Tenta com Google Local primeiro (mais dados estruturados)
+      const localUrl = `https://www.google.${tld}/search?q=${encoded}&tbm=lcl&hl=pt-BR&gl=br&num=10`;
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        const timeout = setTimeout(() => controller.abort(), 12000);
         const combinedSignal = signal ? combineSignals(signal, controller.signal) : controller.signal;
 
-        const { html, blocked: wasBlocked } = await fetchFn(url, combinedSignal);
+        const { html, blocked: wasBlocked } = await fetchFn(localUrl, combinedSignal);
         clearTimeout(timeout);
 
         if (wasBlocked) {
           blocked = true;
-          console.log(`[GoogleSearch] Blocked on ${tld}`);
+          console.log(`[GoogleSearch] Blocked on ${tld} (local)`);
           continue;
         }
         if (!html) continue;
@@ -197,11 +262,62 @@ export async function extractFromGoogleSearch(
           allLeads.push(lead);
         }
 
-        if (newLeads.length > 0) break; // Found results, no need more TLDs
+        if (newLeads.length > 0) {
+          foundInThisQuery = true;
+          
+          // Se tivemos sucesso, tenta paginação para mais resultados
+          if (allLeads.length < targetLimit && newLeads.length >= 8) {
+            try {
+              await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
+              if (signal?.aborted) break;
+              
+              const pageUrl = `https://www.google.${tld}/search?q=${encoded}&tbm=lcl&hl=pt-BR&gl=br&num=20&start=0`;
+              const { html: page2Html } = await fetchFn(pageUrl);
+              if (page2Html) {
+                const page2Leads = parseLdJson(page2Html);
+                const htmlPage2Leads = page2Leads.length === 0 ? parseHtmlResults(page2Html) : [];
+                const allPage2 = [...page2Leads, ...htmlPage2Leads];
+                for (const lead of allPage2) {
+                  if (allLeads.length >= targetLimit) break;
+                  const key = lead.nome.toLowerCase();
+                  if (seenNames.has(key)) continue;
+                  seenNames.add(key);
+                  allLeads.push(lead);
+                }
+              }
+            } catch { /* pagination failed, continue */ }
+          }
+        }
       } catch { /* continue to next TLD */ }
     }
 
-    if (!blocked) await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
+    if (!blocked && !foundInThisQuery) {
+      // Se não encontrou com Google Local, tenta busca web normal
+      try {
+        const encodedWeb = encodeURIComponent(`${query} endereço telefone`);
+        const webUrl = `https://www.google.${tlds[0]}/search?q=${encodedWeb}&hl=pt-BR&gl=br&num=10`;
+        
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const combinedSignal = signal ? combineSignals(signal, controller.signal) : controller.signal;
+
+        const { html: webHtml } = await fetchFn(webUrl, combinedSignal);
+        clearTimeout(timeout);
+
+        if (webHtml) {
+          const webLeads = parseHtmlResults(webHtml);
+          for (const lead of webLeads) {
+            if (allLeads.length >= targetLimit) break;
+            const key = lead.nome.toLowerCase();
+            if (seenNames.has(key)) continue;
+            seenNames.add(key);
+            allLeads.push(lead);
+          }
+        }
+      } catch { /* web search failed */ }
+    }
+
+    if (!blocked) await new Promise(r => setTimeout(r, BATCH_DELAY * (0.5 + Math.random())));
   }
 
   // If blocked directly and CF worker is available, try one more query via CF

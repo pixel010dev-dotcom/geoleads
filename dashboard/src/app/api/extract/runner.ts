@@ -72,7 +72,12 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   } = config;
 
   const startTime = Date.now();
-  const GLOBAL_TIMEOUT = Math.max(config.maxTimeMs || 45000, 45000); // default 45s
+  // Timeout adaptativo baseado na quantidade de leads solicitados
+  const dynamicTimeout = Math.max(
+    30000,
+    Math.min(targetLimit * 1500, 120000) // 1.5s por lead, max 2min
+  );
+  const GLOBAL_TIMEOUT = Math.max(config.maxTimeMs || dynamicTimeout, 45000);
   const hardDeadline = startTime + GLOBAL_TIMEOUT;
   let finalized = false;
   const globalAbort = new AbortController();
@@ -233,11 +238,12 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     // PHASE 2: Playwright as fallback (only if needed and time permits)
     // Com TIMEOUT proprio para evitar que o browser hangue a extracao
     // =========================================================================
-    if (leadsByName.size < targetLimit && elapsed() < 45 && !isOverTime()) {
+    const remainingTime = hardDeadline - Date.now();
+    if (leadsByName.size < targetLimit && elapsed() < 45 && remainingTime > 30000 && !isOverTime()) {
       console.log(`[EXTRACT] Phase 1 found ${leadsByName.size}/${targetLimit} leads, trying Playwright Maps...`);
       notify('Buscando mais leads via Maps...');
 
-      const PW_TIMEOUT = 60000; // 60s max para Playwright
+      const PW_TIMEOUT = Math.min(60000, remainingTime - 5000); // Até 60s ou o que sobrar
       try {
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(() => reject(new Error(`Playwright timeout after ${PW_TIMEOUT}ms`)), PW_TIMEOUT);

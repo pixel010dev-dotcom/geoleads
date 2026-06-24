@@ -98,15 +98,30 @@ export function scoreLeadQuality(lead: SearchLead): { score: number; tier: Score
   if (lead.endereco) score += 10;
   if (lead.email) score += 15;
   if (lead.cnpj) score += 10;
-  if (lead.instagram) score += 5;
-  if (lead.facebook) score += 5;
+  if (lead.instagram) score += 8;
+  if (lead.facebook) score += 8;
+  if (lead.tiktok) score += 8;
   if (lead.avaliacao !== 'N/A') score += 5;
   if (lead.placeUrl) score += 5;
+  if (lead.categoria) score += 3;
+  if (lead.horarios) score += 3;
+  if (lead.cep) score += 3;
+
+  // Bônus para leads com múltiplos canais de contato
+  const contactChannels = [
+    lead.telefone && lead.telefone !== 'Não informado',
+    !!lead.email,
+    !!lead.instagram,
+    !!lead.facebook,
+    !!lead.tiktok,
+  ].filter(Boolean).length;
+  if (contactChannels >= 3) score += 10;
+  else if (contactChannels >= 2) score += 5;
 
   let tier: ScoreQuality;
-  if (score >= 60) tier = 'high';
-  else if (score >= 35) tier = 'medium';
-  else if (score >= 5) tier = 'low';
+  if (score >= 70) tier = 'high';
+  else if (score >= 40) tier = 'medium';
+  else if (score >= 10) tier = 'low';
   else tier = 'trash';
 
   return { score, tier };

@@ -317,17 +317,43 @@ export async function extractFromPlaywrightMaps(
 
     if (newLeads.length === 0) {
       emptyScrolls++;
-      if (emptyScrolls >= 6) break;
+      // Se não achar novos leads após vários scrolls, tenta um scroll mais agressivo
+      // e espera mais tempo para o carregamento
+      if (emptyScrolls >= 3 && emptyScrolls < 6) {
+        await page.evaluate(() => {
+          const feed = document.querySelector('div[role="feed"]');
+          if (feed) feed.scrollBy(0, 2500);
+        });
+        await page.waitForTimeout(1200 + Math.random() * 800);
+      }
+      if (emptyScrolls >= 6) {
+        // Último scroll grande antes de desistir
+        await page.evaluate(() => {
+          const feed = document.querySelector('div[role="feed"]');
+          if (feed) feed.scrollBy(0, 5000);
+        });
+        await page.waitForTimeout(2000);
+        const finalCards = await extractCardsFromPage(page);
+        if (finalCards.length <= rawChunk.length) break;
+        emptyScrolls = 3;
+        continue;
+      }
+      if (emptyScrolls >= 8) break;
     } else {
       emptyScrolls = 0;
     }
 
     if (allLeads.length < targetLimit) {
-      await page.evaluate(() => {
+      // Scroll suave com aceleração
+      const scrollAmount = 800 + Math.random() * 700;
+      await page.evaluate((px: number) => {
         const feed = document.querySelector('div[role="feed"]');
-        if (feed) feed.scrollBy(0, 1000 + Math.random() * 500);
-      });
-      await page.waitForTimeout(600 + Math.random() * 400);
+        if (feed) feed.scrollBy(0, px);
+      }, scrollAmount);
+      
+      // Tempo de espera adaptativo
+      const waitTime = emptyScrolls > 0 ? 1000 + Math.random() * 500 : 500 + Math.random() * 400;
+      await page.waitForTimeout(waitTime);
     }
     scrollCount++;
   }

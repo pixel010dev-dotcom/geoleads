@@ -6,6 +6,15 @@ const BLOCKED_KEYWORDS = ['duckduckgo', 'privacy', 'terms', 'login', 'sign up'];
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const BAD_EMAIL = /sentry|wix|example|schema|wordpress|localhost|noreply|no-reply/i;
 const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
+const PHONE_PATTERNS = [
+  /Fone[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i,
+  /Tel[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i,
+  /Cel[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i,
+  /WhatsApp[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i,
+  /Whats[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i,
+  /\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/,
+  /\+?55\s?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/,
+];
 
 export async function extractFromDuckDuckGo(
   keyword: string,
@@ -84,15 +93,17 @@ export async function extractFromDuckDuckGo(
         const snippet = snippets[i] || '';
         const combined = `${name} ${snippet}`;
 
-        const phoneMatch = combined.match(/\+?55\s?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/) ||
-          combined.match(/\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4}/) ||
-          combined.match(/\d{2}\s?\d{4,5}[\s-]?\d{4}/) ||
-          combined.match(/Fone[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i) ||
-          combined.match(/Tel[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i) ||
-          combined.match(/Cel[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i) ||
-          combined.match(/WhatsApp[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i) ||
-          combined.match(/Whats[:\s]*(\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/i);
-        const phone = phoneMatch ? normalizePhone(phoneMatch[0]) : 'Não informado';
+        let phone = 'Não informado';
+        for (const pat of PHONE_PATTERNS) {
+          const m = combined.match(pat);
+          if (m) {
+            const matchStr = m[1] || m[0];
+            if (matchStr.length >= 10) {
+              phone = normalizePhone(matchStr);
+              break;
+            }
+          }
+        }
 
         const lead = createEmptySearchLead();
         lead.nome = name;
