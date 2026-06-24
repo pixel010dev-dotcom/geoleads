@@ -239,11 +239,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     // Com TIMEOUT proprio para evitar que o browser hangue a extracao
     // =========================================================================
     const remainingTime = hardDeadline - Date.now();
-    if (leadsByName.size < targetLimit && elapsed() < 45 && remainingTime > 30000 && !isOverTime()) {
+    if (leadsByName.size < targetLimit && remainingTime > 10000 && !isOverTime()) {
       console.log(`[EXTRACT] Phase 1 found ${leadsByName.size}/${targetLimit} leads, trying Playwright Maps...`);
       notify('Buscando mais leads via Maps...');
 
-      const PW_TIMEOUT = Math.min(60000, remainingTime - 5000); // Até 60s ou o que sobrar
+      const PW_TIMEOUT = Math.min(60000, Math.max(15000, remainingTime - 5000)); // Pelo menos 15s, max 60s
       try {
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(() => reject(new Error(`Playwright timeout after ${PW_TIMEOUT}ms`)), PW_TIMEOUT);
