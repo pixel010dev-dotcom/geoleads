@@ -73,10 +73,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   } = config;
 
   const startTime = Date.now();
-  // Timeout adaptativo baseado na quantidade de leads solicitados
+  // Timeout adaptativo para grandes volumes
+  // Com o motor rapido, conseguimos ~3 leads/s, entao: 300ms por lead + base de 30s
   const dynamicTimeout = Math.max(
     30000,
-    Math.min(targetLimit * 1500, 120000) // 1.5s por lead, max 2min
+    Math.min(targetLimit * 300 + 15000, 300000) // ~300ms por lead + 15s base, max 5min
   );
   const GLOBAL_TIMEOUT = Math.max(config.maxTimeMs || dynamicTimeout, 45000);
   const hardDeadline = startTime + GLOBAL_TIMEOUT;

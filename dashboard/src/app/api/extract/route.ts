@@ -106,7 +106,9 @@ export async function POST(request: Request) {
     const location = correctedLocation;
     const isBroadRegion = isBroadLocation(rawLocation) || isBroadLocation(correctedLocation);
     const requestedLimit = Math.max(1, Number(limit) || 10);
-    const targetLimit = Math.min(requestedLimit, 200, auth.tokens);
+    // Sem limite maximo alem dos tokens do usuario
+    // O motor rapido consegue processar grandes quantidades
+    const targetLimit = Math.min(requestedLimit, auth.tokens);
     if (targetLimit === 0) {
       return NextResponse.json({ error: 'Saldo insuficiente. Compre mais tokens.' }, { status: 402 });
     }
