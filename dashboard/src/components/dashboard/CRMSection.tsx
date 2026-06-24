@@ -64,14 +64,11 @@ export interface CRMSectionProps {
   bulkStageLoading: boolean;
   bulkStageTarget: string;
   setBulkStageTarget: (v: string) => void;
-  enrichLoading: boolean;
   handleRemoveFromCRM: (nome: string) => void;
   handleToggleSelectCrmLead: (nome: string) => void;
   handleToggleSelectAllCrmLeads: (filteredLeads: any[]) => void;
   handleRemoveSelectedFromCRM: () => void;
   handleBulkStageChange: () => Promise<void>;
-  handleReEnrichSelected: () => Promise<void>;
-  handleReEnrichSingle: (lead: any) => Promise<void>;
   handleUpdateCRMLead: (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => void;
   openWhatsApp: (lead: any) => void;
   waSentMessages?: any[];
@@ -135,14 +132,11 @@ export default function CRMSection({
   bulkStageLoading,
   bulkStageTarget,
   setBulkStageTarget,
-  enrichLoading,
   handleRemoveFromCRM,
   handleToggleSelectCrmLead,
   handleToggleSelectAllCrmLeads,
   handleRemoveSelectedFromCRM,
   handleBulkStageChange,
-  handleReEnrichSelected,
-  handleReEnrichSingle,
   handleUpdateCRMLead,
   openWhatsApp,
   waSentMessages,
@@ -278,13 +272,7 @@ export default function CRMSection({
               >
                 {bulkStageLoading ? t('crm.applying') : t('crm.apply')}
               </button>
-              <button
-                onClick={handleReEnrichSelected}
-                disabled={enrichLoading}
-                className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white border border-amber-500/30 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {enrichLoading ? t('crm.enriching') : t('crm.reEnrich')}
-              </button>
+
             </>
           )}
           <input 
@@ -488,14 +476,6 @@ export default function CRMSection({
                         💬 {t('crm.contact')}
                       </button>
                     )}
-                    {lead.site && lead.site !== 'Sem site' && (
-                      <button
-                        onClick={() => handleReEnrichSingle(lead)}
-                        className="p-2 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-colors text-xs font-semibold cursor-pointer"
-                      >
-                        {t('crm.reEnrich')}
-                      </button>
-                    )}
                     <button
                       onClick={() => handleRemoveFromCRM(lead.nome)}
                       className="p-2 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-colors text-xs font-semibold cursor-pointer"
@@ -655,14 +635,6 @@ export default function CRMSection({
                     className="flex-1 py-2.5 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     💬 {t('crm.contact')}
-                  </button>
-                )}
-                {lead.site && lead.site !== 'Sem site' && (
-                  <button
-                    onClick={() => handleReEnrichSingle(lead)}
-                    className="flex-1 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    {t('crm.reEnrich')}
                   </button>
                 )}
                 <button

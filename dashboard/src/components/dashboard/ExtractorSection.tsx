@@ -224,7 +224,17 @@ export default function ExtractorSection({
                   return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeCities', { seconds: Math.ceil(sec), cities: citiesEst }) })}</p>;
                 }
                 const sec = Math.ceil(5 + l * 3.5);
-                return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeLocal', { seconds: sec }) })}</p>;
+                let timeStr = '';
+                if (sec > 3600) {
+                  const h = Math.floor(sec / 3600);
+                  const m = Math.ceil((sec % 3600) / 60);
+                  timeStr = `${h}h${m > 0 ? ` ${m}min` : ''}`;
+                } else if (sec > 60) {
+                  timeStr = `${Math.ceil(sec / 60)}min`;
+                } else {
+                  timeStr = `${sec}s`;
+                }
+                return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: timeStr })}</p>;
               })()}
               
               {isExtracting ? (

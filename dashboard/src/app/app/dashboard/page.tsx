@@ -49,7 +49,6 @@ export default function Home() {
   const [chartRefreshKey, setChartRefreshKey] = useState(0);
   const [bulkStageLoading, setBulkStageLoading] = useState(false);
   const [bulkStageTarget, setBulkStageTarget] = useState('Novo');
-  const [enrichLoading, setEnrichLoading] = useState(false);
   const CRM_PAGE_SIZE = 25;
 
   const [waTemplate, setWaTemplate] = useState('Olá {Nome}! Vi seu perfil comercial em {Cidade} e gostaria de saber se vocês têm interesse em receber mais clientes de {Nicho}. Podemos conversar?');
@@ -532,7 +531,29 @@ export default function Home() {
       const newKey = getLeadKey(newCrmLead);
       setSelectedWaLeads(prev => prev.includes(newKey) ? prev : [newKey, ...prev]);
     }
-    showToast(`"${lead.nome}" salvo no CRM!`, 'success');
+    showToast(`"${lead.nome}" salvo no CRM! Enriquecendo dados...`, 'success');
+    // Auto-enriquecimento em background usando o array local 'updated' (evita race condition)
+    const savedLead = updated.find(l => getLeadKey(l) === leadKey);
+    (async () => {
+      try {
+        const headers = await getAuthedJsonHeaders();
+        if (!headers) return;
+        const res = await fetch('/api/lead-enrich', {
+          method: 'POST', headers,
+          body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade || location, cnpj: lead.cnpj })
+        });
+        const data = await res.json();
+        if (data.success && data.enriched && savedLead) {
+          // Busca o lead no array local 'updated' e atualiza
+          const localCopy = [...updated];
+          const idx = localCopy.findIndex(l => getLeadKey(l) === leadKey);
+          if (idx >= 0) {
+            localCopy[idx] = { ...localCopy[idx], ...data.enriched };
+            saveCrm(localCopy);
+          }
+        }
+      } catch { /* silencio - enrichment e opcional */ }
+    })();
   };
 
   const handleAddAllToCRM = () => {
@@ -554,7 +575,34 @@ export default function Home() {
     if (addedCount > 0) {
       saveCrm(updated);
       if (newDispatchableKeys.length > 0) setSelectedWaLeads(prev => Array.from(new Set([...newDispatchableKeys, ...prev])));
-      showToast(`${addedCount} leads adicionados ao CRM!`, 'success');
+      showToast(`${addedCount} leads adicionados ao CRM! Enriquecendo...`, 'success');
+      // Auto-enriquecimento em lote (background) - acumula e salva uma vez pra evitar race condition
+      const updatedSnapshot = [...updated];
+      const enrichments: Record<string, any> = {};
+      (async () => {
+        const headers = await getAuthedJsonHeaders();
+        if (!headers) return;
+        for (const newLead of leads) {
+          try {
+            const res = await fetch('/api/lead-enrich', {
+              method: 'POST', headers,
+              body: JSON.stringify({ nome: newLead.nome, site: newLead.site, cidade: newLead.cidade || location, cnpj: newLead.cnpj })
+            });
+            const data = await res.json();
+            if (data.success && data.enriched) {
+              enrichments[getLeadKey(newLead)] = data.enriched;
+            }
+          } catch { /* silence */ }
+        }
+        // Salva tudo de uma vez
+        if (Object.keys(enrichments).length > 0) {
+          const finalCopy = updatedSnapshot.map(l => {
+            const key = getLeadKey(l);
+            return enrichments[key] ? { ...l, ...enrichments[key] } : l;
+          });
+          saveCrm(finalCopy);
+        }
+      })();
     } else showToast('Todos esses leads já existem no CRM.', 'info');
   };
 
@@ -612,51 +660,6 @@ export default function Home() {
     saveCrm(updated);
     setBulkStageLoading(false);
     showToast(`${selectedCrmLeads.length} leads movidos para "${bulkStageTarget}"`, 'success');
-  };
-
-  const handleReEnrichSelected = async () => {
-    const toEnrich = crmLeads.filter(l => selectedCrmLeads.includes(l.nome) && l.site && l.site !== 'Sem site');
-    if (toEnrich.length === 0) { showToast('Nenhum lead selecionado com site para enriquecer.', 'warning'); return; }
-    setEnrichLoading(true);
-    let enriched = 0;
-    const updated = [...crmLeads];
-    for (const lead of toEnrich) {
-      try {
-        const headers = await getAuthedJsonHeaders();
-        if (!headers) return;
-        const res = await fetch('/api/lead-enrich', {
-          method: 'POST', headers,
-          body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade })
-        });
-        const data = await res.json();
-        if (data.success && data.enriched) {
-          const idx = updated.findIndex(l => l.nome === lead.nome);
-          if (idx >= 0) { updated[idx] = { ...updated[idx], ...data.enriched }; }
-          enriched++;
-        }
-      } catch (e) { console.error(e); }
-    }
-    saveCrm(updated);
-    setEnrichLoading(false);
-    showToast(`${enriched} de ${toEnrich.length} leads re-enriquecidos!`, 'success');
-  };
-
-  const handleReEnrichSingle = async (lead: any) => {
-    if ((!lead.site || lead.site === 'Sem site') && !lead.placeUrl) { showToast('Lead sem site ou URL do Maps para enriquecer.', 'warning'); return; }
-    try {
-      const headers = await getAuthedJsonHeaders();
-      if (!headers) return;
-      const res = await fetch('/api/lead-enrich', {
-        method: 'POST', headers,
-        body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade, placeUrl: lead.placeUrl })
-      });
-      const data = await res.json();
-      if (data.success && data.enriched) {
-        const updated = crmLeads.map(l => l.nome === lead.nome ? { ...l, ...data.enriched } : l);
-        saveCrm(updated);
-        showToast(`"${lead.nome}" enriquecido!`, 'success');
-      } else showToast(`Falha ao enriquecer "${lead.nome}".`, 'error');
-    } catch { showToast(`Erro ao enriquecer "${lead.nome}".`, 'error'); }
   };
 
   const finishBulkQueue = () => {
@@ -1298,11 +1301,9 @@ export default function Home() {
             crmSyncStatus={crmSyncStatus} crmSyncMessage={crmSyncMessage}
             crmPage={crmPage} setCrmPage={setCrmPage}
             bulkStageLoading={bulkStageLoading} bulkStageTarget={bulkStageTarget} setBulkStageTarget={setBulkStageTarget}
-            enrichLoading={enrichLoading}
             handleRemoveFromCRM={handleRemoveFromCRM} handleToggleSelectCrmLead={handleToggleSelectCrmLead}
             handleToggleSelectAllCrmLeads={handleToggleSelectAllCrmLeads} handleRemoveSelectedFromCRM={handleRemoveSelectedFromCRM}
-            handleBulkStageChange={handleBulkStageChange} handleReEnrichSelected={handleReEnrichSelected}
-            handleReEnrichSingle={handleReEnrichSingle} handleUpdateCRMLead={handleUpdateCRMLead} openWhatsApp={openWhatsApp}
+            handleBulkStageChange={handleBulkStageChange} handleUpdateCRMLead={handleUpdateCRMLead} openWhatsApp={openWhatsApp}
             waSentMessages={waSentMessages}
             onImportLeads={(importedLeads) => {
               const existingKeys = new Set(crmLeads.map(getLeadKey));
