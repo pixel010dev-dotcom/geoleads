@@ -254,11 +254,17 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
       try {
         const pw = await import('playwright');
-        const browser = await pw.chromium.launch({
-          headless: true,
-          proxy: getPlaywrightProxyConfig(),
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-        });
+        // Timeout HARD no launch do browser (nao pode travar a extracao)
+        const browser = await Promise.race([
+          pw.chromium.launch({
+            headless: true,
+            proxy: getPlaywrightProxyConfig(),
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+          }),
+          new Promise<any>((_, reject) =>
+            setTimeout(() => reject(new Error('Browser launch timeout after 30s')), 30000)
+          ),
+        ]);
 
         try {
           const { extractFromPlaywrightMaps } = await import('./strategies/maps-scraper');
