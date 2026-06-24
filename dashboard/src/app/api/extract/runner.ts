@@ -236,7 +236,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
     // =========================================================================
     // PHASE 2: Playwright as fallback (only if needed and time permits)
-    // Com TIMEOUT proprio para evitar que o browser hangue a extracao
+    // Usa AbortController proprio para evitar conflito com o sinal do Phase 1
     // =========================================================================
     const remainingTime = hardDeadline - Date.now();
     if (leadsByName.size < targetLimit && remainingTime > 10000 && !isOverTime()) {
@@ -244,49 +244,45 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       notify('Buscando mais leads via Maps...');
 
       const PW_TIMEOUT = Math.min(60000, Math.max(15000, remainingTime - 5000)); // Pelo menos 15s, max 60s
+
+      // AbortController DEDICADO para o Playwright (sem conflito com globalAbort)
+      const pwAbort = new AbortController();
+      const pwTimeoutId = setTimeout(() => {
+        pwAbort.abort();
+        console.log(`[EXTRACT] Playwright: TIMEOUT after ${PW_TIMEOUT}ms, aborting...`);
+      }, PW_TIMEOUT);
+
       try {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error(`Playwright timeout after ${PW_TIMEOUT}ms`)), PW_TIMEOUT);
-
-          (async () => {
-            try {
-              const pw = await import('playwright');
-              const browser = await pw.chromium.launch({
-                headless: true,
-                proxy: getPlaywrightProxyConfig(),
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-              });
-
-              try {
-                const { extractFromPlaywrightMaps } = await import('./strategies/maps-scraper');
-                const pwResult = await extractFromPlaywrightMaps(
-                  browser, keyword, location,
-                  targetLimit - leadsByName.size,
-                  new Set(Array.from(scrapedNames)),
-                  25, // maxScrolls reduzido
-                  globalAbort.signal,
-                );
-
-                if (pwResult.blocked) {
-                  console.log(`[EXTRACT] Playwright: blocked by Google`);
-                } else {
-                  const pwAdded = processResults(pwResult.leads, 'playwright');
-                  console.log(`[EXTRACT] Playwright: ${pwAdded} new leads (${pwResult.leads.length} total) in ${elapsed()}s`);
-                }
-              } finally {
-                await browser.close().catch(() => {});
-              }
-
-              clearTimeout(timer);
-              resolve();
-            } catch (e: any) {
-              clearTimeout(timer);
-              reject(e);
-            }
-          })();
+        const pw = await import('playwright');
+        const browser = await pw.chromium.launch({
+          headless: true,
+          proxy: getPlaywrightProxyConfig(),
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
         });
+
+        try {
+          const { extractFromPlaywrightMaps } = await import('./strategies/maps-scraper');
+          const pwResult = await extractFromPlaywrightMaps(
+            browser, keyword, location,
+            targetLimit - leadsByName.size,
+            new Set(Array.from(scrapedNames)),
+            25,
+            pwAbort.signal, // Usa sinal DEDICADO (nao o globalAbort ja abortado)
+          );
+
+          if (pwResult.blocked) {
+            console.log(`[EXTRACT] Playwright: blocked by Google`);
+          } else {
+            const pwAdded = processResults(pwResult.leads, 'playwright');
+            console.log(`[EXTRACT] Playwright: ${pwAdded} new leads (${pwResult.leads.length} total) in ${elapsed()}s`);
+          }
+        } finally {
+          await browser.close().catch(() => {});
+        }
       } catch (e: any) {
-        console.log(`[EXTRACT] Playwright failed/timeout: ${e?.message || e}`);
+        console.log(`[EXTRACT] Playwright failed: ${e?.message || e}`);
+      } finally {
+        clearTimeout(pwTimeoutId);
       }
     }
 
