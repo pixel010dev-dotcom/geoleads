@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { getLeadKey } from './dashboard-constants';
 import { useTranslations } from '@/lib/i18n';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   crmLeads: any[];
@@ -15,14 +16,73 @@ interface Props {
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
+interface BatchProgress {
+  batchId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  percentage: number;
+  status: string;
+  results: any[];
+}
+
 export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleReEnrichSelected, enrichLoading, selectedCrmLeads, setSelectedCrmLeads, openWhatsApp, showToast }: Props) {
   const { t } = useTranslations();
   const [enrichStatus, setEnrichStatus] = useState<Record<string, string>>({});
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const batchIdRef = useRef<string | null>(null);
 
   const leadsToEnrich = crmLeads.filter(l => (l.site && l.site !== 'Sem site') || l.placeUrl);
 
   const enrichedLeads = crmLeads.filter(l => l.email || l.instagram || l.facebook || l.tiktok);
   const needsEnrichment = crmLeads.filter(l => !l.email && !l.instagram && !l.facebook && !l.tiktok);
+
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  const pollBatchProgress = async (batchId: string) => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    batchIdRef.current = batchId;
+
+    pollingRef.current = setInterval(async () => {
+      if (!batchIdRef.current) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch(`/api/lead-enrich/batch?batchId=${batchIdRef.current}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setBatchProgress(data);
+          if (data.status === 'completed' || data.status === 'failed') {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            batchIdRef.current = null;
+
+            if (data.results && data.results.length > 0) {
+              const newStatus: Record<string, string> = {};
+              data.results.forEach((r: any) => {
+                newStatus[r.nome] = r.error ? 'erro' : 'concluido';
+              });
+              setEnrichStatus(prev => ({ ...prev, ...newStatus }));
+            }
+
+            if (data.completed > 0) {
+              showToast(`${data.completed} leads enriquecidos!`, 'success');
+            }
+            if (data.failed > 0) {
+              showToast(`${data.failed} leads falharam.`, 'error');
+            }
+          }
+        }
+      } catch { /* silence */ }
+    }, 1500);
+  };
 
   const handleEnrich = async (lead: any) => {
     setEnrichStatus(s => ({ ...s, [lead.nome]: 'buscando...' }));
@@ -35,11 +95,57 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
   };
 
   const enrichAll = async () => {
-    for (const lead of needsEnrichment.slice(0, 20)) {
-      await handleEnrich(lead);
+    const leadsToProcess = needsEnrichment.slice(0, 50);
+
+    setEnrichStatus({});
+    setBatchProgress({
+      batchId: '',
+      total: leadsToProcess.length,
+      completed: 0,
+      failed: 0,
+      percentage: 0,
+      status: 'running',
+      results: [],
+    });
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const res = await fetch('/api/lead-enrich/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          leads: leadsToProcess.map(l => ({
+            nome: l.nome,
+            site: l.site,
+            cidade: l.cidade,
+            cnpj: l.cnpj,
+            email: l.email,
+            instagram: l.instagram,
+            facebook: l.facebook,
+            tiktok: l.tiktok,
+          }))
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.batchId) {
+        pollBatchProgress(data.batchId);
+      } else {
+        showToast(data.error || 'Erro ao iniciar lote.', 'error');
+        setBatchProgress(null);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Erro de conexão.', 'error');
+      setBatchProgress(null);
     }
-    showToast(t('enrich.enrichmentDone'), 'success');
   };
+
+  const isBatchRunning = batchProgress?.status === 'running';
 
   return (
     <div className="space-y-6">
@@ -55,12 +161,37 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
               {t('enrich.needData', { count: needsEnrichment.length, done: enrichedLeads.length })}
             </div>
             {needsEnrichment.length > 0 && (
-              <button onClick={enrichAll} disabled={enrichLoading} className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-all">
-                {enrichLoading ? t('enrich.enriching') : t('enrich.enrichAll')}
+              <button onClick={enrichAll} disabled={isBatchRunning} className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-all">
+                {isBatchRunning ? t('enrich.enriching') : t('enrich.enrichAll')}
               </button>
             )}
           </div>
         </div>
+
+        {isBatchRunning && batchProgress && (
+          <div className="mb-6 bg-blue-500/5 border border-blue-500/15 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                <span className="text-xs font-bold text-blue-300">Enriquecendo leads...</span>
+              </div>
+              <span className="text-xs text-gray-400 font-mono">
+                {batchProgress.completed + batchProgress.failed}/{batchProgress.total} ({batchProgress.percentage}%)
+              </span>
+            </div>
+            <div className="w-full h-3 bg-black/30 rounded-full overflow-hidden border border-white/5">
+              <div
+                className="h-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${batchProgress.percentage}%` }}
+              />
+            </div>
+            <div className="flex gap-4 mt-2 text-[11px]">
+              <span className="text-green-400">{batchProgress.completed} concluídos</span>
+              {batchProgress.failed > 0 && <span className="text-red-400">{batchProgress.failed} falhas</span>}
+              <span className="text-gray-500">{batchProgress.total - batchProgress.completed - batchProgress.failed} pendentes</span>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
@@ -148,7 +279,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
                     </td>
                     <td className="px-4 py-4">
                       {missing.length > 0 && status !== 'buscando...' && (
-                        <button onClick={() => handleEnrich(lead)} disabled={enrichLoading}
+                        <button onClick={() => handleEnrich(lead)} disabled={isBatchRunning}
                           className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border border-purple-500/30 text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors">
                           {t('enrich.searchData')}
                         </button>

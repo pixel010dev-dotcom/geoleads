@@ -12,6 +12,7 @@ import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap
 import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
 import ExtractorSection from '@/components/dashboard/ExtractorSection';
 import CRMSection from '@/components/dashboard/CRMSection';
+import EnrichSection from '@/components/dashboard/EnrichSection';
 import { WhatsAppSection } from '@/components/dashboard/WhatsAppSection';
 import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
 import AICopySection from '@/components/dashboard/AICopySection';
@@ -604,6 +605,81 @@ export default function Home() {
         }
       })();
     } else showToast('Todos esses leads já existem no CRM.', 'info');
+  };
+
+  const [enrichLoading, setEnrichLoading] = useState(false);
+
+  const handleReEnrichSingle = async (lead: any) => {
+    setEnrichLoading(true);
+    try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+      const res = await fetch('/api/lead-enrich', {
+        method: 'POST', headers,
+        body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade, cnpj: lead.cnpj })
+      });
+      const data = await res.json();
+      if (data.success && data.enriched) {
+        const updated = crmLeads.map(l => {
+          if (l.nome === lead.nome && l.cidade === lead.cidade) {
+            return { ...l, ...data.enriched };
+          }
+          return l;
+        });
+        saveCrm(updated);
+      }
+    } catch { /* silence */ }
+    finally { setEnrichLoading(false); }
+  };
+
+  const handleReEnrichSelected = async () => {
+    if (selectedCrmLeads.length === 0) return;
+    setEnrichLoading(true);
+    try {
+      const headers = await getAuthedJsonHeaders();
+      if (!headers) return;
+      const selectedLeads = crmLeads.filter(l => selectedCrmLeads.includes(l.nome));
+      const res = await fetch('/api/lead-enrich/batch', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          leads: selectedLeads.map(l => ({
+            nome: l.nome, site: l.site, cidade: l.cidade,
+            cnpj: l.cnpj, email: l.email, instagram: l.instagram,
+            facebook: l.facebook, tiktok: l.tiktok,
+          }))
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.batchId) {
+        // Poll for results
+        const poll = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers });
+            const pollData = await pollRes.json();
+            if (pollData.status === 'completed' || pollData.status === 'failed') {
+              clearInterval(poll);
+              if (pollData.results) {
+                let updated = [...crmLeads];
+                pollData.results.forEach((r: any) => {
+                  if (r.enriched) {
+                    updated = updated.map(l => l.nome === r.nome ? { ...l, ...r.enriched } : l);
+                  }
+                });
+                saveCrm(updated);
+              }
+              showToast(`${pollData.completed} leads enriquecidos!`, 'success');
+              setEnrichLoading(false);
+            }
+          } catch { clearInterval(poll); setEnrichLoading(false); }
+        }, 1500);
+      } else {
+        setEnrichLoading(false);
+        showToast(data.error || 'Erro no enrichment em lote.', 'error');
+      }
+    } catch {
+      setEnrichLoading(false);
+      showToast('Erro ao enriquecer leads selecionados.', 'error');
+    }
   };
 
   const handleRemoveFromCRM = (nome: string, telefone?: string, cidade?: string) => {
@@ -1294,6 +1370,7 @@ export default function Home() {
         )}
 
         {activeTab === 'crm' && !activeTabLocked && (
+          <>
           <CRMSection
             crmLeads={crmLeads} crmSearch={crmSearch} setCrmSearch={setCrmSearch}
             crmFilterStage={crmFilterStage} setCrmFilterStage={setCrmFilterStage}
@@ -1323,6 +1400,19 @@ export default function Home() {
               showToast(msg, 'success');
             }}
           />
+          <div className="mt-6">
+            <EnrichSection
+              crmLeads={crmLeads}
+              handleReEnrichSingle={handleReEnrichSingle}
+              handleReEnrichSelected={handleReEnrichSelected}
+              enrichLoading={enrichLoading}
+              selectedCrmLeads={selectedCrmLeads}
+              setSelectedCrmLeads={setSelectedCrmLeads}
+              openWhatsApp={openWhatsApp}
+              showToast={showToast}
+            />
+          </div>
+          </>
         )}
 
         {activeTab === 'whatsapp' && !activeTabLocked && (

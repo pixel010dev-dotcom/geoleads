@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { nome, site, cidade, cnpj } = body;
+    const { nome, site, cidade, cnpj, email, instagram, facebook, tiktok } = body;
 
     if (!nome) {
       return NextResponse.json({ error: 'Informe o nome da empresa.' }, { status: 400 });
@@ -122,6 +122,29 @@ export async function POST(request: Request) {
 
     const enriched: Record<string, any> = {};
     const enrichmentPromises: Promise<void>[] = [];
+
+    // Check Supabase cache before making API calls
+    if (!email && !instagram && !facebook && !tiktok) {
+      try {
+        const supabaseCheck = createAdminSupabaseClient();
+        const { data: cached } = await supabaseCheck
+          .from('lead_enrichment_cache')
+          .select('email, instagram, facebook, tiktok, cnpj')
+          .eq('company_name', nome)
+          .eq('city', cidade || '')
+          .maybeSingle();
+        if (cached) {
+          if (cached.email) enriched.email = cached.email;
+          if (cached.instagram) enriched.instagram = cached.instagram;
+          if (cached.facebook) enriched.facebook = cached.facebook;
+          if (cached.tiktok) enriched.tiktok = cached.tiktok;
+          if (!cnpj && cached.cnpj) enriched.cnpj = cached.cnpj;
+          if (Object.keys(enriched).length > 0) {
+            return NextResponse.json({ success: true, enriched, message: 'Usando cache do Supabase.' });
+          }
+        }
+      } catch { /* continue se cache falhar */ }
+    }
 
     // 1. Website enrichment (email + social links do site)
     if (site && site !== 'Sem site') {
@@ -138,43 +161,47 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. CNPJ enrichment via BrasilAPI
-    enrichmentPromises.push(
-      (async () => {
-        try {
-          const cnpjData = await enrichCNPJ(cnpj);
-          if (cnpjData) {
-            enriched.cnpj = cnpjData.cnpj;
-            enriched.razao_social = cnpjData.razao_social;
-            enriched.nome_fantasia = cnpjData.nome_fantasia;
-            enriched.endereco_completo = cnpjData.endereco_completo;
-            enriched.cep = cnpjData.cep;
-            enriched.situacao_cadastral = cnpjData.situacao_cadastral;
-            enriched.atividade = cnpjData.atividade;
-            enriched.data_abertura = cnpjData.data_abertura;
-            if (!enriched.telefone && cnpjData.telefone_empresa) {
-              enriched.telefone = cnpjData.telefone_empresa;
+    // 2. CNPJ enrichment via BrasilAPI (only if missing)
+    if (!enriched.cnpj && cnpj) {
+      enrichmentPromises.push(
+        (async () => {
+          try {
+            const cnpjData = await enrichCNPJ(cnpj);
+            if (cnpjData) {
+              enriched.cnpj = cnpjData.cnpj;
+              enriched.razao_social = cnpjData.razao_social;
+              enriched.nome_fantasia = cnpjData.nome_fantasia;
+              enriched.endereco_completo = cnpjData.endereco_completo;
+              enriched.cep = cnpjData.cep;
+              enriched.situacao_cadastral = cnpjData.situacao_cadastral;
+              enriched.atividade = cnpjData.atividade;
+              enriched.data_abertura = cnpjData.data_abertura;
+              if (!enriched.telefone && cnpjData.telefone_empresa) {
+                enriched.telefone = cnpjData.telefone_empresa;
+              }
             }
-          }
-        } catch { /* silence */ }
-      })()
-    );
+          } catch { /* silence */ }
+        })()
+      );
+    }
 
-    // 3. Social search (Instagram, Facebook, TikTok)
-    enrichmentPromises.push(
-      (async () => {
-        try {
-          const [insta, fb, tt] = await Promise.all([
-            searchSocial(nome, 'instagram', cidade),
-            searchSocial(nome, 'facebook', cidade),
-            searchSocial(nome, 'tiktok', cidade),
-          ]);
-          if (insta.url && !enriched.instagram) enriched.instagram = insta.url;
-          if (fb.url && !enriched.facebook) enriched.facebook = fb.url;
-          if (tt.url && !enriched.tiktok) enriched.tiktok = tt.url;
-        } catch { /* silence */ }
-      })()
-    );
+    // 3. Social search (Instagram, Facebook, TikTok) - only for missing fields
+    if (!enriched.instagram || !enriched.facebook || !enriched.tiktok) {
+      enrichmentPromises.push(
+        (async () => {
+          try {
+            const [insta, fb, tt] = await Promise.all([
+              !enriched.instagram ? searchSocial(nome, 'instagram', cidade) : Promise.resolve({ url: undefined, score: 0 }),
+              !enriched.facebook ? searchSocial(nome, 'facebook', cidade) : Promise.resolve({ url: undefined, score: 0 }),
+              !enriched.tiktok ? searchSocial(nome, 'tiktok', cidade) : Promise.resolve({ url: undefined, score: 0 }),
+            ]);
+            if (insta.url && !enriched.instagram) enriched.instagram = insta.url;
+            if (fb.url && !enriched.facebook) enriched.facebook = fb.url;
+            if (tt.url && !enriched.tiktok) enriched.tiktok = tt.url;
+          } catch { /* silence */ }
+        })()
+      );
+    }
 
     // Aguarda todos os enriquecimentos (max 10s)
     await Promise.race([
