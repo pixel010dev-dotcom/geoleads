@@ -30,14 +30,12 @@ function getGlobalConcurrent(): number {
 
 async function updateJob(jobId: string, updates: Record<string, any>): Promise<void> {
   const supabase = createAdminSupabaseClient();
-  console.log(`[EXTRACT] updateJob: setting status=${updates.status} delivered=${updates.delivered} for job ${jobId}`);
   try {
     const { error } = await Promise.race([
       supabase.from('extraction_jobs').update(updates).eq('id', jobId),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout after 30s')), 30000)),
     ]);
     if (error) throw error;
-    console.log(`[EXTRACT] updateJob: SUCCESS for job ${jobId}`);
   } catch (e: any) {
     console.error(`[EXTRACT] updateJob: FAILED for job ${jobId}:`, e.message || e);
     throw e; // Propagar erro para que as retentativas funcionem
@@ -169,12 +167,7 @@ export async function POST(request: Request) {
             const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
               p_user_id: authedUser.user.id, p_amount: gastos
             });
-            if (deductError) {
-              await requestSupabase.from('profiles')
-                .update({ tokens: Math.max(0, authedUser.tokens - gastos) })
-                .eq('id', authedUser.user.id)
-                .gte('tokens', gastos);
-            }
+            if (deductError) console.error('[EXTRACT] RPC deduct_tokens failed:', deductError);
           } catch (e: any) {
             console.error('[EXTRACT] token deduct failed:', e);
           }
@@ -213,7 +206,6 @@ export async function POST(request: Request) {
                 enriched.push(lead);
               } catch { enriched.push(lead); }
             }
-            console.log(`[ENRICH] Pre-delivery enrichment: ${enriched.filter(l => l.email && l.email !== '').length} emails, ${enriched.filter(l => l.instagram && l.instagram !== '').length} insta`);
             return enriched;
           })(),
           new Promise<SearchLead[]>(r => setTimeout(() => r(result.leads), 30000)),
