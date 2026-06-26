@@ -9,6 +9,15 @@ interface BatchLead {
 
 interface BatchResult { nome: string; enriched: Record<string, any> | null; error?: string; }
 
+interface BatchState {
+  status: 'running' | 'completed' | 'failed';
+  total: number; completed: number; failed: number;
+  results: BatchResult[]; error?: string; createdAt: number;
+}
+
+const inMemoryStore = new Map<string, BatchState>();
+const BATCH_TTL = 10 * 60 * 1000;
+
 const BR_PHONE_REGEX = /\(?(\d{2,3})\)?\s?(\d{4,5})[\s-]?(\d{4})/g;
 const URL_REGEX = /https?:\/\/[^\s"'<>)\]]+/g;
 
@@ -126,7 +135,6 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
     }
   }
 
-  // Follow BR directory links
   if (!data.site || !data.telefone || !data.cnpj) {
     const html = await duckduckgoSearch(`${name} ${city || ''}`);
     if (html) {
@@ -156,7 +164,6 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
     }
   }
 
-  // CNPJ via BrasilAPI
   if (!data.cnpj) {
     try {
       const searchRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${encodeURIComponent(name)}`, {
@@ -184,23 +191,11 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
   return data;
 }
 
-async function updateBatch(supabase: ReturnType<typeof createAdminSupabaseClient>, batchId: string, updates: Record<string, any>): Promise<void> {
-  try {
-    await Promise.race([
-      supabase.from('enrichment_batches').update(updates).eq('id', batchId),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateBatch timeout')), 15000)),
-    ]);
-  } catch (e: any) {
-    console.error(`[ENRICH BATCH] updateBatch FAILED for ${batchId}:`, e.message || e);
-  }
-}
-
 async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<BatchResult> {
   try {
     const enriched: Record<string, any> = {};
     let discoveredSite = lead.site && lead.site !== 'Sem site' ? lead.site : null;
 
-    // Check cache
     try {
       const { data: cached } = await supabase.from('lead_enrichment_cache')
         .select('*').eq('company_name', lead.nome).eq('city', lead.cidade || '').maybeSingle();
@@ -334,11 +329,56 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
   }
 }
 
-async function processBatch(leads: BatchLead[], batchId: string, userId: string, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<void> {
+// Hybrid store: try DB first, fall back to in-memory
+async function createBatch(auth: { user: { id: string } }, leads: BatchLead[]): Promise<{ batchId: string; store: 'db' | 'memory'; batchData?: any }> {
+  // Try DB
+  try {
+    const supabase = createAdminSupabaseClient();
+    const { data, error } = await supabase.from('enrichment_batches').insert({
+      user_id: auth.user.id, status: 'running', total: leads.length,
+      completed: 0, failed: 0, results: [], leads,
+      started_at: new Date().toISOString(),
+    }).select('id').single();
+    if (!error && data) return { batchId: data.id, store: 'db', batchData: data };
+  } catch { /* table may not exist - fall through */ }
+
+  // Fallback to in-memory
+  const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const state: BatchState = { status: 'running', total: leads.length, completed: 0, failed: 0, results: [], createdAt: Date.now() };
+  inMemoryStore.set(batchId, state);
+  return { batchId, store: 'memory', batchData: state };
+}
+
+async function updateBatchProgress(
+  batchId: string, store: 'db' | 'memory',
+  completed: number, failed: number, total: number,
+  results: BatchResult[], status: 'running' | 'completed' | 'failed'
+): Promise<void> {
+  if (store === 'db') {
+    try {
+      const supabase = createAdminSupabaseClient();
+      await Promise.race([
+        supabase.from('enrichment_batches').update({
+          completed, failed, results: JSON.stringify(results), status,
+          completed_at: status !== 'running' ? new Date().toISOString() : null,
+        }).eq('id', batchId),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
+      ]);
+    } catch (e: any) {
+      console.error(`[ENRICH BATCH] DB update failed for ${batchId}:`, e.message || e);
+    }
+  } else {
+    const state = inMemoryStore.get(batchId);
+    if (state) { state.completed = completed; state.failed = failed; state.results = results; state.status = status; }
+    // Cleanup old entries
+    for (const [id, s] of inMemoryStore) { if (Date.now() - s.createdAt > BATCH_TTL) inMemoryStore.delete(id); }
+  }
+}
+
+async function processBatch(leads: BatchLead[], batchId: string, store: 'db' | 'memory', supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<void> {
   const results: BatchResult[] = [];
   let completed = 0;
   let failed = 0;
-
   const concurrency = 3;
   const executing = new Set<Promise<void>>();
 
@@ -346,24 +386,15 @@ async function processBatch(leads: BatchLead[], batchId: string, userId: string,
     const p = (async () => {
       const result = await enrichSingleLead(lead, supabase);
       results.push(result);
-      if (result.error) failed++;
-      else completed++;
-
-      // Update progress in DB
-      await updateBatch(supabase, batchId, {
-        completed,
-        failed,
-        results: JSON.stringify(results),
-        status: (completed + failed === leads.length) ? (failed === leads.length ? 'failed' : 'completed') : 'running',
-        completed_at: (completed + failed === leads.length) ? new Date().toISOString() : null,
-      });
+      if (result.error) failed++; else completed++;
+      await updateBatchProgress(batchId, store, completed, failed, leads.length, results,
+        (completed + failed === leads.length) ? (failed === leads.length ? 'failed' : 'completed') : 'running');
     })();
     executing.add(p);
     const clean = () => executing.delete(p);
     p.then(clean, clean);
     if (executing.size >= concurrency) await Promise.race(executing);
   }
-
   await Promise.all(executing);
 }
 
@@ -378,33 +409,14 @@ export async function POST(request: NextRequest) {
     if (leads.length > 100) return NextResponse.json({ error: 'Maximo de 100 leads por lote.' }, { status: 400 });
 
     const supabase = createAdminSupabaseClient();
+    const { batchId, store } = await createBatch(auth, leads);
 
-    // Create batch job in database
-    const { data: batchData, error: batchError } = await supabase.from('enrichment_batches').insert({
-      user_id: auth.user.id,
-      status: 'running',
-      total: leads.length,
-      completed: 0,
-      failed: 0,
-      results: [],
-      leads: leads,
-      started_at: new Date().toISOString(),
-    }).select('id').single();
-
-    if (batchError || !batchData) {
-      console.error('[ENRICH BATCH] Failed to create batch:', batchError?.message);
-      return NextResponse.json({ error: 'Erro ao criar lote.' }, { status: 500 });
-    }
-
-    const batchId = batchData.id;
-
-    // Run in background (fire and forget)
-    processBatch(leads, batchId, auth.user.id, supabase).catch((err) => {
+    processBatch(leads, batchId, store, supabase).catch((err) => {
       console.error(`[ENRICH BATCH] processBatch ${batchId} failed:`, err);
-      updateBatch(supabase, batchId, { status: 'failed', error: err.message || 'erro desconhecido' });
+      updateBatchProgress(batchId, store, 0, leads.length, leads.length, [], 'failed');
     });
 
-    return NextResponse.json({ success: true, batchId, total: leads.length, status: 'running' });
+    return NextResponse.json({ success: true, batchId, store, total: leads.length, status: 'running' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'erro desconhecido';
     console.error('ERRO BATCH ENRICH:', message);
@@ -420,33 +432,61 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const batchId = searchParams.get('batchId');
 
-    const supabase = createAdminSupabaseClient();
-    let query = supabase.from('enrichment_batches').select('*').eq('user_id', auth.user.id);
+    // Try DB first
+    if (!batchId) {
+      // Get most recent running batch
+      try {
+        const supabase = createAdminSupabaseClient();
+        const { data } = await supabase.from('enrichment_batches')
+          .select('*').eq('user_id', auth.user.id).eq('status', 'running')
+          .order('started_at', { ascending: false }).limit(1).maybeSingle();
+        if (data) {
+          return NextResponse.json({
+            success: true, batchId: data.id, total: data.total, completed: data.completed,
+            failed: data.failed, percentage: data.total > 0 ? Math.round(((data.completed + data.failed) / data.total) * 100) : 0,
+            results: data.results || [], status: data.status,
+          });
+        }
+      } catch { /* no DB table - try memory */ }
 
-    if (batchId) {
-      query = query.eq('id', batchId);
-    } else {
-      // Return the most recent running batch if no batchId specified
-      query = query.eq('status', 'running').order('started_at', { ascending: false }).limit(1);
+      // Fallback: in-memory
+      let latestRunning: { id: string; state: BatchState } | null = null;
+      let latestId = '';
+      for (const [id, s] of inMemoryStore) {
+        if (s.status === 'running' && (!latestRunning || s.createdAt > latestRunning.state.createdAt)) {
+          latestRunning = { id, state: s };
+          latestId = id;
+        }
+      }
+      if (!latestRunning) return NextResponse.json({ success: true, status: 'no_batch' });
+      const s = latestRunning.state;
+      return NextResponse.json({
+        success: true, batchId: latestId, total: s.total, completed: s.completed,
+        failed: s.failed, percentage: s.total > 0 ? Math.round(((s.completed + s.failed) / s.total) * 100) : 0,
+        results: s.results, status: s.status,
+      });
     }
 
-    const { data, error } = await query.maybeSingle();
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    if (!data) {
-      return NextResponse.json({ success: true, status: 'no_batch' });
-    }
+    // Specific batchId
+    try {
+      const supabase = createAdminSupabaseClient();
+      const { data } = await supabase.from('enrichment_batches')
+        .select('*').eq('id', batchId).eq('user_id', auth.user.id).maybeSingle();
+      if (data) {
+        return NextResponse.json({
+          success: true, batchId: data.id, total: data.total, completed: data.completed,
+          failed: data.failed, percentage: data.total > 0 ? Math.round(((data.completed + data.failed) / data.total) * 100) : 0,
+          results: data.results || [], status: data.status,
+        });
+      }
+    } catch { /* no DB table */ }
 
+    const state = inMemoryStore.get(batchId);
+    if (!state) return NextResponse.json({ success: true, status: 'no_batch' });
     return NextResponse.json({
-      success: true,
-      batchId: data.id,
-      total: data.total,
-      completed: data.completed,
-      failed: data.failed,
-      percentage: data.total > 0 ? Math.round(((data.completed + data.failed) / data.total) * 100) : 0,
-      results: data.results || [],
-      status: data.status,
+      success: true, batchId, total: state.total, completed: state.completed,
+      failed: state.failed, percentage: state.total > 0 ? Math.round(((state.completed + state.failed) / state.total) * 100) : 0,
+      results: state.results, status: state.status,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'erro desconhecido';

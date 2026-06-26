@@ -494,7 +494,7 @@ export default function Home() {
       setShowOnboarding(true);
     }
 
-    // Check for pending enrichment batches
+    // Check for pending enrichment batches (retoma se o usuário saiu e voltou)
     (async () => {
       try {
         const h = await getAuthedJsonHeaders();
@@ -506,7 +506,7 @@ export default function Home() {
             total: data.total, completed: data.completed,
             failed: data.failed, percentage: data.percentage, status: data.status,
           });
-          // Start polling again
+          const appliedNames = new Set<string>();
           const poll = setInterval(async () => {
             try {
               const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
@@ -516,21 +516,27 @@ export default function Home() {
                   total: pollData.total, completed: pollData.completed,
                   failed: pollData.failed, percentage: pollData.percentage, status: pollData.status,
                 });
+                // Aplica resultados em tempo real
+                if (pollData.results) {
+                  const newEnrichments: Record<string, any> = {};
+                  pollData.results.forEach((r: any) => {
+                    if (r.enriched && !appliedNames.has(r.nome)) {
+                      newEnrichments[r.nome] = r.enriched;
+                      appliedNames.add(r.nome);
+                    }
+                  });
+                  if (Object.keys(newEnrichments).length > 0) {
+                    setCrmLeads(prev => prev.map(l => newEnrichments[l.nome] ? { ...l, ...newEnrichments[l.nome] } : l));
+                  }
+                }
                 if (pollData.status === 'completed' || pollData.status === 'failed') {
                   clearInterval(poll);
-                  if (pollData.results) {
-                    const enrichments: Record<string, any> = {};
-                    pollData.results.forEach((r: any) => { if (r.enriched) enrichments[r.nome] = r.enriched; });
-                    if (Object.keys(enrichments).length > 0) {
-                      setCrmLeads(prev => prev.map(l => enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l));
-                    }
-                  }
                   if (pollData.completed > 0) showToast(`${pollData.completed} leads enriquecidos!`, 'success');
-                  setTimeout(() => setBatchEnrichProgress(null), 6000);
+                  setTimeout(() => setBatchEnrichProgress(null), 8000);
                 }
               }
             } catch { clearInterval(poll); setBatchEnrichProgress(null); }
-          }, 1500);
+          }, 1200);
         }
       } catch { /* silence */ }
     })();
@@ -635,6 +641,7 @@ export default function Home() {
     const h = await getAuthedJsonHeaders();
     if (!h) return;
     setBatchEnrichProgress({ total: leadsToEnrich.length, completed: 0, failed: 0, percentage: 0, status: 'running' });
+    showToast(`Enriquecendo ${leadsToEnrich.length} leads...`, 'info');
     try {
       const res = await fetch('/api/lead-enrich/batch', {
         method: 'POST', headers: h,
@@ -648,6 +655,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.success && data.batchId) {
+        const appliedNames = new Set<string>();
         const poll = setInterval(async () => {
           try {
             const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
@@ -657,24 +665,33 @@ export default function Home() {
                 total: pollData.total, completed: pollData.completed,
                 failed: pollData.failed, percentage: pollData.percentage, status: pollData.status,
               });
+              // Apply results in real-time as they arrive
+              if (pollData.results && pollData.results.length > 0) {
+                const newEnrichments: Record<string, any> = {};
+                pollData.results.forEach((r: any) => {
+                  if (r.enriched && !appliedNames.has(r.nome)) {
+                    newEnrichments[r.nome] = r.enriched;
+                    appliedNames.add(r.nome);
+                  }
+                });
+                if (Object.keys(newEnrichments).length > 0) {
+                  onLeadUpdate?.(newEnrichments);
+                }
+              }
               if (pollData.status === 'completed' || pollData.status === 'failed') {
                 clearInterval(poll);
-                if (pollData.results) {
-                  const enrichments: Record<string, any> = {};
-                  pollData.results.forEach((r: any) => { if (r.enriched) enrichments[r.nome] = r.enriched; });
-                  if (Object.keys(enrichments).length > 0) onLeadUpdate?.(enrichments);
-                }
                 if (pollData.completed > 0) showToast(`${pollData.completed} leads enriquecidos!`, 'success');
                 if (pollData.failed > 0) showToast(`${pollData.failed} leads falharam.`, 'info');
-                setTimeout(() => setBatchEnrichProgress(null), 6000);
+                setTimeout(() => setBatchEnrichProgress(null), 8000);
               }
             }
           } catch { clearInterval(poll); setBatchEnrichProgress(null); }
-        }, 1500);
+        }, 1200);
       } else {
         setBatchEnrichProgress(null);
+        showToast('Erro ao iniciar enriquecimento.', 'error');
       }
-    } catch { setBatchEnrichProgress(null); }
+    } catch { setBatchEnrichProgress(null); showToast('Erro de conexão no enriquecimento.', 'error'); }
   };
 
   const [enrichLoading, setEnrichLoading] = useState(false);
@@ -1443,6 +1460,29 @@ export default function Home() {
         )}
 
         {activeTab === 'crm' && !activeTabLocked && (
+          <>
+          {batchEnrichProgress?.status === 'running' && (
+            <div className="mb-4 bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.6)]" />
+                  <span className="text-sm font-bold text-purple-300">Enriquecendo dados...</span>
+                </div>
+                <span className="text-xs text-gray-400 font-mono">
+                  {batchEnrichProgress.completed + batchEnrichProgress.failed}/{batchEnrichProgress.total} ({batchEnrichProgress.percentage}%)
+                </span>
+              </div>
+              <div className="w-full h-3 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                <div className="h-full bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${batchEnrichProgress.percentage}%` }} />
+              </div>
+              <div className="flex gap-4 mt-2 text-xs">
+                <span className="text-green-400 font-medium">✓ {batchEnrichProgress.completed} concluídos</span>
+                {batchEnrichProgress.failed > 0 && <span className="text-red-400 font-medium">✕ {batchEnrichProgress.failed} falhas</span>}
+                <span className="text-gray-500">{batchEnrichProgress.total - batchEnrichProgress.completed - batchEnrichProgress.failed} pendentes</span>
+              </div>
+            </div>
+          )}
           <CRMSection
             crmLeads={crmLeads} crmSearch={crmSearch} setCrmSearch={setCrmSearch}
             crmFilterStage={crmFilterStage} setCrmFilterStage={setCrmFilterStage}
@@ -1477,6 +1517,7 @@ export default function Home() {
               });
             }}
           />
+          </>
         )}
 
         {activeTab === 'whatsapp' && !activeTabLocked && (
