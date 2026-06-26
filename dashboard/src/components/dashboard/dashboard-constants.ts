@@ -155,10 +155,10 @@ export const socialProofMsgs = [
   { name: "Beatriz G.", actionKey: "socialProof.extracted", detail: "52 Leads", target: "em Porto Alegre", type: "extract" },
 ];
 
-export const sampleCrmLeads = () => [
-  { nome: "Petshop Amigo Canino", telefone: "(11) 99888-7766", email: "contato@amigocanino.com.br", site: "https://amigocanino.com.br", stage: "Novo", notes: "Cliente potencial de petshop em São Paulo. Falar com Dr. Carlos.", savedAt: new Date().toISOString(), nicho: "Petshop", cidade: "São Paulo" },
-  { nome: "Restaurante Sabor & Cia", telefone: "(21) 98765-4321", email: "contato@saborecia.com.br", site: "Sem site", stage: "Em Contato", notes: "Enviada mensagem inicial de apresentação.", savedAt: new Date().toISOString(), nicho: "Restaurante", cidade: "Rio de Janeiro" },
-  { nome: "Clínica Odonto Riso", telefone: "(31) 97766-5544", email: "atendimento@odontoriso.com.br", site: "https://odontoriso.com.br", stage: "Proposta", notes: "Aguardando retorno sobre proposta de tráfego pago.", savedAt: new Date().toISOString(), nicho: "Dentista", cidade: "Belo Horizonte" },
+export const sampleCrmLeads = (): CrmLead[] => [
+  normalizeCrmLead({ nome: "Petshop Amigo Canino", telefone: "(11) 99888-7766", email: "contato@amigocanino.com.br", site: "https://amigocanino.com.br", stage: "Novo", notes: "Cliente potencial de petshop em Sao Paulo. Falar com Dr. Carlos.", savedAt: new Date().toISOString(), nicho: "Petshop", cidade: "Sao Paulo" }),
+  normalizeCrmLead({ nome: "Restaurante Sabor & Cia", telefone: "(21) 98765-4321", email: "contato@saborecia.com.br", site: "Sem site", stage: "Em Contato", notes: "Enviada mensagem inicial de apresentação.", savedAt: new Date().toISOString(), nicho: "Restaurante", cidade: "Rio de Janeiro" }),
+  normalizeCrmLead({ nome: "Clínica Odonto Riso", telefone: "(31) 97766-5544", email: "atendimento@odontoriso.com.br", site: "https://odontoriso.com.br", stage: "Proposta", notes: "Aguardando retorno sobre proposta de tráfego pago.", savedAt: new Date().toISOString(), nicho: "Dentista", cidade: "Belo Horizonte" }),
 ];
 
 export const CRM_STAGES = [

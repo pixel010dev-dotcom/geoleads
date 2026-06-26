@@ -58,6 +58,7 @@ export interface ExtractStats {
   correctedKeyword: string;
   correctedLocation: string;
   message: string;
+  broadRegion?: boolean;
 }
 
 export interface WaSentMessage {
@@ -67,4 +68,24 @@ export interface WaSentMessage {
   message: string;
   sent_at: string;
   status: string;
+}
+
+export interface BatchResult {
+  nome: string;
+  enriched: Record<string, any> | null;
+  error?: string;
+  leadKey?: string;
+}
+
+export interface BatchPollResponse {
+  success: boolean;
+  batchId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  percentage: number;
+  status: 'running' | 'completed' | 'failed';
+  results: BatchResult[];
+  error?: string;
+  createdAt: number;
 }

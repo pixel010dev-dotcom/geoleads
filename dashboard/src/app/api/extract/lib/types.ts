@@ -14,6 +14,7 @@ export interface SearchLead {
   facebook: string;
   tiktok: string;
   cnpj: string;
+  cidade?: string;
 }
 
 export function createEmptySearchLead(): SearchLead {

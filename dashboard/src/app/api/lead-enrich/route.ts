@@ -211,7 +211,7 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
           data.situacao_cadastral = d.situacao_cadastral || '';
         }
       }
-    } catch { /* silence */ }
+    } catch (e) { console.warn('[ENRICH] step:', e); }
   }
 
   return data;
@@ -272,7 +272,7 @@ export async function POST(request: Request) {
           if (bizData.cidade) enriched.cidade_encontrada = bizData.cidade;
           if (bizData.uf) enriched.uf = bizData.uf;
           if (bizData.cep) enriched.cep = bizData.cep;
-        } catch { /* silence */ }
+        } catch (e) { console.warn('[ENRICH] step:', e); }
       })()
     );
 
@@ -298,7 +298,7 @@ export async function POST(request: Request) {
               if (d.descricao_atividade_principal?.[0]?.text) enriched.atividade = d.descricao_atividade_principal[0].text;
               if (d.situacao_cadastral) enriched.situacao_cadastral = d.situacao_cadastral;
             }
-          } catch { /* silence */ }
+          } catch (e) { console.warn('[ENRICH] step:', e); }
         })()
       );
     }
@@ -313,7 +313,7 @@ export async function POST(request: Request) {
             if (result.instagram && !enriched.instagram) enriched.instagram = result.instagram;
             if (result.facebook && !enriched.facebook) enriched.facebook = result.facebook;
             if (result.tiktok && !enriched.tiktok) enriched.tiktok = result.tiktok;
-          } catch { /* silence */ }
+          } catch (e) { console.warn('[ENRICH] step:', e); }
         })()
       );
     }
@@ -339,7 +339,7 @@ export async function POST(request: Request) {
               const m = socialHtml.match(/https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/);
               if (m) enriched.tiktok = `https://tiktok.com/@${m[1]}`;
             }
-          } catch { /* silence */ }
+          } catch (e) { console.warn('[ENRICH] step:', e); }
         })()
       );
     }
@@ -364,7 +364,7 @@ export async function POST(request: Request) {
         cnpj: enriched.cnpj || '', telefone: enriched.telefone || '',
         enriched_at: new Date().toISOString(),
       }, { onConflict: 'company_name,city' });
-    } catch { /* silence */ }
+    } catch (e) { console.warn('[ENRICH] step:', e); }
 
     return NextResponse.json({ success: true, enriched, message: `${Object.keys(enriched).length} campos enriquecidos para "${nome}"` });
 

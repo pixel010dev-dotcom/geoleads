@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import type { CrmLead } from '@/types/crm';
 import { useTranslations } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 
 interface Props {
-  crmLeads: any[];
-  handleReEnrichSingle: (lead: any) => Promise<void>;
+  crmLeads: CrmLead[];
+  handleReEnrichSingle: (lead: CrmLead) => Promise<void>;
   handleReEnrichSelected: () => Promise<void>;
   enrichLoading: boolean;
   selectedCrmLeads: string[];
   setSelectedCrmLeads: React.Dispatch<React.SetStateAction<string[]>>;
-  openWhatsApp: (lead: any) => void;
+  openWhatsApp: (lead: CrmLead) => void;
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
@@ -69,7 +70,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
             }
           }
         }
-      } catch { /* silence */ }
+      } catch (e) { console.warn('[ENRICH:EnrichSection] poll:', e); }
     }, 1500);
   };
 

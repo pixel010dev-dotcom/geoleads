@@ -8,7 +8,7 @@ import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
 import DashboardCharts from '@/components/DashboardCharts';
-import type { CrmLead, ExtractStats, WaSentMessage, BatchEnrichProgress } from '@/types/crm';
+import type { CrmLead, ExtractStats, WaSentMessage, BatchEnrichProgress, BatchResult, BatchPollResponse } from '@/types/crm';
 import type { SearchLead } from '@/app/api/extract/lib/types';
 import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, quickSearches, type DashboardTab } from '@/components/dashboard/dashboard-constants';
 import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
@@ -42,7 +42,7 @@ export default function Home() {
   const [limit, setLimit] = useState<number | ''>(10);
   const [isExtracting, setIsExtracting] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leads, setLeads] = useState<SearchLead[]>([]);
   const [extractStats, setExtractStats] = useState<ExtractStats | null>(null);
   const [filterRule, setFilterRule] = useState<string>('none');
 
@@ -73,7 +73,7 @@ export default function Home() {
   const [bulkTimer, setBulkTimer] = useState(0);
   const [bulkAutoNext, setBulkAutoNext] = useState(false);
   const [selectedWaLeads, setSelectedWaLeads] = useState<string[]>([]);
-  const [bulkQueue, setBulkQueue] = useState<any[]>([]);
+  const [bulkQueue, setBulkQueue] = useState<CrmLead[]>([]);
   const [waAiProduct, setWaAiProduct] = useState('');
   const [waAiValue, setWaAiValue] = useState('');
   const [waAiTone, setWaAiTone] = useState('friendly');
@@ -218,7 +218,7 @@ export default function Home() {
     }
   };
 
-  const applyChatbotConfig = (config: any) => {
+  const applyChatbotConfig = (config: Record<string, any>) => {
     setChatbotEnabled(config.enabled ?? true);
     setChatbotBusinessName(config.businessName || config.business_name || 'GeoLeads');
     setChatbotWelcomeMessage(config.welcomeMessage || config.welcome_message || 'Olá! Sou o assistente automático. Me diga como posso ajudar.');
@@ -337,7 +337,7 @@ export default function Home() {
     if (number.length < 10 || number.length > 15) { setChatbotMessage('Digite um número válido com código do país (ex: 5511999999999)'); return; }
     setChatbotLoading(true);
     setChatbotMessage('');
-    setChatbotSession((prev: any) => ({ ...prev, pairingCode: '' }));
+    setChatbotSession((prev: Record<string, any>) => ({ ...prev, pairingCode: '' }));
     try {
       await saveChatbotConfig(true);
       const { data } = await supabase.auth.getSession();
@@ -350,7 +350,7 @@ export default function Home() {
       });
       const result = await res.json();
       if (result.success && result.session) {
-        setChatbotSession((prev: any) => ({ ...prev, ...result.session }));
+        setChatbotSession((prev: Record<string, any>) => ({ ...prev, ...result.session }));
         if (result.session.pairingCode) setChatbotMessage(`Código de pareamento: ${result.session.pairingCode}`);
       } else setChatbotMessage(result.error || 'Erro ao parear.');
     } catch (error: any) { setChatbotMessage(error.message); }
@@ -369,7 +369,7 @@ export default function Home() {
     setChatbotRules(prev => prev.filter(rule => rule.id !== id));
   };
 
-  const applyProfileData = (profileData: any) => {
+  const applyProfileData = (profileData: Record<string, any>) => {
     const profileTokens = typeof profileData?.tokens === 'number'
       ? profileData.tokens
       : Number(profileData?.tokens || 10);
@@ -447,7 +447,7 @@ export default function Home() {
       }
       let localCrm: string | null = null;
       try { localCrm = localStorage.getItem('geoleads_crm'); } catch { localCrm = null; }
-      let parsedCrm: any[] = [];
+      let parsedCrm: CrmLead[] = [];
       if (localCrm) { try { parsedCrm = JSON.parse(localCrm).map(normalizeCrmLead); } catch(e) { console.error(e); } }
       let localChatbotConfig: string | null = null;
       try { localChatbotConfig = localStorage.getItem('geoleads_chatbot_config'); } catch { localChatbotConfig = null; }
@@ -520,7 +520,7 @@ export default function Home() {
             if (!mountedRef.current) { clearInterval(poll); return; }
             try {
               const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
-              const pollData = await pollRes.json();
+              const pollData: BatchPollResponse = await pollRes.json();
               if (pollData.success) {
                 if (!mountedRef.current) { clearInterval(poll); return; }
                 setBatchEnrichProgress({
@@ -530,7 +530,7 @@ export default function Home() {
                 // Aplica resultados em tempo real
                 if (pollData.results) {
                   const newEnrichments: Record<string, any> = {};
-                  pollData.results.forEach((r: any) => {
+                  pollData.results.forEach((r: BatchResult) => {
                     const rKey = r.leadKey || r.nome;
                     if (r.enriched && !appliedKeys.has(rKey)) {
                       newEnrichments[rKey] = r.enriched;
@@ -559,7 +559,7 @@ export default function Home() {
           }, 1200);
           batchPollRef.current = poll;
         }
-      } catch { /* silence */ }
+      } catch (e) { console.warn('[CRM] Pending enrich recovery:', e); }
     })();
 
     return () => {
@@ -599,13 +599,13 @@ export default function Home() {
     syncCrmToCloud(normalized);
   };
 
-  const handleAddToCRM = (lead: any) => {
+  const handleAddToCRM = (lead: SearchLead | CrmLead) => {
     if (!requireFeature('crm')) { setActiveTab('crm'); return; }
     const leadCidade = lead.cidade || location || 'Geral';
     const crmLeadKey = `${lead.nome || ''}|${lead.telefone || ''}|${leadCidade}`;
     const exists = crmLeads.some(l => getLeadKey(l) === crmLeadKey);
     if (exists) { showToast(`"${lead.nome}" já está no CRM.`, 'info'); return; }
-    const newCrmLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: leadCidade };
+    const newCrmLead: CrmLead = { ...lead, tags: [], stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: leadCidade };
     const updated = [newCrmLead, ...crmLeads];
     saveCrm(updated);
     if (newCrmLead.telefone && newCrmLead.telefone !== 'Não informado') {
@@ -625,7 +625,7 @@ export default function Home() {
         if (data.success && data.enriched) {
           setCrmLeads(prev => prev.map(l => getLeadKey(l) === crmLeadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l));
         }
-      } catch { /* silencio - enrichment e opcional */ }
+      } catch (e) { console.warn('[ENRICH] handleAddToCRM:', e); }
     })();
   };
 
@@ -639,13 +639,13 @@ export default function Home() {
     const updated = [...crmLeads];
     const existingKeys = new Set(updated.map(getLeadKey));
     const newDispatchableKeys: string[] = [];
-    const newlyAdded: any[] = [];
+    const newlyAdded: (SearchLead | CrmLead)[] = [];
     leads.forEach(lead => {
       const leadCidade = lead.cidade || location || 'Geral';
       const extractionKey = `${lead.nome || ''}|${lead.telefone || ''}|${leadCidade}`;
       const exists = existingKeys.has(extractionKey);
       if (!exists) {
-        const newLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: leadCidade };
+        const newLead: CrmLead = { ...lead, tags: [], stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: leadCidade };
         updated.unshift(newLead);
         newlyAdded.push(newLead);
         if (newLead.telefone && newLead.telefone !== 'Não informado') newDispatchableKeys.push(getLeadKey(newLead));
@@ -672,7 +672,7 @@ export default function Home() {
 
   const [batchEnrichProgress, setBatchEnrichProgress] = useState<BatchEnrichProgress | null>(null);
 
-  const startBatchEnrichment = async (leadsToEnrich: any[], onLeadUpdate?: (results: Record<string, any>) => void) => {
+  const startBatchEnrichment = async (leadsToEnrich: (SearchLead | CrmLead)[], onLeadUpdate?: (results: Record<string, any>) => void) => {
     if (leadsToEnrich.length === 0) return;
     const h = await getAuthedJsonHeaders();
     if (!h) return;
@@ -682,7 +682,7 @@ export default function Home() {
       const res = await fetch('/api/lead-enrich/batch', {
         method: 'POST', headers: h,
         body: JSON.stringify({
-          leads: leadsToEnrich.map((l: any) => ({
+          leads: leadsToEnrich.map((l) => ({
             nome: l.nome, site: l.site, cidade: l.cidade,
             cnpj: l.cnpj, email: l.email, instagram: l.instagram,
             facebook: l.facebook, tiktok: l.tiktok,
@@ -707,7 +707,7 @@ export default function Home() {
               // Apply results in real-time as they arrive
               if (pollData.results && pollData.results.length > 0) {
                 const newEnrichments: Record<string, any> = {};
-                pollData.results.forEach((r: any) => {
+                pollData.results.forEach((r: BatchResult) => {
                   const rKey = r.leadKey || r.nome;
                   if (r.enriched && !appliedKeys.has(rKey)) {
                     newEnrichments[rKey] = r.enriched;
@@ -737,7 +737,7 @@ export default function Home() {
 
   const [enrichLoading, setEnrichLoading] = useState(false);
 
-  const handleReEnrichSingle = async (lead: any) => {
+  const handleReEnrichSingle = async (lead: CrmLead) => {
     setEnrichLoading(true);
     try {
       const headers = await getAuthedJsonHeaders();
@@ -752,7 +752,7 @@ export default function Home() {
         const updated = crmLeads.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
         saveCrm(updated);
       }
-    } catch { /* silence */ }
+    } catch (e) { console.warn('[ENRICH] handleReEnrichSingle:', e); }
     finally { setEnrichLoading(false); }
   };
 
@@ -787,7 +787,7 @@ export default function Home() {
               if (pollData.results) {
                 setCrmLeads(prev => {
                   const updated = prev.map(l => {
-                    const r = pollData.results.find((r: any) => (r.leadKey || r.nome) === getLeadKey(l));
+                    const r = pollData.results.find((r: BatchResult) => (r.leadKey || r.nome) === getLeadKey(l));
                     return r?.enriched ? mergeEnrichmentIntoLead(l, r.enriched) : l;
                   });
                   try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
@@ -829,7 +829,7 @@ export default function Home() {
     setSelectedWaLeads(prev => prev.includes(leadKey) ? prev.filter(key => key !== leadKey) : [...prev, leadKey]);
   };
 
-  const handleToggleSelectAllWaLeads = (dispatchable: any[]) => {
+  const handleToggleSelectAllWaLeads = (dispatchable: CrmLead[]) => {
     if (isSendingBulk) return;
     const allKeys = dispatchable.map(getLeadKey);
     const areAllSelected = allKeys.every(key => selectedWaLeads.includes(key));
@@ -837,7 +837,7 @@ export default function Home() {
     else setSelectedWaLeads(prev => Array.from(new Set([...prev, ...allKeys])));
   };
 
-  const handleToggleSelectAllCrmLeads = (filteredLeads: any[]) => {
+  const handleToggleSelectAllCrmLeads = (filteredLeads: CrmLead[]) => {
     const allFilteredNames = filteredLeads.map(l => l.nome);
     const areAllSelected = allFilteredNames.every(name => selectedCrmLeads.includes(name));
     if (areAllSelected) setSelectedCrmLeads(prev => prev.filter(name => !allFilteredNames.includes(name)));
@@ -878,7 +878,7 @@ export default function Home() {
     handleTriggerBulkSendLead(0, queue);
   };
 
-  const handleTriggerBulkSendLead = (index: number, queueOverride?: any[]) => {
+  const handleTriggerBulkSendLead = (index: number, queueOverride?: CrmLead[]) => {
     const queue = queueOverride || bulkQueue;
     if (index < 0 || index >= queue.length) return;
     const lead = queue[index];
@@ -942,7 +942,7 @@ export default function Home() {
     handleLoadSentMessages();
   };
 
-  const handleSendViaBot = async (lead: any) => {
+  const handleSendViaBot = async (lead: CrmLead) => {
     if (!requireFeature('whatsappSender')) { setActiveTab('whatsapp'); return; }
     if (!lead.telefone || lead.telefone === 'Não informado') return;
     const leadKey = getLeadKey(lead);
@@ -955,7 +955,7 @@ export default function Home() {
       const message = renderWhatsAppMessage(lead);
       const res = await fetch('/api/chatbot/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ leadName: lead.nome, leadPhone: lead.telefone, message, leadId: lead.id })
+        body: JSON.stringify({ leadName: lead.nome, leadPhone: lead.telefone, message, leadId: leadKey })
       });
       if (res.ok) { setWaSentStatus(prev => ({ ...prev, [lead.nome]: true })); handleLoadSentMessages(); }
       else { const err = await res.json(); showToast(err.error || 'Falha ao enviar via bot.', 'error'); }
@@ -1271,7 +1271,7 @@ export default function Home() {
     } catch (err: any) { showToast(err.message || 'Erro ao exportar XLSX', 'error'); }
   };
 
-  const renderWhatsAppMessage = (lead: any, template = waTemplate) => {
+  const renderWhatsAppMessage = (lead: CrmLead, template = waTemplate) => {
     return template
       .replace(/{Nome}/g, lead.nome || 'seu negócio')
       .replace(/{Telefone}/g, lead.telefone || '(00) 00000-0000')
@@ -1307,7 +1307,7 @@ export default function Home() {
     finally { setWaAiLoading(false); }
   };
 
-  const openWhatsApp = (lead: any, customText?: string, options?: { markSent?: boolean; preferWeb?: boolean; target?: string }) => {
+  const openWhatsApp = (lead: CrmLead, customText?: string, options?: { markSent?: boolean; preferWeb?: boolean; target?: string }) => {
     if (!requireFeature('whatsappSender')) { setActiveTab('whatsapp'); return; }
     if (!lead.telefone || lead.telefone === 'Não informado') { showToast('Lead sem telefone válido.', 'warning'); return; }
     const number = lead.telefone.replace(/\D/g, '');
@@ -1519,15 +1519,15 @@ export default function Home() {
             batchEnrichProgress={batchEnrichProgress}
             onImportLeads={async (importedLeads) => {
               const existingKeys = new Set(crmLeads.map(getLeadKey));
-              const newLeads = importedLeads.filter((l: any) => !existingKeys.has(getLeadKey(l)));
-              const formatted = newLeads.map(l => ({
-                ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
+              const newLeads = importedLeads.filter((l: CrmLead) => !existingKeys.has(getLeadKey(l)));
+              const formatted: CrmLead[] = newLeads.map(l => ({
+                ...l, tags: [], stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
                 nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral',
               }));
               const updated = [...formatted, ...crmLeads];
               saveCrm(updated);
               setSelectedWaLeads(prev => {
-                const newKeys = formatted.filter((l: any) => l.telefone && l.telefone !== 'Não informado').map(getLeadKey);
+                const newKeys = formatted.filter((l: CrmLead) => l.telefone && l.telefone !== 'Não informado').map(getLeadKey);
                 return Array.from(new Set([...newKeys, ...prev]));
               });
               const skipped = importedLeads.length - newLeads.length;
@@ -1535,7 +1535,7 @@ export default function Home() {
               showToast(msg, 'success');
               const updatedSnapshot = [...formatted, ...crmLeads];
               startBatchEnrichment(formatted, (enrichments) => {
-                saveCrm(updatedSnapshot.map((l: any) => enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l));
+                saveCrm(updatedSnapshot.map((l: CrmLead) => enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l));
               });
             }}
           />

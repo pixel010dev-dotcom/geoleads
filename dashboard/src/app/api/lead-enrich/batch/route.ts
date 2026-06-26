@@ -186,7 +186,7 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
           data.situacao_cadastral = d.situacao_cadastral || '';
         }
       }
-    } catch { /* silence */ }
+    } catch (e) { console.warn('[ENRICH] step:', e); }
   }
 
   return data;
@@ -234,7 +234,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
           if (bizData.endereco_completo) enriched.endereco_completo = bizData.endereco_completo;
           if (bizData.uf) enriched.uf = bizData.uf;
           if (bizData.cep) enriched.cep = bizData.cep;
-        } catch { /* silence */ }
+        } catch (e) { console.warn('[ENRICH] step:', e); }
       })()
     );
 
@@ -259,7 +259,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
               if (d.descricao_atividade_principal?.[0]?.text) enriched.atividade = d.descricao_atividade_principal[0].text;
               if (d.situacao_cadastral) enriched.situacao_cadastral = d.situacao_cadastral;
             }
-          } catch { /* silence */ }
+          } catch (e) { console.warn('[ENRICH] step:', e); }
         })()
       );
     }
@@ -277,7 +277,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
             if (result.instagram && !enriched.instagram) enriched.instagram = result.instagram;
             if (result.facebook && !enriched.facebook) enriched.facebook = result.facebook;
             if (result.tiktok && !enriched.tiktok) enriched.tiktok = result.tiktok;
-          } catch { /* silence */ }
+          } catch (e) { console.warn('[ENRICH] step:', e); }
         })()
       );
     }
@@ -302,7 +302,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
               const m = html.match(/https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/);
               if (m) enriched.tiktok = `https://tiktok.com/@${m[1]}`;
             }
-          } catch { /* silence */ }
+          } catch (e) { console.warn('[ENRICH] step:', e); }
         })()
       );
     }
@@ -322,7 +322,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
           cnpj: enriched.cnpj || '', telefone: enriched.telefone || '',
           enriched_at: new Date().toISOString(),
         }, { onConflict: 'company_name,city' });
-      } catch { /* silence */ }
+      } catch (e) { console.warn('[ENRICH] step:', e); }
     }
 
     return { nome: lead.nome, leadKey, enriched: Object.keys(enriched).length > 0 ? enriched : null };

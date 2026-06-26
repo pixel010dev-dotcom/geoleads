@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { FeatureKey, PlanId } from '@/lib/plans';
+import type { SearchLead } from '@/app/api/extract/lib/types';
+import type { ExtractStats } from '@/types/crm';
 import HackerRadar from '@/components/HackerRadar';
 import { filterOptions, quickSearches } from './dashboard-constants';
 import { useTranslations } from '@/lib/i18n';
@@ -9,14 +11,14 @@ import { useTranslations } from '@/lib/i18n';
 export interface ExtractorSectionProps {
   isExtracting: boolean;
   hasSearched: boolean;
-  leads: any[];
-  extractStats: any;
+  leads: SearchLead[];
+  extractStats: ExtractStats | null;
   keyword: string;
   location: string;
   limit: number | '';
   filterRule: string;
   tokens: number | null;
-  user: any;
+  user: { id: string; email?: string } | null;
   currentPlan: { nameKey: string; shortNameKey: string; tokens: number };
   planId: PlanId;
   handleExtract: (e: React.FormEvent) => Promise<void>;
