@@ -15,6 +15,7 @@ export interface SearchLead {
   tiktok: string;
   cnpj: string;
   cidade?: string;
+  hasWhatsApp?: boolean;
 }
 
 export function createEmptySearchLead(): SearchLead {

@@ -211,6 +211,40 @@ export async function POST(request: Request) {
           new Promise<SearchLead[]>(r => setTimeout(() => r(result.leads), 30000)),
         ]);
 
+        // VERIFICA WHATSAPP (se bot session ativa do usuario)
+        try {
+          const waSessions = (globalThis as any).__geoleadsChatbotSessions as Map<string, any> | undefined;
+          const waSession = waSessions?.get(authedUser.user.id);
+          if (waSession?.socket && waSession.status === 'connected') {
+            const phones = enrichedLeads
+              .filter(l => l.telefone && l.telefone !== 'Não informado')
+              .map(l => l.telefone.replace(/\D/g, ''));
+            if (phones.length > 0) {
+              const waResults = await waSession.socket.onWhatsApp(phones);
+              const waPhoneSet = new Set(
+                waResults.filter((r: any) => r.exists).map((r: any) => r.jid.replace('@s.whatsapp.net', ''))
+              );
+              for (const lead of enrichedLeads) {
+                const phone = lead.telefone?.replace(/\D/g, '');
+                if (phone) lead.hasWhatsApp = waPhoneSet.has(phone);
+              }
+              const totalWa = enrichedLeads.filter(l => l.hasWhatsApp).length;
+              console.log(`[EXTRACT] WhatsApp OK: ${totalWa}/${phones.length} leads com WhatsApp`);
+              if (totalWa > 0) {
+                const before = enrichedLeads.length;
+                const filtrados = enrichedLeads.filter(l => !l.telefone || l.telefone === 'Não informado' || l.hasWhatsApp);
+                enrichedLeads.splice(0, enrichedLeads.length, ...filtrados);
+                const removidos = before - enrichedLeads.length;
+                if (removidos > 0) console.log(`[EXTRACT] ${removidos} leads sem WhatsApp removidos`);
+              }
+            }
+          } else {
+            console.log('[EXTRACT] WhatsApp check skipped: no active bot session');
+          }
+        } catch (e: any) {
+          console.warn('[EXTRACT] WhatsApp check error (non-critical):', e?.message || e);
+        }
+
         const jobUpdate = {
           status: result.error ? 'failed' : 'completed',
           error: result.error || undefined,

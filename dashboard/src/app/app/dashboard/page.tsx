@@ -676,63 +676,76 @@ export default function Home() {
     if (leadsToEnrich.length === 0) return;
     const h = await getAuthedJsonHeaders();
     if (!h) return;
+    const CHUNK_SIZE = 100;
+    const chunks: (SearchLead | CrmLead)[][] = [];
+    for (let i = 0; i < leadsToEnrich.length; i += CHUNK_SIZE) {
+      chunks.push(leadsToEnrich.slice(i, i + CHUNK_SIZE));
+    }
     setBatchEnrichProgress({ total: leadsToEnrich.length, completed: 0, failed: 0, percentage: 0, status: 'running' });
-    showToast(`Enriquecendo ${leadsToEnrich.length} leads...`, 'info');
-    try {
-      const res = await fetch('/api/lead-enrich/batch', {
-        method: 'POST', headers: h,
-        body: JSON.stringify({
-          leads: leadsToEnrich.map((l) => ({
-            nome: l.nome, site: l.site, cidade: l.cidade,
-            cnpj: l.cnpj, email: l.email, instagram: l.instagram,
-            facebook: l.facebook, tiktok: l.tiktok,
-            leadKey: getLeadKey(l),
-          }))
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.batchId) {
-        const appliedKeys = new Set<string>();
-        const poll = setInterval(async () => {
-          if (!mountedRef.current) { clearInterval(poll); return; }
-          try {
-            const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
-            const pollData = await pollRes.json();
-            if (pollData.success) {
-              if (!mountedRef.current) { clearInterval(poll); return; }
-              setBatchEnrichProgress({
-                total: pollData.total, completed: pollData.completed,
-                failed: pollData.failed, percentage: pollData.percentage, status: pollData.status,
-              });
-              // Apply results in real-time as they arrive
-              if (pollData.results && pollData.results.length > 0) {
-                const newEnrichments: Record<string, any> = {};
-                pollData.results.forEach((r: BatchResult) => {
-                  const rKey = r.leadKey || r.nome;
-                  if (r.enriched && !appliedKeys.has(rKey)) {
-                    newEnrichments[rKey] = r.enriched;
-                    appliedKeys.add(rKey);
+    showToast(`Enriquecendo ${leadsToEnrich.length} leads${chunks.length > 1 ? ` (${chunks.length} lotes)` : ''}...`, 'info');
+    const appliedKeys = new Set<string>();
+    let totalCompleted = 0;
+    let totalFailed = 0;
+    for (const chunk of chunks) {
+      if (!mountedRef.current) break;
+      try {
+        const res = await fetch('/api/lead-enrich/batch', {
+          method: 'POST', headers: h,
+          body: JSON.stringify({
+            leads: chunk.map((l) => ({
+              nome: l.nome, site: l.site, cidade: l.cidade,
+              cnpj: l.cnpj, email: l.email, instagram: l.instagram,
+              facebook: l.facebook, tiktok: l.tiktok,
+              leadKey: getLeadKey(l),
+            }))
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.batchId) {
+          const batchDone = await new Promise<void>((resolve) => {
+            const poll = setInterval(async () => {
+              if (!mountedRef.current) { clearInterval(poll); resolve(); return; }
+              try {
+                const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
+                const pollData = await pollRes.json();
+                if (pollData.success) {
+                  if (!mountedRef.current) { clearInterval(poll); resolve(); return; }
+                  const chunkCompleted = totalCompleted + (pollData.completed || 0);
+                  const chunkFailed = totalFailed + (pollData.failed || 0);
+                  setBatchEnrichProgress({
+                    total: leadsToEnrich.length, completed: chunkCompleted, failed: chunkFailed,
+                    percentage: Math.round(((chunkCompleted + chunkFailed) / leadsToEnrich.length) * 100),
+                    status: pollData.status,
+                  });
+                  if (pollData.results?.length > 0) {
+                    const newEnrichments: Record<string, any> = {};
+                    pollData.results.forEach((r: BatchResult) => {
+                      const rKey = r.leadKey || r.nome;
+                      if (r.enriched && !appliedKeys.has(rKey)) {
+                        newEnrichments[rKey] = r.enriched;
+                        appliedKeys.add(rKey);
+                      }
+                    });
+                    if (Object.keys(newEnrichments).length > 0) onLeadUpdate?.(newEnrichments);
                   }
-                });
-                if (Object.keys(newEnrichments).length > 0) {
-                  onLeadUpdate?.(newEnrichments);
+                  if (pollData.status === 'completed' || pollData.status === 'failed') {
+                    clearInterval(poll);
+                    totalCompleted += pollData.completed || 0;
+                    totalFailed += pollData.failed || 0;
+                    resolve();
+                  }
                 }
-              }
-              if (pollData.status === 'completed' || pollData.status === 'failed') {
-                clearInterval(poll);
-                if (pollData.completed > 0) showToast(`${pollData.completed} leads enriquecidos!`, 'success');
-                if (pollData.failed > 0) showToast(`${pollData.failed} leads falharam.`, 'info');
-                setTimeout(() => setBatchEnrichProgress(null), 8000);
-              }
-            }
-          } catch { clearInterval(poll); setBatchEnrichProgress(null); }
-        }, 1200);
-        batchPollRef.current = poll;
-      } else {
-        setBatchEnrichProgress(null);
-        showToast('Erro ao iniciar enriquecimento.', 'error');
-      }
-    } catch { setBatchEnrichProgress(null); showToast('Erro de conexão no enriquecimento.', 'error'); }
+              } catch { clearInterval(poll); resolve(); }
+            }, 1200);
+          });
+        }
+      } catch { continue; }
+    }
+    if (mountedRef.current) {
+      setTimeout(() => setBatchEnrichProgress(null), 8000);
+      if (totalCompleted > 0) showToast(`${totalCompleted} leads enriquecidos!`, 'success');
+      if (totalFailed > 0) showToast(`${totalFailed} leads falharam.`, 'info');
+    }
   };
 
   const [enrichLoading, setEnrichLoading] = useState(false);

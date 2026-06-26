@@ -20,6 +20,7 @@ export interface CrmLead {
   savedAt: string;
   nicho: string;
   cidade: string;
+  hasWhatsApp?: boolean;
 }
 
 export interface CrmLeadRow {

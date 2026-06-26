@@ -33,15 +33,19 @@ function postFilter(lead: SearchLead, filterRule: string): boolean {
   const score = scoreLeadQuality(lead);
   if (score.score >= 25) return true;
 
+  const hasSite = lead.site !== undefined && lead.site !== '' && lead.site !== 'Sem site';
+
   const rules = filterRule.split(',').map(r => r.trim()).filter(Boolean);
   return rules.every(rule => {
     if (rule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
-    if (rule === 'site') return lead.site && lead.site !== 'Sem site';
-    if (rule === 'email') return !!lead.email;
-    if (rule === 'insta') return !!lead.instagram;
-    if (rule === 'face') return !!lead.facebook;
-    if (rule === 'tiktok') return !!lead.tiktok;
-    if (rule === 'cnpj') return !!lead.cnpj;
+    if (rule === 'site') return hasSite;
+    // Filtros de enriquecimento: se o lead tem site, tem potencial
+    // de ser enriquecido (email/redes/CNPJ via website scraping)
+    if (rule === 'email') return !!lead.email || hasSite;
+    if (rule === 'insta') return !!lead.instagram || hasSite;
+    if (rule === 'face') return !!lead.facebook || hasSite;
+    if (rule === 'tiktok') return !!lead.tiktok || hasSite;
+    if (rule === 'cnpj') return !!lead.cnpj || hasSite;
     return true;
   });
 }
@@ -275,8 +279,10 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       console.log(`[EXTRACT] ${result.name}: ${result.leads.length} leads (+${added} new) total=${leadsByName.size}/${targetLimit}`);
       
       // SMART ABORT: se ja temos leads suficientes, cancela o resto
-      if (leadsByName.size >= targetLimit || elapsed() >= 25) {
-        console.log(`[EXTRACT] Target met (${leadsByName.size}/${targetLimit}) or time up (${elapsed()}s), aborting remaining strategies`);
+      // Para targets grandes, espera mais tempo (ate 120s)
+      const abortElapsed = Math.min(25 + Math.max(0, targetLimit - 100) * 0.02, 120);
+      if (leadsByName.size >= targetLimit || elapsed() >= abortElapsed) {
+        console.log(`[EXTRACT] Target met (${leadsByName.size}/${targetLimit}) or time up (${elapsed()}s/${abortElapsed.toFixed(0)}s), aborting remaining strategies`);
         globalAbort.abort();
         remainingPromises.length = 0; // Clear remaining
         break;
