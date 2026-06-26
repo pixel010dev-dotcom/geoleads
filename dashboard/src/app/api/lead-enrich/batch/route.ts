@@ -360,7 +360,7 @@ async function updateBatchProgress(
       const supabase = createAdminSupabaseClient();
       await Promise.race([
         supabase.from('enrichment_batches').update({
-          completed, failed, results: JSON.stringify(results), status,
+          completed, failed, results, status,
           completed_at: status !== 'running' ? new Date().toISOString() : null,
         }).eq('id', batchId),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
