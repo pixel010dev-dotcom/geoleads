@@ -127,11 +127,6 @@ export const defaultAiInstructions = 'bot.aiInstructions';
 export const filterOptions = [
   { value: 'none', labelKey: 'extractor.filters.none', icon: '🔍', descKey: 'extractor.filters.noneDesc', feature: 'extractor' as const },
   { value: 'phone', labelKey: 'extractor.filters.phone', icon: '📞', descKey: 'extractor.filters.phoneDesc', feature: 'extractor' as const },
-  { value: 'cnpj', labelKey: 'extractor.filters.cnpj', icon: '🏢', descKey: 'extractor.filters.cnpjDesc', feature: 'cnpjEnrichment' as const },
-  { value: 'email', labelKey: 'extractor.filters.email', icon: '✉️', descKey: 'extractor.filters.emailDesc', feature: 'emailEnrichment' as const },
-  { value: 'insta', labelKey: 'extractor.filters.insta', icon: '📷', descKey: 'extractor.filters.instaDesc', feature: 'socialEnrichment' as const },
-  { value: 'face', labelKey: 'extractor.filters.face', icon: '📘', descKey: 'extractor.filters.faceDesc', feature: 'socialEnrichment' as const },
-  { value: 'tiktok', labelKey: 'extractor.filters.tiktok', icon: '🎵', descKey: 'extractor.filters.tiktokDesc', feature: 'socialEnrichment' as const },
   { value: 'site', labelKey: 'extractor.filters.site', icon: '🌐', descKey: 'extractor.filters.siteDesc', feature: 'extractor' as const },
 ];
 
