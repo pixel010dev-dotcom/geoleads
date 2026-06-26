@@ -3,7 +3,7 @@
 import React from 'react';
 import { FeatureKey, PlanId } from '@/lib/plans';
 import type { SearchLead } from '@/app/api/extract/lib/types';
-import type { ExtractStats } from '@/types/crm';
+import type { CrmLead, ExtractStats } from '@/types/crm';
 import HackerRadar from '@/components/HackerRadar';
 import { filterOptions, quickSearches } from './dashboard-constants';
 import { useTranslations } from '@/lib/i18n';
@@ -22,16 +22,16 @@ export interface ExtractorSectionProps {
   currentPlan: { nameKey: string; shortNameKey: string; tokens: number };
   planId: PlanId;
   handleExtract: (e: React.FormEvent) => Promise<void>;
-  handleAddToCRM: (lead: any) => void;
+  handleAddToCRM: (lead: SearchLead | CrmLead) => void;
   handleAddAllToCRM: () => void;
-  openWhatsApp: (lead: any, customText?: string, options?: any) => void;
+  openWhatsApp: (lead: SearchLead | CrmLead, customText?: string, options?: Record<string, any>) => void;
   exportToCSV: () => void;
   exportToXLSX: () => Promise<void>;
   fetchHistory: () => Promise<void>;
   showHistory: boolean;
   setShowHistory: (v: boolean) => void;
   historyLoading: boolean;
-  historyData: any[];
+  historyData: Record<string, any>[];
   requireFeature: (feature: FeatureKey) => boolean;
   showLockedFeature: (feature: FeatureKey) => void;
   getUpgradePlan: (feature: FeatureKey) => { nameKey: string; shortNameKey: string; tokens: number };
@@ -346,7 +346,7 @@ export default function ExtractorSection({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {leads.map((lead: any, i: number) => (
+                    {leads.map((lead, i: number) => (
                       <tr key={i} className="hover:bg-white/[0.06] transition-colors animate-slide-up" style={{ animationDelay: `${i * 0.03}s` }}>
                         <td className="px-4 py-4 font-medium text-gray-200">
                           <div>{lead.nome}</div>
@@ -456,7 +456,7 @@ export default function ExtractorSection({
 
                 {/* Mobile Card List */}
                 <div className="mobile-card-list md:hidden p-3 sm:p-4">
-                  {leads.map((lead: any, i: number) => (
+                  {leads.map((lead, i: number) => (
                     <div 
                       key={i} 
                       className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-3 animate-slide-up"
@@ -588,7 +588,7 @@ export default function ExtractorSection({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {historyData.map((h: any) => (
+                  {historyData.map((h: Record<string, any>) => (
                     <div key={h.id} className="p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div>

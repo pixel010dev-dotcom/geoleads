@@ -42,6 +42,13 @@ export interface CrmLeadRow {
   payload: Partial<CrmLead>;
 }
 
+export interface ChatbotRule {
+  id: string;
+  keyword: string;
+  responseKey: string;
+  enabled: boolean;
+}
+
 export interface BatchEnrichProgress {
   total: number;
   completed: number;
@@ -68,6 +75,7 @@ export interface WaSentMessage {
   message: string;
   sent_at: string;
   status: string;
+  error_message?: string;
 }
 
 export interface BatchResult {
@@ -75,6 +83,12 @@ export interface BatchResult {
   enriched: Record<string, any> | null;
   error?: string;
   leadKey?: string;
+}
+
+export interface AiCopyResult {
+  title: string;
+  desc: string;
+  text: string;
 }
 
 export interface BatchPollResponse {

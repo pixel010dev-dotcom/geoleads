@@ -3,6 +3,8 @@
 import { defaultAiInstructions } from './dashboard-constants';
 import { useTranslations } from '@/lib/i18n';
 
+import type { ChatbotRule } from '@/types/crm';
+
 export interface ChatbotSectionProps {
   chatbotEnabled: boolean;
   setChatbotEnabled: (v: boolean) => void;
@@ -12,18 +14,18 @@ export interface ChatbotSectionProps {
   setChatbotWelcomeMessage: (v: string) => void;
   chatbotFallbackMessage: string;
   setChatbotFallbackMessage: (v: string) => void;
-  chatbotRules: any[];
-  setChatbotRules: (v: any[]) => void;
+  chatbotRules: ChatbotRule[];
+  setChatbotRules: (v: ChatbotRule[]) => void;
   chatbotUseAI: boolean;
   setChatbotUseAI: (v: boolean) => void;
   chatbotAiInstructions: string;
   setChatbotAiInstructions: (v: string) => void;
-  chatbotSession: any;
+  chatbotSession: Record<string, any>;
   chatbotLoading: boolean;
   chatbotMessage: string;
   chatbotPhoneNumber: string;
   setChatbotPhoneNumber: (v: string) => void;
-  user: any;
+  user: { id: string; email?: string } | null;
   handleConnectChatbot: () => Promise<void>;
   handleDisconnectChatbot: () => Promise<void>;
   handlePairChatbot: () => Promise<void>;
@@ -34,8 +36,8 @@ export interface ChatbotSectionProps {
   removeChatbotRule: (id: string) => void;
   chatbotAutoCapture: boolean;
   setChatbotAutoCapture: (v: boolean) => void;
-  chatbotStats: any;
-  conversations: any[];
+  chatbotStats: Record<string, any> | null;
+  conversations: Record<string, any>[];
   conversationsLoading: boolean;
   handleLoadConversations: () => Promise<void>;
   handleLoadChatbotStats: () => Promise<void>;
@@ -313,7 +315,7 @@ export function ChatbotSection({
           </div>
           {conversations.length > 0 ? (
             <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-              {conversations.map((conv: any) => (
+              {conversations.map((conv: Record<string, any>) => (
                 <div key={conv.id} className={`p-3 rounded-xl text-xs border ${conv.direction === 'incoming' ? 'bg-white/5 border-white/10' : 'bg-emerald-500/5 border-emerald-500/15'}`}>
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="font-bold text-gray-200 truncate">{conv.contact_name || conv.contact_phone || t('chatbot.disconnected')}</span>

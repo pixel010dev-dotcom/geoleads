@@ -8,7 +8,7 @@ import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
 import DashboardCharts from '@/components/DashboardCharts';
-import type { CrmLead, ExtractStats, WaSentMessage, BatchEnrichProgress, BatchResult, BatchPollResponse } from '@/types/crm';
+import type { CrmLead, ExtractStats, WaSentMessage, BatchEnrichProgress, BatchResult, BatchPollResponse, AiCopyResult, ChatbotRule } from '@/types/crm';
 import type { SearchLead } from '@/app/api/extract/lib/types';
 import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, quickSearches, type DashboardTab } from '@/components/dashboard/dashboard-constants';
 import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
@@ -77,7 +77,7 @@ export default function Home() {
   const [waAiProduct, setWaAiProduct] = useState('');
   const [waAiValue, setWaAiValue] = useState('');
   const [waAiTone, setWaAiTone] = useState('friendly');
-  const [waAiCopies, setWaAiCopies] = useState<any[]>([]);
+  const [waAiCopies, setWaAiCopies] = useState<AiCopyResult[]>([]);
   const [waAiLoading, setWaAiLoading] = useState(false);
   const [waAiMessage, setWaAiMessage] = useState('');
   const [waSendingViaBot, setWaSendingViaBot] = useState<Record<string, boolean>>({});
@@ -93,12 +93,12 @@ export default function Home() {
   const [chatbotBusinessName, setChatbotBusinessName] = useState('GeoLeads');
   const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState('Olá! Sou o assistente automático. Me diga como posso ajudar.');
   const [chatbotFallbackMessage, setChatbotFallbackMessage] = useState('Recebi sua mensagem. Um atendente vai continuar por aqui em breve.');
-  const [chatbotRules, setChatbotRules] = useState(defaultChatbotRules);
+  const [chatbotRules, setChatbotRules] = useState<ChatbotRule[]>(defaultChatbotRules);
   const [chatbotUseAI, setChatbotUseAI] = useState(true);
   const [chatbotAiInstructions, setChatbotAiInstructions] = useState('Você é um assistente de vendas amigável e profissional. Ajude clientes com dúvidas sobre serviços, agende reuniões e colete informações de contato.');
   const [chatbotSession, setChatbotSession] = useState<Record<string, any>>({ status: 'idle', repliedCount: 0 });
   const [chatbotAutoCapture, setChatbotAutoCapture] = useState(false);
-  const [chatbotStats, setChatbotStats] = useState<any>(null);
+  const [chatbotStats, setChatbotStats] = useState<Record<string, any> | null>(null);
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [chatbotMessage, setChatbotMessage] = useState('');
   const [chatbotPhoneNumber, setChatbotPhoneNumber] = useState('');
@@ -1271,7 +1271,7 @@ export default function Home() {
     } catch (err: any) { showToast(err.message || 'Erro ao exportar XLSX', 'error'); }
   };
 
-  const renderWhatsAppMessage = (lead: CrmLead, template = waTemplate) => {
+  const renderWhatsAppMessage = (lead: Partial<CrmLead>, template = waTemplate) => {
     return template
       .replace(/{Nome}/g, lead.nome || 'seu negócio')
       .replace(/{Telefone}/g, lead.telefone || '(00) 00000-0000')
@@ -1307,7 +1307,7 @@ export default function Home() {
     finally { setWaAiLoading(false); }
   };
 
-  const openWhatsApp = (lead: CrmLead, customText?: string, options?: { markSent?: boolean; preferWeb?: boolean; target?: string }) => {
+  const openWhatsApp = (lead: CrmLead | SearchLead, customText?: string, options?: { markSent?: boolean; preferWeb?: boolean; target?: string }) => {
     if (!requireFeature('whatsappSender')) { setActiveTab('whatsapp'); return; }
     if (!lead.telefone || lead.telefone === 'Não informado') { showToast('Lead sem telefone válido.', 'warning'); return; }
     const number = lead.telefone.replace(/\D/g, '');
@@ -1339,11 +1339,11 @@ export default function Home() {
     finally { setIsGeneratingCopies(false); }
   };
 
-  const filteredCrmLeads = crmLeads.filter(lead => {
+  const filteredCrmLeads = useMemo(() => crmLeads.filter(lead => {
     const matchesSearch = lead.nome.toLowerCase().includes(crmSearch.toLowerCase()) || lead.telefone.toLowerCase().includes(crmSearch.toLowerCase()) || lead.email?.toLowerCase().includes(crmSearch.toLowerCase()) || lead.cnpj?.toLowerCase().includes(crmSearch.toLowerCase()) || lead.nicho.toLowerCase().includes(crmSearch.toLowerCase()) || lead.cidade.toLowerCase().includes(crmSearch.toLowerCase());
     if (crmFilterStage === 'all') return matchesSearch;
     return matchesSearch && lead.stage === crmFilterStage;
-  });
+  }), [crmLeads, crmSearch, crmFilterStage]);
 
   const crmTotalPages = Math.max(1, Math.ceil(filteredCrmLeads.length / CRM_PAGE_SIZE));
   const safeCrmPage = Math.min(crmPage, crmTotalPages - 1);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import type { CrmLead } from '@/types/crm';
+import type { CrmLead, BatchResult } from '@/types/crm';
 import { useTranslations } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 
@@ -23,7 +23,7 @@ interface BatchProgress {
   failed: number;
   percentage: number;
   status: string;
-  results: any[];
+  results: BatchResult[];
 }
 
 export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleReEnrichSelected, enrichLoading, selectedCrmLeads, setSelectedCrmLeads, openWhatsApp, showToast }: Props) {

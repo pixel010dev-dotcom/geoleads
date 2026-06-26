@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import type { CrmLead } from '@/types/crm';
 import { showToast } from '@/components/Toast';
 import { useTranslations } from '@/lib/i18n';
 
@@ -23,9 +24,9 @@ export default function FacebookAds({
   showToast: toast,
   onUpdateCRM
 }: {
-  crmLeads: any[];
+  crmLeads: CrmLead[];
   showToast?: (msg: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
-  onUpdateCRM?: (leads: any[]) => void;
+  onUpdateCRM?: (leads: CrmLead[]) => void;
 }) {
   const { t } = useTranslations();
   const [filter, setFilter] = useState<SocialFilter>('all');
@@ -56,7 +57,7 @@ export default function FacebookAds({
     return list;
   }, [leadsWithSocial, filter, search]);
 
-  const markVisited = (lead: any) => {
+  const markVisited = (lead: CrmLead) => {
     if (!onUpdateCRM) return;
     const tags = Array.isArray(lead.tags) ? lead.tags : [];
     if (tags.includes('🟢 Visitado')) {
@@ -143,7 +144,7 @@ export default function FacebookAds({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {['facebook', 'instagram', 'tiktok'].map(social => {
-                    const url = lead[social];
+                    const url = (lead as Record<string, any>)[social];
                     if (!url) return null;
                     return (
                       <div key={social} className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs">

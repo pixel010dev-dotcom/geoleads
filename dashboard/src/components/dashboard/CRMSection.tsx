@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { CrmLead, WaSentMessage } from '@/types/crm';
+import type { CrmLead, WaSentMessage, BatchEnrichProgress } from '@/types/crm';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
 import { showToast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
@@ -100,7 +100,7 @@ export interface CRMSectionProps {
   openWhatsApp: (lead: CrmLead) => void;
   waSentMessages?: WaSentMessage[];
   onImportLeads?: (leads: CrmLead[]) => void;
-  batchEnrichProgress?: { total: number; completed: number; failed: number; percentage: number; status: string } | null;
+  batchEnrichProgress?: BatchEnrichProgress | null;
 }
 
 const CRM_PAGE_SIZE = 25;
@@ -172,7 +172,7 @@ export default function CRMSection({
   batchEnrichProgress,
 }: CRMSectionProps) {
   const { t, locale } = useTranslations();
-  const waSentNames = new Set((waSentMessages || []).map((m: any) => m.lead_name).filter(Boolean));
+  const waSentNames = new Set((waSentMessages || []).map((m: WaSentMessage) => m.lead_name).filter(Boolean));
   const [crmFilterTag, setCrmFilterTag] = useState('all');
   const [crmSortField, setCrmSortField] = useState('nome');
   const [crmSortDir, setCrmSortDir] = useState<'asc' | 'desc'>('asc');
@@ -888,9 +888,9 @@ export default function CRMSection({
                       <tr>{(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <th key={h} style={{padding:'0.5rem 0.75rem',textAlign:'left'}}>{importColumnMap[h] || h}</th>)}</tr>
                     </thead>
                     <tbody style={{borderTop:'1px solid rgba(255,255,255,0.05)'}}>
-                      {importPreview.slice(0, 10).map((lead: any, i: number) => (
+                      {importPreview.slice(0, 10).map((lead: CrmLead, i: number) => (
                         <tr key={i}>
-                          {(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <td key={h} style={{padding:'0.5rem 0.75rem',color:'#999',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{lead[importColumnMap[h] || h] || '—'}</td>)}
+                          {(importCsvHeaders.filter(h => importColumnMap[h]).length > 0 ? importCsvHeaders.filter(h => importColumnMap[h]) : importCsvHeaders).map(h => <td key={h} style={{padding:'0.5rem 0.75rem',color:'#999',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{(lead as Record<string, any>)[importColumnMap[h] || h] || '—'}</td>)}
                         </tr>
                       ))}
                     </tbody>

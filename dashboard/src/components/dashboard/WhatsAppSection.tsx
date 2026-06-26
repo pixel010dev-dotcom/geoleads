@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import type { FeatureKey } from '@/lib/plans';
 import type { DashboardTab } from './dashboard-constants';
+import type { CrmLead, WaSentMessage, AiCopyResult } from '@/types/crm';
 import { waMessagePresets, waTemplateTags } from './dashboard-constants';
 import { useTranslations } from '@/lib/i18n';
 
 export interface WhatsAppSectionProps {
-  dispatchableWaLeads: any[];
+  dispatchableWaLeads: CrmLead[];
   selectedWaLeads: string[];
   setSelectedWaLeads: (v: string[]) => void;
   waTemplate: string;
@@ -23,43 +24,43 @@ export interface WhatsAppSectionProps {
   setBulkAutoNext: (v: boolean) => void;
   bulkIndex: number;
   bulkTimer: number;
-  bulkQueue: any[];
+  bulkQueue: CrmLead[];
   waAiProduct: string;
   setWaAiProduct: (v: string) => void;
   waAiValue: string;
   setWaAiValue: (v: string) => void;
   waAiTone: string;
   setWaAiTone: (v: string) => void;
-  waAiCopies: any[];
+  waAiCopies: AiCopyResult[];
   waAiLoading: boolean;
   waAiMessage: string;
   waSendingViaBot: Record<string, boolean>;
-  waSentMessages: any[];
+  waSentMessages: WaSentMessage[];
   waSentMessagesLoading: boolean;
-  chatbotSession: any;
-  user: any;
+  chatbotSession: Record<string, any>;
+  user: { id: string; email?: string } | null;
   requireFeature: (feature: FeatureKey) => boolean;
   setActiveTab: (tab: DashboardTab) => void;
-  openWhatsApp: (lead: any, customText?: string, options?: any) => void;
+  openWhatsApp: (lead: CrmLead, customText?: string, options?: Record<string, any>) => void;
   handleStartBulkSending: () => void;
   handleStopBulkSending: () => void;
   handleStartAutoBulkSend: () => Promise<void>;
   handleConfirmSentAndNext: () => void;
-  handleTriggerBulkSendLead: (index: number, queueOverride?: any[]) => void;
+  handleTriggerBulkSendLead: (index: number, queueOverride?: CrmLead[]) => void;
   handleToggleSelectWaLead: (leadKey: string) => void;
-  handleToggleSelectAllWaLeads: (dispatchable: any[]) => void;
-  handleSendViaBot: (lead: any) => Promise<void>;
+  handleToggleSelectAllWaLeads: (dispatchable: CrmLead[]) => void;
+  handleSendViaBot: (lead: CrmLead) => Promise<void>;
   handleLoadSentMessages: () => Promise<void>;
   generateWaAiTemplates: (e: React.FormEvent) => Promise<void>;
   appendWaTag: (tag: string) => void;
   getSafeBulkDelay: () => number;
-  renderWhatsAppMessage: (lead: any, template?: string) => string;
-  getLeadKey: (lead: any) => string;
-  waPreviewLead: any;
+  renderWhatsAppMessage: (lead: Partial<CrmLead>, template?: string) => string;
+  getLeadKey: (lead: Partial<CrmLead>) => string;
+  waPreviewLead: Partial<CrmLead>;
   selectedWaCount: number;
   activeBulkLeadKey: string | null;
-  waStats: any;
-  campaigns: any[];
+  waStats: Record<string, any> | null;
+  campaigns: Record<string, any>[];
   scheduleDate: string;
   setScheduleDate: (v: string) => void;
   scheduleTime: string;
@@ -173,10 +174,10 @@ export function WhatsAppSection({
           ))}
         </div>
         {/* Campanhas agendadas */}
-        {campaigns.filter((c: any) => c.status === 'scheduled').length > 0 && (
+        {campaigns.filter((c: Record<string, any>) => c.status === 'scheduled').length > 0 && (
           <div className="mt-4 space-y-2">
             <span className="text-xs text-gray-500 font-bold">{t('whatsapp.scheduledCampaigns')}</span>
-            {campaigns.filter((c: any) => c.status === 'scheduled').map((c: any) => (
+            {campaigns.filter((c: Record<string, any>) => c.status === 'scheduled').map((c: Record<string, any>) => (
               <div key={c.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/15 text-xs">
                 <span className="text-gray-300 truncate">{c.name}</span>
                 <span className="text-amber-300 whitespace-nowrap font-mono">{c.scheduled_at ? new Date(c.scheduled_at).toLocaleString(locale) : '—'}</span>
@@ -781,7 +782,7 @@ export function WhatsAppSection({
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-                {waSentMessages.slice(0, 20).map((msg: any) => (
+                {waSentMessages.slice(0, 20).map((msg: WaSentMessage) => (
                   <div key={msg.id} className="p-3 rounded-xl bg-black/30 border border-white/5 text-xs">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="font-bold text-gray-200 truncate">{msg.lead_name}</span>
