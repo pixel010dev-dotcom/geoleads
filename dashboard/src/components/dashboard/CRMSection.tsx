@@ -73,6 +73,7 @@ export interface CRMSectionProps {
   openWhatsApp: (lead: any) => void;
   waSentMessages?: any[];
   onImportLeads?: (leads: any[]) => void;
+  batchEnrichProgress?: { total: number; completed: number; failed: number; percentage: number; status: string } | null;
 }
 
 const CRM_PAGE_SIZE = 25;
@@ -141,6 +142,7 @@ export default function CRMSection({
   openWhatsApp,
   waSentMessages,
   onImportLeads,
+  batchEnrichProgress,
 }: CRMSectionProps) {
   const { t, locale } = useTranslations();
   const waSentNames = new Set((waSentMessages || []).map((m: any) => m.lead_name).filter(Boolean));
@@ -229,56 +231,12 @@ export default function CRMSection({
           </div>
         </div>
 
-        {/* SEARCH & STAGE FILTER */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-          {filteredCrmLeads.length > 0 && (
-            <label className="flex items-center gap-2 text-xs text-gray-400 bg-white/5 border border-white/10 rounded-xl px-3 py-2 cursor-pointer hover:bg-white/10">
-              <input 
-                type="checkbox"
-                checked={filteredCrmLeads.length > 0 && filteredCrmLeads.every(l => selectedCrmLeads.includes(l.nome))}
-                onChange={() => handleToggleSelectAllCrmLeads(filteredCrmLeads)}
-                className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
-              />
-              {t('crm.selectAll')}
-            </label>
-          )}
-          {selectedCrmLeads.length > 0 && (
-            <>
-              <button
-                onClick={handleRemoveSelectedFromCRM}
-                className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white border border-red-500/30 text-xs font-semibold cursor-pointer transition-colors"
-              >
-                {t('crm.delete', { count: selectedCrmLeads.length })}
-              </button>
-              <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                {t('crm.moveTo')}
-                <select
-                  value={bulkStageTarget}
-                  onChange={(e) => setBulkStageTarget(e.target.value)}
-                  style={{ colorScheme: 'dark' }}
-                  className="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  <option value="Novo">{t('crm.stageNew')}</option>
-                  <option value="Em Contato">{t('crm.stageContact')}</option>
-                  <option value="Proposta">{t('crm.stageProposal')}</option>
-                  <option value="Fechado">{t('crm.stageWon')}</option>
-                  <option value="Perdido">{t('crm.stageLost')}</option>
-                </select>
-              </span>
-              <button
-                onClick={handleBulkStageChange}
-                disabled={bulkStageLoading}
-                className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white border border-blue-500/30 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {bulkStageLoading ? t('crm.applying') : t('crm.apply')}
-              </button>
-
-            </>
-          )}
+        {/* TOOLBAR: Search + Filters */}
+        <div className="flex flex-wrap items-center gap-2 w-full">
           <input 
             type="text" 
             placeholder={t('crm.search')}
-            className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            className="flex-1 min-w-[140px] bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
             value={crmSearch}
             onChange={(e) => setCrmSearch(e.target.value)}
           />
@@ -286,7 +244,7 @@ export default function CRMSection({
             value={crmFilterStage}
             onChange={(e) => setCrmFilterStage(e.target.value)}
             style={{ colorScheme: 'dark' }}
-            className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+            className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
           >
             <option value="all">{t('crm.filterStage')}: {t('crm.filterAll')}</option>
             <option value="Novo">{t('crm.stageNew')}</option>
@@ -300,38 +258,110 @@ export default function CRMSection({
               value={crmFilterTag}
               onChange={(e) => setCrmFilterTag(e.target.value)}
               style={{ colorScheme: 'dark' }}
-              className="w-full sm:w-auto bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+              className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="all">{t('crm.filterTag')}: {t('crm.filterAll')}</option>
               {allUsedTags.map((tag: string) => <option key={tag} value={tag}>{getTagLabel(tag, t)}</option>)}
             </select>
           )}
-          {filteredCrmLeads.length > 0 && (
-            <button
-              onClick={() => exportCrmToCsv(t, filteredCrmLeads, `geoleads-crm-${new Date().toISOString().slice(0,10)}.csv`)}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
-            >
-              {t('crm.exportCSV', { count: filteredCrmLeads.length })}
+          {/* Right side: actions */}
+          <div className="flex items-center gap-2 ml-auto">
+            <button onClick={() => setShowImport(true)}
+              className="px-3 py-2 rounded-xl bg-cyan-600/80 hover:bg-cyan-600 text-white border border-cyan-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap">
+              {t('crm.importCSV')}
             </button>
-          )}
-          <button onClick={() => setShowImport(true)}
-            className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white border border-cyan-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap">
-            {t('crm.importCSV')}
-          </button>
-          <button
-            onClick={() => setCrmViewMode(v => v === 'table' ? 'kanban' : v === 'kanban' ? 'map' : 'table')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap border ${
-              crmViewMode === 'kanban' ? 'bg-purple-600 border-purple-500/30 text-white' : crmViewMode === 'map' ? 'bg-green-700 border-green-500/30 text-white' : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-            }`}
-          >
-            {crmViewMode === 'table' ? t('crm.viewKanban') : crmViewMode === 'kanban' ? t('crm.viewMap') : t('crm.viewTable')}
-          </button>
+            {filteredCrmLeads.length > 0 && (
+              <button
+                onClick={() => exportCrmToCsv(t, filteredCrmLeads, `geoleads-crm-${new Date().toISOString().slice(0,10)}.csv`)}
+                className="px-3 py-2 rounded-xl bg-emerald-600/80 hover:bg-emerald-600 text-white border border-emerald-500/30 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
+              >
+                {t('crm.exportCSV', { count: filteredCrmLeads.length })}
+              </button>
+            )}
+            <button
+              onClick={() => setCrmViewMode(v => v === 'table' ? 'kanban' : v === 'kanban' ? 'map' : 'table')}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap border ${
+                crmViewMode === 'kanban' ? 'bg-purple-600 border-purple-500/30 text-white' : crmViewMode === 'map' ? 'bg-green-700 border-green-500/30 text-white' : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+              }`}
+            >
+              {crmViewMode === 'table' ? t('crm.viewKanban') : crmViewMode === 'kanban' ? t('crm.viewMap') : t('crm.viewTable')}
+            </button>
+          </div>
         </div>
+
+        {/* BULK ACTIONS BAR */}
+        {selectedCrmLeads.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/5 border border-blue-500/15">
+            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+              <input 
+                type="checkbox"
+                checked={filteredCrmLeads.length > 0 && filteredCrmLeads.every(l => selectedCrmLeads.includes(l.nome))}
+                onChange={() => handleToggleSelectAllCrmLeads(filteredCrmLeads)}
+                className="rounded border-white/20 bg-black/40 text-blue-500 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
+              />
+              {t('crm.selectAll')}
+            </label>
+            <span className="text-xs text-blue-300 font-semibold">{selectedCrmLeads.length} selecionados</span>
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="text-[11px] text-gray-400">{t('crm.moveTo')}</span>
+              <select
+                value={bulkStageTarget}
+                onChange={(e) => setBulkStageTarget(e.target.value)}
+                style={{ colorScheme: 'dark' }}
+                className="bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                <option value="Novo">{t('crm.stageNew')}</option>
+                <option value="Em Contato">{t('crm.stageContact')}</option>
+                <option value="Proposta">{t('crm.stageProposal')}</option>
+                <option value="Fechado">{t('crm.stageWon')}</option>
+                <option value="Perdido">{t('crm.stageLost')}</option>
+              </select>
+              <button
+                onClick={handleBulkStageChange}
+                disabled={bulkStageLoading}
+                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white border border-blue-500/30 text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-50"
+              >
+                {bulkStageLoading ? t('crm.applying') : t('crm.apply')}
+              </button>
+            </div>
+            <button
+              onClick={handleRemoveSelectedFromCRM}
+              className="ml-auto px-3 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white border border-red-500/30 text-[11px] font-semibold cursor-pointer transition-colors"
+            >
+              {t('crm.delete', { count: selectedCrmLeads.length })}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* BATCH ENRICHMENT PROGRESS BAR */}
+      {batchEnrichProgress?.status === 'running' && (
+        <div className="mb-4 bg-purple-500/5 border border-purple-500/15 rounded-xl p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              <span className="text-xs font-bold text-purple-300">Enriquecendo leads...</span>
+            </div>
+            <span className="text-xs text-gray-400 font-mono">
+              {batchEnrichProgress.completed + batchEnrichProgress.failed}/{batchEnrichProgress.total} ({batchEnrichProgress.percentage}%)
+            </span>
+          </div>
+          <div className="w-full h-2 bg-black/30 rounded-full overflow-hidden border border-white/5">
+            <div
+              className="h-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${batchEnrichProgress.percentage}%` }}
+            />
+          </div>
+          <div className="flex gap-3 mt-1.5 text-[10px]">
+            <span className="text-green-400">{batchEnrichProgress.completed} concluídos</span>
+            {batchEnrichProgress.failed > 0 && <span className="text-red-400">{batchEnrichProgress.failed} falhas</span>}
+          </div>
+        </div>
+      )}
 
       {/* TABLE / CARDS CONTAINER */}
       {crmViewMode === 'table' && (
-      <div className="rounded-2xl border border-white/5 bg-black/20 overflow-hidden">
+      <div className="rounded-2xl border border-white/5 bg-black/20 overflow-hidden overflow-y-auto max-h-[520px]">
         {/* Desktop Table */}
         <table className="hidden md:table w-full text-left text-sm">
           <thead className="bg-white/5 border-b border-white/5 text-gray-400">

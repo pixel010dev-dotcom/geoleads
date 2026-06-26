@@ -9,19 +9,6 @@ interface BatchLead {
 
 interface BatchResult { nome: string; enriched: Record<string, any> | null; error?: string; }
 
-interface BatchState {
-  status: 'running' | 'completed' | 'failed';
-  total: number; completed: number; failed: number;
-  results: BatchResult[]; error?: string; createdAt: number;
-}
-
-const batchStore = new Map<string, BatchState>();
-const BATCH_TTL = 10 * 60 * 1000;
-
-function generateBatchId(): string {
-  return `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
-
 const BR_PHONE_REGEX = /\(?(\d{2,3})\)?\s?(\d{4,5})[\s-]?(\d{4})/g;
 const URL_REGEX = /https?:\/\/[^\s"'<>)\]]+/g;
 
@@ -197,6 +184,17 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
   return data;
 }
 
+async function updateBatch(supabase: ReturnType<typeof createAdminSupabaseClient>, batchId: string, updates: Record<string, any>): Promise<void> {
+  try {
+    await Promise.race([
+      supabase.from('enrichment_batches').update(updates).eq('id', batchId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateBatch timeout')), 15000)),
+    ]);
+  } catch (e: any) {
+    console.error(`[ENRICH BATCH] updateBatch FAILED for ${batchId}:`, e.message || e);
+  }
+}
+
 async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<BatchResult> {
   try {
     const enriched: Record<string, any> = {};
@@ -219,7 +217,6 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
 
     const enrichmentPromises: Promise<void>[] = [];
 
-    // Web search for business data
     enrichmentPromises.push(
       (async () => {
         try {
@@ -244,7 +241,6 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
       })()
     );
 
-    // CNPJ lookup if already known
     if (lead.cnpj && lead.cnpj.replace(/\D/g, '').length === 14) {
       enrichmentPromises.push(
         (async () => {
@@ -271,7 +267,6 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
       );
     }
 
-    // Website scrape
     if (discoveredSite) {
       enrichmentPromises.push(
         (async () => {
@@ -290,7 +285,6 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
       );
     }
 
-    // Social search fallback
     if (!enriched.instagram || !enriched.facebook || !enriched.tiktok) {
       enrichmentPromises.push(
         (async () => {
@@ -340,19 +334,29 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
   }
 }
 
-async function processBatch(leads: BatchLead[], batchId: string, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<void> {
-  const state = batchStore.get(batchId)!;
+async function processBatch(leads: BatchLead[], batchId: string, userId: string, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<void> {
+  const results: BatchResult[] = [];
+  let completed = 0;
+  let failed = 0;
+
   const concurrency = 3;
   const executing = new Set<Promise<void>>();
 
   for (const lead of leads) {
     const p = (async () => {
       const result = await enrichSingleLead(lead, supabase);
-      const currentState = batchStore.get(batchId);
-      if (!currentState) return;
-      currentState.results.push(result);
-      if (result.error) currentState.failed++;
-      else currentState.completed++;
+      results.push(result);
+      if (result.error) failed++;
+      else completed++;
+
+      // Update progress in DB
+      await updateBatch(supabase, batchId, {
+        completed,
+        failed,
+        results: JSON.stringify(results),
+        status: (completed + failed === leads.length) ? (failed === leads.length ? 'failed' : 'completed') : 'running',
+        completed_at: (completed + failed === leads.length) ? new Date().toISOString() : null,
+      });
     })();
     executing.add(p);
     const clean = () => executing.delete(p);
@@ -361,8 +365,6 @@ async function processBatch(leads: BatchLead[], batchId: string, supabase: Retur
   }
 
   await Promise.all(executing);
-  const finalState = batchStore.get(batchId);
-  if (finalState) finalState.status = finalState.failed === leads.length ? 'failed' : 'completed';
 }
 
 export async function POST(request: NextRequest) {
@@ -375,12 +377,32 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(leads) || leads.length === 0) return NextResponse.json({ error: 'Envie um array de leads.' }, { status: 400 });
     if (leads.length > 100) return NextResponse.json({ error: 'Maximo de 100 leads por lote.' }, { status: 400 });
 
-    const batchId = generateBatchId();
     const supabase = createAdminSupabaseClient();
-    const batchState: BatchState = { status: 'running', total: leads.length, completed: 0, failed: 0, results: [], createdAt: Date.now() };
-    batchStore.set(batchId, batchState);
 
-    processBatch(leads, batchId, supabase).catch(() => { const s = batchStore.get(batchId); if (s) s.status = 'failed'; });
+    // Create batch job in database
+    const { data: batchData, error: batchError } = await supabase.from('enrichment_batches').insert({
+      user_id: auth.user.id,
+      status: 'running',
+      total: leads.length,
+      completed: 0,
+      failed: 0,
+      results: [],
+      leads: leads,
+      started_at: new Date().toISOString(),
+    }).select('id').single();
+
+    if (batchError || !batchData) {
+      console.error('[ENRICH BATCH] Failed to create batch:', batchError?.message);
+      return NextResponse.json({ error: 'Erro ao criar lote.' }, { status: 500 });
+    }
+
+    const batchId = batchData.id;
+
+    // Run in background (fire and forget)
+    processBatch(leads, batchId, auth.user.id, supabase).catch((err) => {
+      console.error(`[ENRICH BATCH] processBatch ${batchId} failed:`, err);
+      updateBatch(supabase, batchId, { status: 'failed', error: err.message || 'erro desconhecido' });
+    });
 
     return NextResponse.json({ success: true, batchId, total: leads.length, status: 'running' });
   } catch (error: unknown) {
@@ -391,20 +413,43 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const batchId = searchParams.get('batchId');
-  if (!batchId) return NextResponse.json({ error: 'Informe batchId.' }, { status: 400 });
+  try {
+    const auth = await getAuthUser(request);
+    if (!auth) return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
 
-  const state = batchStore.get(batchId);
-  if (!state) return NextResponse.json({ error: 'Batch não encontrado ou expirado.' }, { status: 404 });
+    const { searchParams } = new URL(request.url);
+    const batchId = searchParams.get('batchId');
 
-  for (const [id, s] of batchStore) {
-    if (Date.now() - s.createdAt > BATCH_TTL) batchStore.delete(id);
+    const supabase = createAdminSupabaseClient();
+    let query = supabase.from('enrichment_batches').select('*').eq('user_id', auth.user.id);
+
+    if (batchId) {
+      query = query.eq('id', batchId);
+    } else {
+      // Return the most recent running batch if no batchId specified
+      query = query.eq('status', 'running').order('started_at', { ascending: false }).limit(1);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ success: true, status: 'no_batch' });
+    }
+
+    return NextResponse.json({
+      success: true,
+      batchId: data.id,
+      total: data.total,
+      completed: data.completed,
+      failed: data.failed,
+      percentage: data.total > 0 ? Math.round(((data.completed + data.failed) / data.total) * 100) : 0,
+      results: data.results || [],
+      status: data.status,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'erro desconhecido';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({
-    success: true, batchId, total: state.total, completed: state.completed,
-    failed: state.failed, percentage: Math.round(((state.completed + state.failed) / state.total) * 100),
-    results: state.results, status: state.status,
-  });
 }
