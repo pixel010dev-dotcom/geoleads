@@ -106,7 +106,7 @@ export default function Home() {
   const [aiProduct, setAiProduct] = useState('');
   const [aiValue, setAiValue] = useState('');
   const [aiTone, setAiTone] = useState('persuasive');
-  const [generatedCopies, setGeneratedCopies] = useState<any[] | null>(null);
+  const [generatedCopies, setGeneratedCopies] = useState<AiCopyResult[] | null>(null);
   const [isGeneratingCopies, setIsGeneratingCopies] = useState(false);
 
   const [supportRating, setSupportRating] = useState<number>(0);
@@ -116,7 +116,7 @@ export default function Home() {
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   const [showHistory, setShowHistory] = useState(false);
-  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyData, setHistoryData] = useState<Record<string, any>[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
   const [referralBonus, setReferralBonus] = useState<number | null>(null);
@@ -1119,6 +1119,7 @@ export default function Home() {
             setHasSearched(true);
             if (pollRef.current) clearInterval(pollRef.current);
             try { localStorage.removeItem('lastJobId'); } catch { /* ignore */ }
+            if (user?.id) refreshProfile(user.id);
             if (j.status === 'failed') showToast("Erro: " + (j.error || 'Falha na extração'), 'error');
           }
         }
