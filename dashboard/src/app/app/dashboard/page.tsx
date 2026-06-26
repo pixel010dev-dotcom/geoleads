@@ -8,7 +8,7 @@ import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
 import DashboardCharts from '@/components/DashboardCharts';
-import type { CrmLead, ExtractStats, WaSentMessage } from '@/types/crm';
+import type { CrmLead, ExtractStats, WaSentMessage, BatchEnrichProgress } from '@/types/crm';
 import type { SearchLead } from '@/app/api/extract/lib/types';
 import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, quickSearches, type DashboardTab } from '@/components/dashboard/dashboard-constants';
 import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
@@ -81,15 +81,14 @@ export default function Home() {
   const [waAiLoading, setWaAiLoading] = useState(false);
   const [waAiMessage, setWaAiMessage] = useState('');
   const [waSendingViaBot, setWaSendingViaBot] = useState<Record<string, boolean>>({});
-  const [waSentMessages, setWaSentMessages] = useState<any[]>([]);
+  const [waSentMessages, setWaSentMessages] = useState<WaSentMessage[]>([]);
   const [waSentMessagesLoading, setWaSentMessagesLoading] = useState(false);
-  const [waStats, setWaStats] = useState<any>(null);
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [waStats, setWaStats] = useState<Record<string, any> | null>(null);
+  const [campaigns, setCampaigns] = useState<Record<string, any>[]>([]);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Record<string, any>[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
-
   const [chatbotEnabled, setChatbotEnabled] = useState(true);
   const [chatbotBusinessName, setChatbotBusinessName] = useState('GeoLeads');
   const [chatbotWelcomeMessage, setChatbotWelcomeMessage] = useState('Olá! Sou o assistente automático. Me diga como posso ajudar.');
@@ -97,7 +96,7 @@ export default function Home() {
   const [chatbotRules, setChatbotRules] = useState(defaultChatbotRules);
   const [chatbotUseAI, setChatbotUseAI] = useState(true);
   const [chatbotAiInstructions, setChatbotAiInstructions] = useState('Você é um assistente de vendas amigável e profissional. Ajude clientes com dúvidas sobre serviços, agende reuniões e colete informações de contato.');
-  const [chatbotSession, setChatbotSession] = useState<any>({ status: 'idle', repliedCount: 0 });
+  const [chatbotSession, setChatbotSession] = useState<Record<string, any>>({ status: 'idle', repliedCount: 0 });
   const [chatbotAutoCapture, setChatbotAutoCapture] = useState(false);
   const [chatbotStats, setChatbotStats] = useState<any>(null);
   const [chatbotLoading, setChatbotLoading] = useState(false);
@@ -671,9 +670,7 @@ export default function Home() {
     } else showToast('Todos esses leads já existem no CRM.', 'info');
   };
 
-  const [batchEnrichProgress, setBatchEnrichProgress] = useState<{
-    total: number; completed: number; failed: number; percentage: number; status: string;
-  } | null>(null);
+  const [batchEnrichProgress, setBatchEnrichProgress] = useState<BatchEnrichProgress | null>(null);
 
   const startBatchEnrichment = async (leadsToEnrich: any[], onLeadUpdate?: (results: Record<string, any>) => void) => {
     if (leadsToEnrich.length === 0) return;
@@ -815,15 +812,12 @@ export default function Home() {
   };
 
   const handleRemoveFromCRM = (nome: string, telefone?: string, cidade?: string) => {
-    const removedLead = crmLeads.find(l => l.nome === nome && (!telefone || l.telefone === telefone) && (!cidade || l.cidade === cidade));
-    const targetKey = removedLead ? getLeadKey(removedLead) : `${nome}|${telefone || ''}|${cidade || ''}`;
+    const targetKey = `${nome}|${telefone || ''}|${cidade || ''}`;
     const updated = crmLeads.filter(l => getLeadKey(l) !== targetKey);
     saveCrm(updated);
     setSelectedCrmLeads(prev => prev.filter(n => n !== nome));
-    if (removedLead) {
-      setSelectedWaLeads(prev => prev.filter(key => key !== targetKey));
-      deleteCrmFromCloud([targetKey]);
-    }
+    setSelectedWaLeads(prev => prev.filter(key => key !== targetKey));
+    deleteCrmFromCloud([targetKey]);
   };
 
   const handleToggleSelectCrmLead = (nome: string) => {

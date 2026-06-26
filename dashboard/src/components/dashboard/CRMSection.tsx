@@ -91,7 +91,7 @@ export interface CRMSectionProps {
   bulkStageLoading: boolean;
   bulkStageTarget: string;
   setBulkStageTarget: (v: string) => void;
-  handleRemoveFromCRM: (nome: string) => void;
+  handleRemoveFromCRM: (nome: string, telefone?: string, cidade?: string) => void;
   handleToggleSelectCrmLead: (nome: string) => void;
   handleToggleSelectAllCrmLeads: (filteredLeads: CrmLead[]) => void;
   handleRemoveSelectedFromCRM: () => void;
