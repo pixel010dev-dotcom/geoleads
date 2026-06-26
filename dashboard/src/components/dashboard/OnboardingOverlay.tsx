@@ -58,11 +58,9 @@ export default function OnboardingOverlay() {
   };
 
   const handleFinish = () => {
-    if (dontShowAgain) {
-      try {
-        localStorage.setItem('geoleads_onboarding_done', 'true');
-      } catch (e) { console.error(e); }
-    }
+    try {
+      localStorage.setItem('geoleads_onboarding_done', 'true');
+    } catch (e) { console.error(e); }
     setVisible(false);
   };
 
@@ -95,7 +93,7 @@ export default function OnboardingOverlay() {
           <div className="flex gap-3">
             {!isLast ? (
               <>
-                <button onClick={handleDismiss}
+                <button onClick={handleFinish}
                   className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-sm font-medium cursor-pointer transition-all hover:bg-white/5"
                 >
                   {t('onboarding.skip')}

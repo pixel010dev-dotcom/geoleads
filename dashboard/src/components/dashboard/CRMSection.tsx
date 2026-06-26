@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
 import { showToast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
@@ -172,28 +172,30 @@ export default function CRMSection({
 
   const allUsedTags = [...new Set(crmLeads.flatMap(l => Array.isArray(l.tags) ? l.tags : []))].sort();
 
-  let filteredCrmLeads = crmLeads.filter(lead => {
-    const matchesSearch = 
-      lead.nome.toLowerCase().includes(crmSearch.toLowerCase()) || 
-      lead.telefone.toLowerCase().includes(crmSearch.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(crmSearch.toLowerCase()) ||
-      lead.cnpj?.toLowerCase().includes(crmSearch.toLowerCase()) ||
-      lead.nicho.toLowerCase().includes(crmSearch.toLowerCase()) ||
-      lead.cidade.toLowerCase().includes(crmSearch.toLowerCase());
-    if (crmFilterStage !== 'all' && lead.stage !== crmFilterStage) return false;
-    if (crmFilterTag !== 'all') {
-      const tags = Array.isArray(lead.tags) ? lead.tags : [];
-      if (!tags.includes(crmFilterTag)) return false;
-    }
-    return matchesSearch;
-  });
-
-  filteredCrmLeads.sort((a, b) => {
-    let va = (a[crmSortField] || '').toString().toLowerCase();
-    let vb = (b[crmSortField] || '').toString().toLowerCase();
-    if (crmSortField === 'savedAt') { va = a.savedAt || ''; vb = b.savedAt || ''; }
-    return crmSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-  });
+  const filteredCrmLeads = useMemo(() => {
+    const filtered = crmLeads.filter(lead => {
+      const matchesSearch = 
+        lead.nome.toLowerCase().includes(crmSearch.toLowerCase()) || 
+        lead.telefone.toLowerCase().includes(crmSearch.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(crmSearch.toLowerCase()) ||
+        lead.cnpj?.toLowerCase().includes(crmSearch.toLowerCase()) ||
+        lead.nicho.toLowerCase().includes(crmSearch.toLowerCase()) ||
+        lead.cidade.toLowerCase().includes(crmSearch.toLowerCase());
+      if (crmFilterStage !== 'all' && lead.stage !== crmFilterStage) return false;
+      if (crmFilterTag !== 'all') {
+        const tags = Array.isArray(lead.tags) ? lead.tags : [];
+        if (!tags.includes(crmFilterTag)) return false;
+      }
+      return matchesSearch;
+    });
+    filtered.sort((a, b) => {
+      let va = (a[crmSortField] || '').toString().toLowerCase();
+      let vb = (b[crmSortField] || '').toString().toLowerCase();
+      if (crmSortField === 'savedAt') { va = a.savedAt || ''; vb = b.savedAt || ''; }
+      return crmSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    return filtered;
+  }, [crmLeads, crmSearch, crmFilterStage, crmFilterTag, crmSortField, crmSortDir]);
   const crmTotalPages = Math.max(1, Math.ceil(filteredCrmLeads.length / CRM_PAGE_SIZE));
   const safeCrmPage = Math.min(crmPage, crmTotalPages - 1);
   const paginatedCrmLeads = filteredCrmLeads.slice(safeCrmPage * CRM_PAGE_SIZE, (safeCrmPage + 1) * CRM_PAGE_SIZE);
@@ -530,7 +532,7 @@ export default function CRMSection({
         </table>
 
         {/* Mobile Card List CRM */}
-        <div className="mobile-card-list md:hidden p-3 sm:p-4">
+        <div className="mobile-card-list md:hidden p-3 sm:p-4 max-h-[400px] overflow-y-auto">
           {paginatedCrmLeads.map((lead, i) => (
             <div 
               key={i} 

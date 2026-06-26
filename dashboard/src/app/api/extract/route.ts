@@ -200,46 +200,43 @@ export async function POST(request: Request) {
           }
         };
 
-        // Garante que done() sempre seja chamado, mesmo se o update falhar
+        // Deduz tokens ANTES de marcar como entregue
+        if (gastos > 0) {
+          try {
+            const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
+              p_user_id: authedUser.user.id, p_amount: gastos
+            });
+            if (deductError) {
+              await requestSupabase.from('profiles')
+                .update({ tokens: Math.max(0, authedUser.tokens - gastos) })
+                .eq('id', authedUser.user.id)
+                .gte('tokens', gastos);
+            }
+          } catch (e: any) {
+            console.error('[EXTRACT] token deduct failed:', e);
+          }
+        }
+
+        // Salva histórico (antes de marcar como entregue)
         try {
-          // Bug #2: AWAIT o update antes de chamar done() — sem await o delivered: true nunca chega no Supabase
+          await requestSupabase.from('extraction_history').insert({
+            user_id: authedUser.user.id, keyword, location,
+            filter_rule: filterRule || '',
+            leads_found: result.leads.length,
+            leads_requested: targetLimit,
+            tokens_spent: gastos,
+            search_time_seconds: totalTimeSec,
+          });
+        } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
+
+        // Agora marca como entregue (com tokens já deduzidos)
+        try {
           await doFinalUpdate(3);
         } catch (e: any) {
           console.error(`[EXTRACT] onDone: all updates failed for job ${jobId}:`, e?.message || e);
         } finally {
           done();
         }
-
-        if (gastos > 0) {
-          (async () => {
-            try {
-              const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
-                p_user_id: authedUser.user.id, p_amount: gastos
-              });
-              if (deductError) {
-                await requestSupabase.from('profiles')
-                  .update({ tokens: Math.max(0, authedUser.tokens - gastos) })
-                  .eq('id', authedUser.user.id)
-                  .gte('tokens', gastos);
-              }
-            } catch (e: any) {
-              console.warn('[EXTRACT] token deduct failed:', e);
-            }
-          })();
-        }
-
-        (async () => {
-          try {
-            await requestSupabase.from('extraction_history').insert({
-              user_id: authedUser.user.id, keyword, location,
-              filter_rule: filterRule || '',
-              leads_found: result.leads.length,
-              leads_requested: targetLimit,
-              tokens_spent: gastos,
-              search_time_seconds: totalTimeSec,
-            });
-          } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
-        })();
 
         // Enriquecimento em background (nao bloqueante)
         // Para cada lead com site, tenta extrair email + redes sociais

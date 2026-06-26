@@ -508,10 +508,12 @@ export default function Home() {
           });
           const appliedNames = new Set<string>();
           const poll = setInterval(async () => {
+            if (!mountedRef.current) { clearInterval(poll); return; }
             try {
               const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
               const pollData = await pollRes.json();
               if (pollData.success) {
+                if (!mountedRef.current) { clearInterval(poll); return; }
                 setBatchEnrichProgress({
                   total: pollData.total, completed: pollData.completed,
                   failed: pollData.failed, percentage: pollData.percentage, status: pollData.status,
@@ -537,6 +539,7 @@ export default function Home() {
               }
             } catch { clearInterval(poll); setBatchEnrichProgress(null); }
           }, 1200);
+          batchPollRef.current = poll;
         }
       } catch { /* silence */ }
     })();
@@ -559,6 +562,17 @@ export default function Home() {
   }, [activeTab, user, planId]);
 
   useEffect(() => { setCrmPage(0); }, [crmSearch, crmFilterStage]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (batchPollRef.current) {
+        clearInterval(batchPollRef.current);
+        batchPollRef.current = null;
+      }
+    };
+  }, []);
 
   const saveCrm = (updatedCrm: any[]) => {
     const normalized = updatedCrm.map(normalizeCrmLead);
@@ -657,10 +671,12 @@ export default function Home() {
       if (data.success && data.batchId) {
         const appliedNames = new Set<string>();
         const poll = setInterval(async () => {
+          if (!mountedRef.current) { clearInterval(poll); return; }
           try {
             const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
             const pollData = await pollRes.json();
             if (pollData.success) {
+              if (!mountedRef.current) { clearInterval(poll); return; }
               setBatchEnrichProgress({
                 total: pollData.total, completed: pollData.completed,
                 failed: pollData.failed, percentage: pollData.percentage, status: pollData.status,
@@ -687,6 +703,7 @@ export default function Home() {
             }
           } catch { clearInterval(poll); setBatchEnrichProgress(null); }
         }, 1200);
+        batchPollRef.current = poll;
       } else {
         setBatchEnrichProgress(null);
         showToast('Erro ao iniciar enriquecimento.', 'error');
@@ -740,6 +757,7 @@ export default function Home() {
       if (data.success && data.batchId) {
         // Poll for results
         const poll = setInterval(async () => {
+          if (!mountedRef.current) { clearInterval(poll); return; }
           try {
             const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers });
             const pollData = await pollRes.json();
@@ -759,6 +777,7 @@ export default function Home() {
             }
           } catch { clearInterval(poll); setEnrichLoading(false); }
         }, 1500);
+        batchPollRef.current = poll;
       } else {
         setEnrichLoading(false);
         showToast(data.error || 'Erro no enrichment em lote.', 'error');
@@ -1014,6 +1033,11 @@ export default function Home() {
   const currentJobIdRef = useRef<string | null>(null);
   const pollCountRef = useRef(0);
   const pollStartTimeRef = useRef(0);
+  const mountedRef = useRef(true);
+  const batchPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const crmLeadsRef = useRef(crmLeads);
+
+  useEffect(() => { crmLeadsRef.current = crmLeads; }, [crmLeads]);
 
   const startPolling = (jobId: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -1062,7 +1086,7 @@ export default function Home() {
               if (newLeads.length > 0 && user?.id) {
                 const toAdd = newLeads.filter((l: any) => {
                   const key = getLeadKey(l);
-                  return !crmLeads.some((cl: any) => getLeadKey(cl) === key);
+                  return !crmLeadsRef.current.some((cl: any) => getLeadKey(cl) === key);
                 }).map((l: any) => ({
                   ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
                   nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
@@ -1218,7 +1242,7 @@ export default function Home() {
     if (!requireFeature('export')) { showLockedFeature('export'); return; }
     if (leads.length === 0) return;
     const esc = (v: string) => `"${(v || '').replace(/"/g, '""')}"`;
-    const csvHeaders = ['Empresa', 'Telefone', 'E-mail', 'CNPJ', 'Avaliação', 'Instagram', 'Facebook', 'TikTok', 'Site'];
+    const csvHeaders = [t('crm.csvName'), t('crm.csvPhone'), t('crm.csvEmail'), t('crm.csvCnpj'), t('crm.csvRating'), t('crm.csvInstagram'), t('crm.csvFacebook'), t('crm.csvTiktok'), t('crm.csvSite')];
     const csvContent = [csvHeaders.join(','), ...leads.map(l => [esc(l.nome), esc(l.telefone), esc(l.email), esc(l.cnpj), esc(l.avaliacao), esc(l.instagram), esc(l.facebook), esc(l.tiktok), esc(l.site)].join(','))].join('\n');
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1293,7 +1317,7 @@ export default function Home() {
     let msg = customText ? renderWhatsAppMessage(lead, customText) : `Olá! Vi o perfil da *${lead.nome}* no Google e gostaria de saber mais sobre os serviços de vocês. Podemos conversar?`;
     const messageEncoded = encodeURIComponent(msg);
     const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    const url = options?.preferWeb && !isMobile ? `https://web.whatsapp.com/send?phone=55${number}&text=${messageEncoded}` : `https://wa.me/55${number}?text=${messageEncoded}`;
+    const url = options?.preferWeb && !isMobile ? `https://web.whatsapp.com/send?phone=${number}&text=${messageEncoded}` : `https://wa.me/${number}?text=${messageEncoded}`;
     window.open(url, options?.target || '_blank', 'noopener,noreferrer');
     if (options?.markSent !== false) setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
   };
@@ -1403,7 +1427,7 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <DashboardCharts tokens={tokens ?? 0} leads={crmLeads} />
+          <DashboardCharts tokens={tokens ?? 0} leads={crmLeads} planName={t(currentPlan.nameKey)} />
 
           <div className="flex items-center gap-2 sm:gap-3 mb-6 overflow-x-auto max-w-full">
             <div className="app-tabs dashboard-tabs flex gap-1 flex-shrink-0 items-center">

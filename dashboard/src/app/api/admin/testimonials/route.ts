@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient, getAuthUser } from '@/lib/server-auth';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'pixel010dev@gmail.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 export async function GET(request: Request) {
+  if (!ADMIN_EMAIL) return NextResponse.json({ error: 'Admin not configured' }, { status: 403 });
   const auth = await getAuthUser(request);
   if (!auth || auth.user.email !== ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });

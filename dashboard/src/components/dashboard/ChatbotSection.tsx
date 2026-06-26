@@ -206,7 +206,7 @@ export function ChatbotSection({
                 </div>
               </>
             )}
-            <button type="button" disabled={chatbotLoading} onClick={() => saveChatbotConfig()}
+            <button type="button" disabled={chatbotLoading} onClick={() => { saveChatbotConfig().catch(console.error); }}
               className="w-full py-3 rounded-xl font-bold text-white bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer disabled:opacity-60">
               {t('chatbot.saveConfig')}
             </button>

@@ -6,7 +6,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from 'recha
 
 const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
-export default function DashboardCharts({ tokens, leads }: { tokens: number; leads: any[] }) {
+export default function DashboardCharts({ tokens, leads, planName }: { tokens: number; leads: any[]; planName?: string }) {
   const { t, locale } = useTranslations();
   const totalLeads = leads.length;
 
@@ -64,7 +64,7 @@ export default function DashboardCharts({ tokens, leads }: { tokens: number; lea
             style={{ width: `${Math.min(100, (tokens / 2000) * 100)}%` }}
           />
         </div>
-        <p className="text-[10px] text-gray-500 mt-2">{t('charts.planInfo', { plan: 'Max', used: tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR'), total: '2.000' })}</p>
+        <p className="text-[10px] text-gray-500 mt-2">{t('charts.planInfo', { plan: planName || 'Max', used: tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR'), total: '2.000' })}</p>
       </div>
 
       {/* Total Leads */}
