@@ -92,17 +92,27 @@ export interface StrategyWeights {
 export type ScoreQuality = 'high' | 'medium' | 'low' | 'trash';
 
 /**
- * Detecta leads genéricos que NÃO são negócios reais (APENAS padrões óbvios):
+ * Remove sufixo " em [Cidade], [UF]" de nomes de negócios reais
+ * que tiveram localização anexada pelo scraper.
+ * Ex: "ACADEMIA FERNANDES em Rio de Janeiro, RJ" → "ACADEMIA FERNANDES"
+ */
+export function cleanLeadName(nome: string): string {
+  return nome.replace(/\s+em\s+.+?(?:,\s*[A-Z]{2})?\s*$/i, '').trim();
+}
+
+/**
+ * Detecta leads genéricos que NÃO são negócios reais:
  * - Páginas de listagem/diretório ("10 Melhores...", "Lista de...")
  * - URLs no nome (diretórios)
  * - Nomes de página genéricos sem contato
- *
- * Importante: ser conservador pra não bloquear leads legítimos.
+ * - Emoji/telefone no nome (resíduo de UI)
+ * - "em" duplicado (categoria com local repetida)
+ * - Uma única palavra genérica + "em" + local (página de categoria do Maps)
  */
 function isJunkResult(nome: string, telefone: string): boolean {
   const n = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-  // Padrões óbvios de página de listagem/diretório
+  // Padrões de página de listagem/diretório
   const junkPatterns = [
     /^\d+\s+(melhore|melhor|top|melhores)(s\s+|e\s+)/i,
     /^(lista|guia|diretorio)\s+(d[eo]\s+|com\s+)/i,
@@ -116,9 +126,24 @@ function isJunkResult(nome: string, telefone: string): boolean {
   if (/\.(com|com\.br|net|org)\b/.test(n)) return true;
 
   // Nome muito longo (>80) sem telefone → provável página de agregação
-  if (n.length > 80 && (!telefone || telefone === 'Não informado')) {
-    return true;
-  }
+  if (n.length > 80 && (!telefone || telefone === 'Não informado')) return true;
+
+  // Nome contém emoji de telefone (resíduo de UI do Maps)
+  if (/[☎📞📱📲]/.test(nome)) return true;
+
+  // Nome contém número de telefone com DDD (resíduo de UI)
+  // Ex: "Academia (21) 3407-1234" — não é nome de negócio
+  if (/\(\d{2,3}\)\s*\d{4,5}[- ]?\d{4}/.test(nome)) return true;
+
+  // "em" aparece duas vezes (categoria com local duplicada)
+  // Ex: "Academias em Rio de Janeiro, RJ em Rio de Janeiro, RJ"
+  if (/\bem\b.*\bem\b/i.test(nome)) return true;
+
+  // Página de categoria do Google Maps: "SingleWord em Location"
+  // Ex: "Academia em Rio", "Academias em SP", "Clinicas em São Paulo"
+  // Uma única palavra genérica + "em" = título de listagem, não negócio
+  // Não confundir com "ACADEMIA FERNANDES em RJ" (2 palavras = negócio real)
+  if (/^([a-z]{2,})(?:\s+(?:de|da|do|das|dos))?\s+em\s+/i.test(n)) return true;
 
   return false;
 }

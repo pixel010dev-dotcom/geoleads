@@ -1,5 +1,5 @@
 import type { SearchLead } from './lib/types';
-import { scoreLeadQuality } from './lib/types';
+import { scoreLeadQuality, cleanLeadName } from './lib/types';
 import { extractFromGoogleSearch } from './strategies/google-search-via-cf';
 import { extractFromOpenStreetMap } from './strategies/alternative-sources';
 import { extractFromDuckDuckGo } from './strategies/duckduckgo';
@@ -125,6 +125,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         continue;
       }
       if (lead.telefone !== 'Não informado' && scrapedPhones.has(lead.telefone)) continue;
+      lead.nome = cleanLeadName(lead.nome);
+      if (!lead.nome) continue;
       addLead(lead);
       added++;
     }
