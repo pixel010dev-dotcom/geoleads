@@ -28,9 +28,9 @@ export interface RunnerConfig {
   maxTimeMs?: number;
 }
 
-function postFilter(lead: SearchLead, filterRule: string): boolean {
+function postFilter(lead: SearchLead, filterRule: string, keyword?: string): boolean {
   if (!filterRule || filterRule === 'none') return true;
-  const score = scoreLeadQuality(lead);
+  const score = scoreLeadQuality(lead, keyword);
   if (score.score >= 25) return true;
 
   const rules = filterRule.split(',').map(r => r.trim()).filter(Boolean);
@@ -151,7 +151,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     finalized = true;
 
     // DEBUG: loga cada lead com score e tier antes de filtrar
-    const scoredLeads = leads.map(l => ({ lead: l, score: scoreLeadQuality(l) }));
+    const scoredLeads = leads.map(l => ({ lead: l, score: scoreLeadQuality(l, keyword) }));
     for (const s of scoredLeads) {
       console.log(`[SCORE] "${s.lead.nome}" score=${s.score.score} tier=${s.score.tier} phone="${s.lead.telefone}" site="${s.lead.site}"`);
     }
@@ -159,7 +159,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     const validLeads = scoredLeads
       .filter(s => s.score.tier !== 'trash')
       .map(s => s.lead)
-      .filter(l => postFilter(l, filterRule))
+      .filter(l => postFilter(l, filterRule, keyword))
       .slice(0, targetLimit);
 
     console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${leadsByName.size} unique (${scoredLeads.filter(s => s.score.tier === 'trash').length} trash) in ${elapsed()}s`);

@@ -90,8 +90,78 @@ export interface StrategyWeights {
 
 export type ScoreQuality = 'high' | 'medium' | 'low' | 'trash';
 
-export function scoreLeadQuality(lead: SearchLead): { score: number; tier: ScoreQuality } {
+/**
+ * Detecta leads genéricos que não são negócios reais:
+ * - Páginas de listagem/diretório ("10 Melhores...", "Lista de...")
+ * - Páginas de busca ("Academias em Rio de Janeiro")
+ * - Resultados que parecem categorias, não estabelecimentos
+ */
+function isJunkResult(nome: string, telefone: string, keyword?: string): boolean {
+  const n = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Palavras que indicam página de listagem/diretório, não negócio real
+  const junkPatterns = [
+    /^\d+\s+(melhore|melhor|top|melhores|primeiro|primeira)/i,
+    /^(lista|guia|diretorio|directorio|categoria|categorias|pagina)\s+(d[eo]|de\s+)/i,
+    /(lista\s+d[eo]|guia\s+d[eo]|diretorio\s+d[eo]|relacao\s+d[eo])/i,
+    /(telefone\s+d[eo]|email\s+d[eo]|endereco\s+d[eo])/i,
+    /(os\s+melhores|as\s+melhores|melhores\s+[a-z]+\s+em)/i,
+    /(tudo\s+sobre|tudo\s+de|tudo\s+em)/i,
+    /^\d+\s*-\s*[a-z]/i,
+  ];
+  for (const p of junkPatterns) {
+    if (p.test(n)) return true;
+  }
+
+  // Nome é muito genérico (só categoria + localização, sem nome real de negócio)
+  if (keyword) {
+    const kw = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const kwWords = kw.split(/\s+/).filter(w => w.length > 2);
+    const nWithoutLocation = n
+      .replace(/\s*[-–—,|]\s*(rj|sp|mg|rs|pr|sc|ba|pe|ce|go|df|es|pa|am|mt|ms|ma|pb|rn|se|al|to|ac|ap|ro|rr|brasil|brazil)/i, '')
+      .replace(/\(\d{4}\)/, '')
+      .replace(/\s*\/\s*(rj|sp|mg|rs|pr|sc)/i, '')
+      .trim();
+
+    // Se depois de limpar, só sobrou a keyword → é página de busca
+    if (kwWords.length > 0) {
+      const remainingWords = nWithoutLocation.split(/\s+/).filter(w => w.length > 2);
+      const nonKwWords = remainingWords.filter(w => !kwWords.some(kw => w.includes(kw) || kw.includes(w)));
+      if (nonKwWords.length === 0 && remainingWords.length > 0) {
+        return true;
+      }
+    }
+
+    // Nome contém keyword E localização (padrão de página de resultado)
+    const locationWords = keyword.split(/\s+/).filter(w => w.length > 3);
+    const matchCount = locationWords.filter(lw => n.includes(lw.toLowerCase())).length;
+    if (matchCount >= locationWords.length && locationWords.length > 0) {
+      // Se tem telefone real, pode ser um negócio válido
+      if (!telefone || telefone === 'Não informado') {
+        return true;
+      }
+    }
+  }
+
+  // Nome muito longo sem contato → provavelmente listagem
+  if (n.length > 60 && (!telefone || telefone === 'Não informado')) {
+    return true;
+  }
+
+  // Nome é um subdomínio de diretório (ex: "academias.em.rio.de.janeiro.tipo.com")
+  if (/\.(com|com\.br|net|org)\b/.test(n)) return true;
+
+  return false;
+}
+
+export function scoreLeadQuality(lead: SearchLead, keyword?: string): { score: number; tier: ScoreQuality } {
   let score = 0;
+
+  // Se for lixo detectado, já vai pra trash
+  if (lead.nome && isJunkResult(lead.nome, lead.telefone, keyword)) {
+    return { score: 0, tier: 'trash' };
+  }
+
   if (lead.nome) score += 15;
   if (lead.telefone && lead.telefone !== 'Não informado') score += 20;
   if (lead.site && lead.site !== 'Sem site') score += 15;
@@ -117,6 +187,11 @@ export function scoreLeadQuality(lead: SearchLead): { score: number; tier: Score
   ].filter(Boolean).length;
   if (contactChannels >= 3) score += 10;
   else if (contactChannels >= 2) score += 5;
+
+  // Penalidade: nome que parece página (muito genérico sem contato)
+  if (score < 20 && (!lead.telefone || lead.telefone === 'Não informado') && (!lead.site || lead.site === 'Sem site')) {
+    score = Math.max(0, score - 15);
+  }
 
   let tier: ScoreQuality;
   if (score >= 70) tier = 'high';

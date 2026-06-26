@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createRequestSupabaseClient, getAuthUser } from '@/lib/server-auth';
+import { createAdminSupabaseClient, getAuthUser } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const auth = await getAuthUser(request);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    const supabase = createRequestSupabaseClient(request);
+    const supabase = createAdminSupabaseClient();
     const { data, error } = await supabase
       .from('extraction_history')
       .select('*')

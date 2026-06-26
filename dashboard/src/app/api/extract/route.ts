@@ -217,9 +217,10 @@ export async function POST(request: Request) {
           }
         }
 
-        // Salva histórico (antes de marcar como entregue)
+        // Salva histórico (via admin pra evitar RLS)
         try {
-          await requestSupabase.from('extraction_history').insert({
+          const adminSupabase = createAdminSupabaseClient();
+          await adminSupabase.from('extraction_history').insert({
             user_id: authedUser.user.id, keyword, location,
             filter_rule: filterRule || '',
             leads_found: result.leads.length,
