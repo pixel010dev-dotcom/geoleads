@@ -1533,7 +1533,11 @@ export default function Home() {
               showToast(msg, 'success');
               const updatedSnapshot = [...formatted, ...crmLeads];
               startBatchEnrichment(formatted, (enrichments) => {
-                saveCrm(updatedSnapshot.map((l: CrmLead) => enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l));
+                const merged = updatedSnapshot.map((l: CrmLead) => {
+                  const key = getLeadKey(l);
+                  return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+                });
+                saveCrm(merged);
               });
             }}
           />
