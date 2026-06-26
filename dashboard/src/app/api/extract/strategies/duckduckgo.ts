@@ -81,18 +81,13 @@ export async function extractFromDuckDuckGo(
       }
 
       for (let i = 0; i < titles.length && leads.length < targetLimit; i++) {
-        let name = titles[i];
-        if (!name || name.length < 3 || name.length > 200) continue;
-
-        name = name.split(/[\-–—|]/)[0].trim();
-        name = name.split(/\s*[-–—]\s*(?:PR|SP|RJ|MG|SC|RS|BA|PE|CE|GO|DF|ES|PA|AM|MT|MS|MA|PB|RN|SE|AL|TO|AC|AP|RO|RR)\b/)[0].trim();
-        if (name.length < 3 || name.length > 100) continue;
-        if (seenNames.has(name.toLowerCase())) continue;
-        if (/^(road|aerial|hybrid|satellite|terrain|street|roadmap|JSWarning|\+n)$/i.test(name)) continue;
+        const rawTitle = titles[i];
+        if (!rawTitle || rawTitle.length < 3 || rawTitle.length > 200) continue;
 
         const snippet = snippets[i] || '';
-        const combined = `${name} ${snippet}`;
+        const combined = `${rawTitle} ${snippet}`;
 
+        // Extrai telefone do RAW title ANTES de limpar o nome
         let phone = 'Não informado';
         for (const pat of PHONE_PATTERNS) {
           const m = combined.match(pat);
@@ -105,12 +100,23 @@ export async function extractFromDuckDuckGo(
           }
         }
 
+        // Agora limpa o nome (remove separadores, estados, telefone do texto)
+        let name = rawTitle;
+        // Remove telefone do nome antes de tudo
+        for (const pat of PHONE_PATTERNS) {
+          name = name.replace(pat, '');
+        }
+        name = name.replace(/[:\s]*[Ff]one\s*\(?\d*/g, '').trim();
+        name = name.split(/[\-–—|]|<[^>]*>/)[0].trim();
+        name = name.split(/\s*[-–—]\s*(?:PR|SP|RJ|MG|SC|RS|BA|PE|CE|GO|DF|ES|PA|AM|MT|MS|MA|PB|RN|SE|AL|TO|AC|AP|RO|RR)\b/)[0].trim();
+        name = name.replace(/\s*:\s*$/, '').trim();
+        if (name.length < 3 || name.length > 100) continue;
+        if (seenNames.has(name.toLowerCase())) continue;
+        if (/^(road|aerial|hybrid|satellite|terrain|street|roadmap|JSWarning|\+n)$/i.test(name)) continue;
+
         const lead = createEmptySearchLead();
         lead.nome = name;
-
-        if (phone !== 'Não informado') {
-          lead.telefone = phone;
-        }
+        if (phone !== 'Não informado') lead.telefone = phone;
 
         const url = urls[i] || '';
         if (url && !url.includes('duckduckgo') && !url.includes('google.com')) {

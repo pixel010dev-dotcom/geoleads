@@ -122,57 +122,26 @@ function parseMobileLocalResults(html: string): SearchLead[] {
 
   if (leads.length > 0) return leads;
 
-  // Fallback: parse mobile HTML results
-  // Mobile Google results tem estrutura mais simples com divs e spans
-  const nameRegex = /<div[^>]*class="[^"]*dbg0pd[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-  while ((match = nameRegex.exec(html)) !== null) {
-    const name = cleanText(match[1]);
-    if (!name || seen.has(name) || !isValidName(name)) continue;
-    seen.add(name);
+  // Fallback: parse mobile HTML results com regex genérica
+  // Google muda as classes constantemente, entao usamos padroes genericos
+  const genericPatterns = [
+    // aria-label em links/buttons de resultado
+    /aria-label="([^"]{3,120})"[^>]*role="(?:link|button|article)"/gi,
+    // role="heading" em titulos de resultado
+    /role="heading"[^>]*>([\s\S]*?)<\/div>/gi,
+    // div com data-attrid (padrao Google)
+    /data-attrid="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    // span com padrao de nome de estabelecimento (BN* sao classes do Google)
+    /<span[^>]*class="[^"]*BNeawe[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
+    // role="heading" h3
+    /<h3[^>]*role="heading"[^>]*>([\s\S]*?)<\/h3>/gi,
+    // h3 generico
+    /<h3[^>]*>([\s\S]*?)<\/h3>/gi,
+  ];
 
-    const lead = createEmptySearchLead();
-    lead.nome = name;
-
-    // Contexto ao redor do nome
-    const ctxStart = Math.max(0, match.index - 400);
-    const ctxEnd = Math.min(html.length, match.index + match[0].length + 600);
-    const ctx = html.slice(ctxStart, ctxEnd);
-
-    // Telefone
-    const phoneMatch = ctx.match(/(?:(?:\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/);
-    if (phoneMatch && phoneMatch[0].length >= 10) {
-      lead.telefone = normalizePhone(phoneMatch[0]);
-    }
-
-    // Site
-    const siteHrefRegex = /href="(https?:\/\/(?:www\.)?(?!google)[^"']*?)"/gi;
-    let siteMatch: RegExpExecArray | null;
-    while ((siteMatch = siteHrefRegex.exec(ctx)) !== null) {
-      if (isBusinessWebsiteCandidate(siteMatch[1])) {
-        lead.site = siteMatch[1];
-        break;
-      }
-    }
-
-    // Endereco
-    const addrMatch = ctx.match(/((?:Rua|Av\.?|Avenida|Travessa|Praça|Alameda|Rodovia)\s[^,]{5,80})/i);
-    if (addrMatch) lead.endereco = addrMatch[1].trim();
-
-    // Avaliacao
-    const ratingMatch = ctx.match(/(\d[.,]\d)\s*(?:estrela|star|★)/i);
-    if (ratingMatch) lead.avaliacao = ratingMatch[1].replace(',', '.');
-
-    // Categoria
-    const catMatch = ctx.match(/(?:·)\s*([A-Za-zÀ-ÿ\u00C0-\u024F\s]{3,40})(?:\s*·|$)/);
-    if (catMatch) lead.categoria = catMatch[1].trim();
-
-    leads.push(lead);
-  }
-
-  // Se nao achou com padrao mobile, tenta h3 simples
-  if (leads.length === 0) {
-    const h3Regex = /<h3[^>]*>([\s\S]*?)<\/h3>/gi;
-    while ((match = h3Regex.exec(html)) !== null) {
+  for (const nameRegex of genericPatterns) {
+    if (leads.length > 0) break; // Já achou resultados, não precisa de mais padrões
+    while ((match = nameRegex.exec(html)) !== null) {
       const name = cleanText(match[1]);
       if (!name || seen.has(name) || !isValidName(name)) continue;
       seen.add(name);
@@ -180,14 +149,52 @@ function parseMobileLocalResults(html: string): SearchLead[] {
       const lead = createEmptySearchLead();
       lead.nome = name;
 
-      const ctxStart = Math.max(0, match.index - 300);
-      const ctxEnd = Math.min(html.length, match.index + match[0].length + 500);
+      const ctxStart = Math.max(0, match.index - 500);
+      const ctxEnd = Math.min(html.length, match.index + match[0].length + 700);
       const ctx = html.slice(ctxStart, ctxEnd);
 
       const phoneMatch = ctx.match(/(?:(?:\+55\s?)?\(?\d{2}\)?\s?\d{4,5}[\s-]?\d{4})/);
-      if (phoneMatch) lead.telefone = normalizePhone(phoneMatch[0]);
+      if (phoneMatch && phoneMatch[0].length >= 10) {
+        lead.telefone = normalizePhone(phoneMatch[0]);
+      }
+
+      const siteHrefRegex = /href="(https?:\/\/(?:www\.)?(?!google)[^"']*?)"/gi;
+      let siteMatch: RegExpExecArray | null;
+      while ((siteMatch = siteHrefRegex.exec(ctx)) !== null) {
+        if (isBusinessWebsiteCandidate(siteMatch[1])) {
+          lead.site = siteMatch[1];
+          break;
+        }
+      }
+
+      const addrMatch = ctx.match(/((?:Rua|Av\.?|Avenida|Travessa|Praça|Alameda|Rodovia)\s[^,]{5,80})/i);
+      if (addrMatch) lead.endereco = addrMatch[1].trim();
+
+      const ratingMatch = ctx.match(/(\d[.,]\d)\s*(?:estrela|star|★)/i);
+      if (ratingMatch) lead.avaliacao = ratingMatch[1].replace(',', '.');
+
+      const catMatch = ctx.match(/(?:·)\s*([A-Za-zÀ-ÿ\u00C0-\u024F\s]{3,40})(?:\s*·|$)/);
+      if (catMatch) lead.categoria = catMatch[1].trim();
 
       leads.push(lead);
+    }
+  }
+
+  // Último recurso: procura por spans com texto que parece nome de negócio
+  if (leads.length === 0) {
+    const textBlocks = html.match(/>([A-ZÀ-ÿ][A-ZÀ-ÿa-zà-ÿ0-9\s]{5,60})<\//g);
+    if (textBlocks) {
+      for (const block of textBlocks) {
+        const name = cleanText(block.replace(/^>/, ''));
+        if (!name || name.length < 5 || name.length > 80 || seen.has(name) || !isValidName(name)) continue;
+        // Pula textos genéricos que não são nomes de negócio
+        if (/^(sobre|sobre nós|contato|produtos|serviços|home|início|blog|notícias|termos|privacidade|avaliações|fotos|vídeos|mapa)/i.test(name)) continue;
+        seen.add(name);
+
+        const lead = createEmptySearchLead();
+        lead.nome = name;
+        leads.push(lead);
+      }
     }
   }
 
