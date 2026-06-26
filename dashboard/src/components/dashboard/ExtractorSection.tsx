@@ -214,8 +214,8 @@ export default function ExtractorSection({
                 if (l <= 0) return null;
                 const isBroad = /brasil|brazil|todos os estados|nacional|pa[ií]s inteiro|mundo/i.test(location);
                 if (isBroad) {
-                  const citiesEst = Math.min(Math.ceil(l / 3.5), 140);
-                  let sec = Math.min(10 + citiesEst * 2 + l * 1.5 + 15, 600);
+                  const citiesEst = Math.min(Math.ceil(l / 5), 100);
+                  let sec = Math.min(6 + citiesEst * 0.6 + l * 0.4 + 8, 180);
                   if (sec > 120) {
                     const mins = Math.ceil(sec / 60);
                     const statesEst = Math.min(27, Math.ceil(citiesEst / 4));
@@ -223,7 +223,7 @@ export default function ExtractorSection({
                   }
                   return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeCities', { seconds: Math.ceil(sec), cities: citiesEst }) })}</p>;
                 }
-                const sec = Math.ceil(5 + l * 3.5);
+                const sec = Math.ceil(3 + l * 1.2);
                 let timeStr = '';
                 if (sec > 3600) {
                   const h = Math.floor(sec / 3600);

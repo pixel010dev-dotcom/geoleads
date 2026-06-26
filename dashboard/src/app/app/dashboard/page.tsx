@@ -1005,8 +1005,44 @@ export default function Home() {
                     if (error) console.warn('CRM auto-sync failed:', error.message);
                     else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
                   });
-                  showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
-                  setTimeout(() => showToast('💡 Vá na aba "Leads" e use "Enriquecer Todos" para buscar CNPJ, e-mail e redes sociais!', 'info'), 2000);
+                  showToast(`${toAdd.length} leads salvos no CRM! Enriquecendo...`, 'success');
+                  // Auto-enriquecimento em lote dos leads extraídos
+                  (async () => {
+                    try {
+                      const h = await getAuthedJsonHeaders();
+                      if (!h) return;
+                      const res = await fetch('/api/lead-enrich/batch', {
+                        method: 'POST', headers: h,
+                        body: JSON.stringify({
+                          leads: toAdd.map((l: any) => ({
+                            nome: l.nome, site: l.site, cidade: l.cidade,
+                            cnpj: l.cnpj, email: l.email, instagram: l.instagram,
+                            facebook: l.facebook, tiktok: l.tiktok,
+                          }))
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.success && data.batchId) {
+                        const pollBatch = setInterval(async () => {
+                          try {
+                            const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
+                            const pollData = await pollRes.json();
+                            if (pollData.status === 'completed' || pollData.status === 'failed') {
+                              clearInterval(pollBatch);
+                              if (pollData.results) {
+                                const enrichments: Record<string, any> = {};
+                                pollData.results.forEach((r: any) => { if (r.enriched) enrichments[r.nome] = r.enriched; });
+                                if (Object.keys(enrichments).length > 0) {
+                                  setCrmLeads(prev => prev.map(l => enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l));
+                                }
+                              }
+                              if (pollData.completed > 0) showToast(`${pollData.completed} leads enriquecidos!`, 'success');
+                            }
+                          } catch { clearInterval(pollBatch); }
+                        }, 2000);
+                      }
+                    } catch { /* silence */ }
+                  })();
                   setChartRefreshKey(k => k + 1);
                 } else {
                   showToast('Leads já existem no CRM.', 'info');
@@ -1410,7 +1446,7 @@ export default function Home() {
             handleToggleSelectAllCrmLeads={handleToggleSelectAllCrmLeads} handleRemoveSelectedFromCRM={handleRemoveSelectedFromCRM}
             handleBulkStageChange={handleBulkStageChange} handleUpdateCRMLead={handleUpdateCRMLead} openWhatsApp={openWhatsApp}
             waSentMessages={waSentMessages}
-            onImportLeads={(importedLeads) => {
+            onImportLeads={async (importedLeads) => {
               const existingKeys = new Set(crmLeads.map(getLeadKey));
               const newLeads = importedLeads.filter((l: any) => !existingKeys.has(getLeadKey(l)));
               const formatted = newLeads.map(l => ({
@@ -1426,6 +1462,22 @@ export default function Home() {
               const skipped = importedLeads.length - newLeads.length;
               const msg = skipped > 0 ? `${newLeads.length} importados, ${skipped} duplicados ignorados` : `${formatted.length} leads importados!`;
               showToast(msg, 'success');
+              // Auto-enriquecimento dos leads importados
+              if (formatted.length > 0) {
+                const h = await getAuthedJsonHeaders();
+                if (h) {
+                  fetch('/api/lead-enrich/batch', {
+                    method: 'POST', headers: h,
+                    body: JSON.stringify({
+                      leads: formatted.map((l: any) => ({
+                        nome: l.nome, site: l.site, cidade: l.cidade,
+                        cnpj: l.cnpj, email: l.email, instagram: l.instagram,
+                        facebook: l.facebook, tiktok: l.tiktok,
+                      }))
+                    }),
+                  }).catch(() => {});
+                }
+              }
             }}
           />
           </div>
