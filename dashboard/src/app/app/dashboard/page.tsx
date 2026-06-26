@@ -1055,10 +1055,7 @@ export default function Home() {
   const pollStartTimeRef = useRef(0);
   const mountedRef = useRef(true);
   const batchPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const crmLeadsRef = useRef(crmLeads);
   const isAddingAllToCRM = useRef(false);
-
-  useEffect(() => { crmLeadsRef.current = crmLeads; }, [crmLeads]);
 
   const startPolling = (jobId: string) => {
     if (pollRef.current) clearInterval(pollRef.current);

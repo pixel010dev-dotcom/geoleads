@@ -49,7 +49,7 @@ export default function AutoVendasSection() {
   const [creating, setCreating] = useState(false);
 
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
-  const [campaignLeads, setCampaignLeads] = useState<any[]>([]);
+  const [campaignLeads, setCampaignLeads] = useState<Record<string, any>[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState<Record<string, boolean>>({});
   const [paymentChecking, setPaymentChecking] = useState<Record<string, boolean>>({});
@@ -449,7 +449,7 @@ export default function AutoVendasSection() {
                             </tr>
                           </thead>
                           <tbody>
-                            {campaignLeads.map((lead: any) => (
+                            {campaignLeads.map((lead: Record<string, any>) => (
                               <tr key={lead.id} className="border-b border-white/5 text-gray-300">
                                 <td className="py-1.5 pr-2">{lead.nome || '-'}</td>
                                 <td className="py-1.5 pr-2">{lead.telefone || '-'}</td>

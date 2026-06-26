@@ -12,7 +12,7 @@ export interface SupportSectionProps {
   setSupportSubmitted: (v: boolean) => void;
   hoveredStar: number | null;
   setHoveredStar: (v: number | null) => void;
-  user: any;
+  user: { id: string; email?: string } | null;
   showToast: (msg: string, type?: ToastType) => void;
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import type { AiCopyResult } from '@/types/crm';
 import { useTranslations } from '@/lib/i18n';
 import { showToast, type ToastType } from '@/components/Toast';
 import type { DashboardTab } from './dashboard-constants';
@@ -11,7 +12,7 @@ export interface AICopySectionProps {
   setAiValue: (v: string) => void;
   aiTone: string;
   setAiTone: (v: string) => void;
-  generatedCopies: any[] | null;
+  generatedCopies: AiCopyResult[] | null;
   isGeneratingCopies: boolean;
   generateAICopies: (e: React.FormEvent) => Promise<void>;
   setWaTemplate: (v: string) => void;

@@ -19,7 +19,7 @@ export function LockedFeaturePanel({ feature, activeTab, currentPlan, getUpgrade
     descKey: 'lockedFeature.desc',
   };
   const copy = activeTab !== 'extractor' && activeTab !== 'support'
-    ? (tabUpgradeCopy as any)[activeTab] || fallbackCopy
+    ? (tabUpgradeCopy as Record<string, any>)[activeTab] || fallbackCopy
     : fallbackCopy;
 
   return (
@@ -50,7 +50,7 @@ export function LockedFeaturePanel({ feature, activeTab, currentPlan, getUpgrade
 }
 
 export function LeadGuideWidget({ user, currentPlan, tokens, onNavigate }: {
-  user: any;
+  user: { id: string; email?: string } | null;
   currentPlan: { nameKey: string };
   tokens: number | null;
   onNavigate: (tab: DashboardTab) => void;
