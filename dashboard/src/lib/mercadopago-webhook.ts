@@ -15,13 +15,6 @@ export type CreditPaymentResult =
 
 // Verifica assinatura do webhook do Mercado Pago
 // Nota: em producao, validar X-Signature com o secret do webhook
-function verifyWebhookSignature(request: Request, body: string): boolean {
-  // TODO: Implementar verificacao de assinatura quando o MP fornecer
-  // o header X-Signature com o secret configurado no webhook
-  // Por enquanto, a validacao e feita pelo payment status check
-  return true;
-}
-
 export async function creditApprovedMercadoPagoPayment(paymentId: string): Promise<CreditPaymentResult> {
   if (!paymentId) {
     return { ok: false, status: 200, error: 'missing_payment_id' };
@@ -202,35 +195,8 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
   });
 
   if (txError) {
-    // Fallback: operacoes separadas se RPC nao existir
-    console.warn('[WEBHOOK] RPC credit_tokens_with_history falhou, usando fallback:', txError.message);
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        tokens: newTokens,
-        plan_id: planId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', targetUserId);
-
-    if (updateError) {
-      console.error('Webhook: erro ao atualizar tokens', updateError.message);
-      return { ok: false, status: 500, error: 'Erro ao atualizar tokens' };
-    }
-
-    const { error: historyError } = await supabase.from('payment_history').insert({
-      user_id: targetUserId,
-      mp_payment_id: paymentId,
-      plan_id: planId,
-      tokens_added: planTokens,
-      amount: payment.transaction_amount || plan.price,
-      status: 'approved'
-    });
-
-    if (historyError) {
-      console.error('Webhook: pagamento creditado, mas historico falhou', historyError.message);
-    }
+    console.error('[WEBHOOK] RPC credit_tokens_with_history FALHOU:', txError.message);
+    return { ok: false, status: 500, error: `Falha no credit_tokens_with_history: ${txError.message}` };
   }
 
   return {

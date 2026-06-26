@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import type { CrmLead, WaSentMessage } from '@/types/crm';
 import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
 import { showToast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
@@ -8,7 +9,7 @@ import { useTranslations } from '@/lib/i18n';
 
 const HackMap = dynamic(() => import('@/components/HackMap'), { ssr: false, loading: () => <div className="h-[320px] sm:h-[400px] rounded-2xl bg-black/50 border border-green-500/20 flex items-center justify-center text-green-400/50 text-sm font-mono">INICIALIZANDO MAPA...</div> });
 
-function exportCrmToCsv(t: Function, leads: any[], filename: string) {
+function exportCrmToCsv(t: Function, leads: CrmLead[], filename: string) {
   const cols = [
     t('crm.csvName'),
     t('crm.csvPhone'),
@@ -37,7 +38,7 @@ function exportCrmToCsv(t: Function, leads: any[], filename: string) {
   };
   const rows = leads.map(l => cols.map(c => {
     const field = keyMap[c] || c.toLowerCase();
-    const val = l[field] ?? '';
+    const val = (l as any)[field] ?? '';
     const str = Array.isArray(val) ? val.join('; ') : String(val);
     return `"${str.replace(/"/g, '""')}"`;
   }).join(','));
@@ -49,13 +50,13 @@ function exportCrmToCsv(t: Function, leads: any[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function computeQualityScore(lead: any): number {
+function computeQualityScore(lead: CrmLead): number {
   let score = 0;
   if (lead.telefone && lead.telefone !== 'Não informado') score += 1;
   if (lead.email) score += 1;
   if (lead.site && lead.site !== 'Sem site') score += 1;
   if (lead.telefone && /^(\+55|55)?\s*\(?\d{2}\)?\s*9\d/.test(lead.telefone.replace(/\D/g, ''))) score += 1;
-  if (lead.avaliacao > 0) score += 1;
+  if (Number(lead.avaliacao) > 0) score += 1;
   if (lead.instagram) score += 1;
   if (lead.facebook) score += 1;
   if (lead.tiktok) score += 1;
@@ -76,7 +77,7 @@ function QualityBadge({ score }: { score: number }) {
 }
 
 export interface CRMSectionProps {
-  crmLeads: any[];
+  crmLeads: CrmLead[];
   crmSearch: string;
   setCrmSearch: (v: string) => void;
   crmFilterStage: string;
@@ -92,13 +93,13 @@ export interface CRMSectionProps {
   setBulkStageTarget: (v: string) => void;
   handleRemoveFromCRM: (nome: string) => void;
   handleToggleSelectCrmLead: (nome: string) => void;
-  handleToggleSelectAllCrmLeads: (filteredLeads: any[]) => void;
+  handleToggleSelectAllCrmLeads: (filteredLeads: CrmLead[]) => void;
   handleRemoveSelectedFromCRM: () => void;
   handleBulkStageChange: () => Promise<void>;
   handleUpdateCRMLead: (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => void;
-  openWhatsApp: (lead: any) => void;
-  waSentMessages?: any[];
-  onImportLeads?: (leads: any[]) => void;
+  openWhatsApp: (lead: CrmLead) => void;
+  waSentMessages?: WaSentMessage[];
+  onImportLeads?: (leads: CrmLead[]) => void;
   batchEnrichProgress?: { total: number; completed: number; failed: number; percentage: number; status: string } | null;
 }
 
@@ -215,8 +216,8 @@ export default function CRMSection({
       return matchesSearch;
     });
     filtered.sort((a, b) => {
-      let va = (a[crmSortField] || '').toString().toLowerCase();
-      let vb = (b[crmSortField] || '').toString().toLowerCase();
+      let va = (a[crmSortField as keyof CrmLead] || '').toString().toLowerCase();
+      let vb = (b[crmSortField as keyof CrmLead] || '').toString().toLowerCase();
       if (crmSortField === 'savedAt') { va = a.savedAt || ''; vb = b.savedAt || ''; }
       return crmSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });

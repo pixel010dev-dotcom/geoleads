@@ -1,3 +1,5 @@
+import type { CrmLead, CrmLeadRow } from '@/types/crm';
+
 export type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
 
 export const tabFeatureMap: Record<DashboardTab, string | null> = {
@@ -36,15 +38,22 @@ export const tabUpgradeCopy: Record<string, { titleKey: string; descKey: string 
   },
 };
 
-export const getLeadKey = (lead: any) => `${lead.nome || ''}|${lead.telefone || ''}|${lead.cidade || ''}`;
+export const getLeadKey = (lead: { nome?: string; telefone?: string; cidade?: string }) =>
+  `${lead.nome || ''}|${lead.telefone || ''}|${lead.cidade || ''}`;
 
-export const normalizeCrmLead = (lead: any) => ({
+export const normalizeCrmLead = (lead: Partial<CrmLead>): CrmLead => ({
   ...lead,
   nome: lead.nome || 'Lead sem nome',
   telefone: lead.telefone || 'Não informado',
   email: lead.email || '',
   site: lead.site || 'Sem site',
+  endereco: lead.endereco || '',
   avaliacao: lead.avaliacao || 'N/A',
+  reviewCount: lead.reviewCount || '',
+  categoria: lead.categoria || '',
+  horarios: lead.horarios || '',
+  cep: lead.cep || '',
+  placeUrl: lead.placeUrl || '',
   instagram: lead.instagram || '',
   facebook: lead.facebook || '',
   tiktok: lead.tiktok || '',
@@ -57,7 +66,7 @@ export const normalizeCrmLead = (lead: any) => ({
   cidade: lead.cidade || 'Geral',
 });
 
-export const crmLeadToRow = (lead: any, userId: string) => {
+export const crmLeadToRow = (lead: Partial<CrmLead>, userId: string): CrmLeadRow => {
   const normalized = normalizeCrmLead(lead);
   return {
     user_id: userId,
@@ -80,7 +89,7 @@ export const crmLeadToRow = (lead: any, userId: string) => {
   };
 };
 
-export const crmRowToLead = (row: any) => normalizeCrmLead({
+export const crmRowToLead = (row: Partial<CrmLeadRow>): CrmLead => normalizeCrmLead({
   ...(row.payload || {}),
   nome: row.nome,
   telefone: row.telefone,

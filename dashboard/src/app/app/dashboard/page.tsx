@@ -8,6 +8,8 @@ import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
 import DashboardCharts from '@/components/DashboardCharts';
+import type { CrmLead, ExtractStats, WaSentMessage } from '@/types/crm';
+import type { SearchLead } from '@/app/api/extract/lib/types';
 import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, quickSearches, type DashboardTab } from '@/components/dashboard/dashboard-constants';
 import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
 import ExtractorSection from '@/components/dashboard/ExtractorSection';
@@ -22,6 +24,14 @@ import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from '@/lib/i18n';
 
+function mergeEnrichmentIntoLead(lead: CrmLead, enriched: Record<string, any>): CrmLead {
+  const merged = { ...lead, ...enriched };
+  if (enriched.site_descoberto && (!merged.site || merged.site === 'Sem site')) {
+    merged.site = enriched.site_descoberto;
+  }
+  return merged;
+}
+
 export default function Home() {
   const { t, locale } = useTranslations();
   const [activeTab, setActiveTab] = useState<DashboardTab>('extractor');
@@ -33,14 +43,14 @@ export default function Home() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
-  const [extractStats, setExtractStats] = useState<any>(null);
+  const [extractStats, setExtractStats] = useState<ExtractStats | null>(null);
   const [filterRule, setFilterRule] = useState<string>('none');
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [tokens, setTokens] = useState<number | null>(null);
   const [planId, setPlanId] = useState<PlanId>('free');
 
-  const [crmLeads, setCrmLeads] = useState<any[]>([]);
+  const [crmLeads, setCrmLeads] = useState<CrmLead[]>([]);
   const [crmSearch, setCrmSearch] = useState('');
   const [crmFilterStage, setCrmFilterStage] = useState('all');
   const [selectedCrmLeads, setSelectedCrmLeads] = useState<string[]>([]);
@@ -168,7 +178,7 @@ export default function Home() {
     return (data || []).map(crmRowToLead);
   };
 
-  const syncCrmToCloud = async (updatedCrm: any[], targetUserId = user?.id) => {
+  const syncCrmToCloud = async (updatedCrm: CrmLead[], targetUserId = user?.id) => {
     if (!targetUserId) {
       setCrmSyncStatus('local');
       setCrmSyncMessage('CRM local');
@@ -506,7 +516,7 @@ export default function Home() {
             total: data.total, completed: data.completed,
             failed: data.failed, percentage: data.percentage, status: data.status,
           });
-          const appliedNames = new Set<string>();
+          const appliedKeys = new Set<string>();
           const poll = setInterval(async () => {
             if (!mountedRef.current) { clearInterval(poll); return; }
             try {
@@ -522,13 +532,22 @@ export default function Home() {
                 if (pollData.results) {
                   const newEnrichments: Record<string, any> = {};
                   pollData.results.forEach((r: any) => {
-                    if (r.enriched && !appliedNames.has(r.nome)) {
-                      newEnrichments[r.nome] = r.enriched;
-                      appliedNames.add(r.nome);
+                    const rKey = r.leadKey || r.nome;
+                    if (r.enriched && !appliedKeys.has(rKey)) {
+                      newEnrichments[rKey] = r.enriched;
+                      appliedKeys.add(rKey);
                     }
                   });
                   if (Object.keys(newEnrichments).length > 0) {
-                    setCrmLeads(prev => prev.map(l => newEnrichments[l.nome] ? { ...l, ...newEnrichments[l.nome] } : l));
+                    setCrmLeads(prev => {
+                      const merged = prev.map(l => {
+                        const key = getLeadKey(l);
+                        return newEnrichments[key] ? mergeEnrichmentIntoLead(l, newEnrichments[key]) : l;
+                      });
+                      try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
+                      syncCrmToCloud(merged);
+                      return merged;
+                    });
                   }
                 }
                 if (pollData.status === 'completed' || pollData.status === 'failed') {
@@ -574,7 +593,7 @@ export default function Home() {
     };
   }, []);
 
-  const saveCrm = (updatedCrm: any[]) => {
+  const saveCrm = (updatedCrm: CrmLead[]) => {
     const normalized = updatedCrm.map(normalizeCrmLead);
     setCrmLeads(normalized);
     try { localStorage.setItem('geoleads_crm', JSON.stringify(normalized)); } catch { /* ignore */ }
@@ -583,36 +602,29 @@ export default function Home() {
 
   const handleAddToCRM = (lead: any) => {
     if (!requireFeature('crm')) { setActiveTab('crm'); return; }
-    const leadKey = getLeadKey(lead);
-    const exists = crmLeads.some(l => getLeadKey(l) === leadKey);
+    const leadCidade = lead.cidade || location || 'Geral';
+    const crmLeadKey = `${lead.nome || ''}|${lead.telefone || ''}|${leadCidade}`;
+    const exists = crmLeads.some(l => getLeadKey(l) === crmLeadKey);
     if (exists) { showToast(`"${lead.nome}" já está no CRM.`, 'info'); return; }
-    const newCrmLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: location || 'Geral' };
+    const newCrmLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: leadCidade };
     const updated = [newCrmLead, ...crmLeads];
     saveCrm(updated);
     if (newCrmLead.telefone && newCrmLead.telefone !== 'Não informado') {
-      const newKey = getLeadKey(newCrmLead);
-      setSelectedWaLeads(prev => prev.includes(newKey) ? prev : [newKey, ...prev]);
+      setSelectedWaLeads(prev => prev.includes(crmLeadKey) ? prev : [crmLeadKey, ...prev]);
     }
     showToast(`"${lead.nome}" salvo no CRM! Enriquecendo dados...`, 'success');
-    // Auto-enriquecimento em background usando o array local 'updated' (evita race condition)
-    const savedLead = updated.find(l => getLeadKey(l) === leadKey);
+    // Auto-enriquecimento em background
     (async () => {
       try {
         const headers = await getAuthedJsonHeaders();
         if (!headers) return;
         const res = await fetch('/api/lead-enrich', {
           method: 'POST', headers,
-          body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade || location, cnpj: lead.cnpj })
+          body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: leadCidade, cnpj: lead.cnpj })
         });
         const data = await res.json();
-        if (data.success && data.enriched && savedLead) {
-          // Busca o lead no array local 'updated' e atualiza
-          const localCopy = [...updated];
-          const idx = localCopy.findIndex(l => getLeadKey(l) === leadKey);
-          if (idx >= 0) {
-            localCopy[idx] = { ...localCopy[idx], ...data.enriched };
-            saveCrm(localCopy);
-          }
+        if (data.success && data.enriched) {
+          setCrmLeads(prev => prev.map(l => getLeadKey(l) === crmLeadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l));
         }
       } catch { /* silencio - enrichment e opcional */ }
     })();
@@ -621,15 +633,22 @@ export default function Home() {
   const handleAddAllToCRM = () => {
     if (!requireFeature('crm')) { setActiveTab('crm'); return; }
     if (leads.length === 0) return;
+    if (isAddingAllToCRM.current) return;
+    isAddingAllToCRM.current = true;
+    setTimeout(() => { isAddingAllToCRM.current = false; }, 5000);
     let addedCount = 0;
     const updated = [...crmLeads];
     const existingKeys = new Set(updated.map(getLeadKey));
     const newDispatchableKeys: string[] = [];
+    const newlyAdded: any[] = [];
     leads.forEach(lead => {
-      const exists = existingKeys.has(getLeadKey(lead));
+      const leadCidade = lead.cidade || location || 'Geral';
+      const extractionKey = `${lead.nome || ''}|${lead.telefone || ''}|${leadCidade}`;
+      const exists = existingKeys.has(extractionKey);
       if (!exists) {
-        const newLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: location || 'Geral' };
+        const newLead = { ...lead, stage: 'Novo', notes: '', savedAt: new Date().toISOString(), nicho: keyword || 'Geral', cidade: leadCidade };
         updated.unshift(newLead);
+        newlyAdded.push(newLead);
         if (newLead.telefone && newLead.telefone !== 'Não informado') newDispatchableKeys.push(getLeadKey(newLead));
         addedCount++;
       }
@@ -638,10 +657,16 @@ export default function Home() {
       saveCrm(updated);
       if (newDispatchableKeys.length > 0) setSelectedWaLeads(prev => Array.from(new Set([...newDispatchableKeys, ...prev])));
       showToast(`${addedCount} leads adicionados ao CRM! Enriquecendo...`, 'success');
-      const updatedSnapshot = [...updated];
-      const newLeads = leads.filter((l: any) => !new Set(crmLeads.map(getLeadKey)).has(getLeadKey(l)));
-      startBatchEnrichment(newLeads, (enrichments) => {
-        saveCrm(updatedSnapshot.map((l: any) => enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l));
+      startBatchEnrichment(newlyAdded, (enrichments) => {
+        setCrmLeads(prev => {
+          const merged = prev.map(l => {
+            const key = getLeadKey(l);
+            return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+          });
+          try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
+          syncCrmToCloud(merged);
+          return merged;
+        });
       });
     } else showToast('Todos esses leads já existem no CRM.', 'info');
   };
@@ -664,12 +689,13 @@ export default function Home() {
             nome: l.nome, site: l.site, cidade: l.cidade,
             cnpj: l.cnpj, email: l.email, instagram: l.instagram,
             facebook: l.facebook, tiktok: l.tiktok,
+            leadKey: getLeadKey(l),
           }))
         }),
       });
       const data = await res.json();
       if (data.success && data.batchId) {
-        const appliedNames = new Set<string>();
+        const appliedKeys = new Set<string>();
         const poll = setInterval(async () => {
           if (!mountedRef.current) { clearInterval(poll); return; }
           try {
@@ -685,9 +711,10 @@ export default function Home() {
               if (pollData.results && pollData.results.length > 0) {
                 const newEnrichments: Record<string, any> = {};
                 pollData.results.forEach((r: any) => {
-                  if (r.enriched && !appliedNames.has(r.nome)) {
-                    newEnrichments[r.nome] = r.enriched;
-                    appliedNames.add(r.nome);
+                  const rKey = r.leadKey || r.nome;
+                  if (r.enriched && !appliedKeys.has(rKey)) {
+                    newEnrichments[rKey] = r.enriched;
+                    appliedKeys.add(rKey);
                   }
                 });
                 if (Object.keys(newEnrichments).length > 0) {
@@ -724,12 +751,8 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.success && data.enriched) {
-        const updated = crmLeads.map(l => {
-          if (l.nome === lead.nome && l.cidade === lead.cidade) {
-            return { ...l, ...data.enriched };
-          }
-          return l;
-        });
+        const leadKey = getLeadKey(lead);
+        const updated = crmLeads.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
         saveCrm(updated);
       }
     } catch { /* silence */ }
@@ -750,6 +773,7 @@ export default function Home() {
             nome: l.nome, site: l.site, cidade: l.cidade,
             cnpj: l.cnpj, email: l.email, instagram: l.instagram,
             facebook: l.facebook, tiktok: l.tiktok,
+            leadKey: getLeadKey(l),
           }))
         }),
       });
@@ -764,13 +788,15 @@ export default function Home() {
             if (pollData.status === 'completed' || pollData.status === 'failed') {
               clearInterval(poll);
               if (pollData.results) {
-                let updated = [...crmLeads];
-                pollData.results.forEach((r: any) => {
-                  if (r.enriched) {
-                    updated = updated.map(l => l.nome === r.nome ? { ...l, ...r.enriched } : l);
-                  }
+                setCrmLeads(prev => {
+                  const updated = prev.map(l => {
+                    const r = pollData.results.find((r: any) => (r.leadKey || r.nome) === getLeadKey(l));
+                    return r?.enriched ? mergeEnrichmentIntoLead(l, r.enriched) : l;
+                  });
+                  try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
+                  syncCrmToCloud(updated);
+                  return updated;
                 });
-                saveCrm(updated);
               }
               showToast(`${pollData.completed} leads enriquecidos!`, 'success');
               setEnrichLoading(false);
@@ -906,7 +932,7 @@ export default function Home() {
       try {
         const res = await fetch('/api/chatbot/send', {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ leadName: lead.nome, leadPhone: lead.telefone, message, leadId: lead.id })
+          body: JSON.stringify({ leadName: lead.nome, leadPhone: lead.telefone, message, leadKey: getLeadKey(lead) })
         });
         if (res.ok) setWaSentStatus(prev => ({ ...prev, [lead.nome]: true }));
         else { const err = await res.json(); showToast(`Falha ao enviar para ${lead.nome}: ${err.error || 'erro'}`, 'error'); }
@@ -1036,6 +1062,7 @@ export default function Home() {
   const mountedRef = useRef(true);
   const batchPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const crmLeadsRef = useRef(crmLeads);
+  const isAddingAllToCRM = useRef(false);
 
   useEffect(() => { crmLeadsRef.current = crmLeads; }, [crmLeads]);
 
@@ -1082,32 +1109,9 @@ export default function Home() {
             if (j.delivered) {
               setLeads(j.leads || []);
               setHasSearched(true);
-              const newLeads = j.leads || [];
-              if (newLeads.length > 0 && user?.id) {
-                const toAdd = newLeads.filter((l: any) => {
-                  const key = getLeadKey(l);
-                  return !crmLeadsRef.current.some((cl: any) => getLeadKey(cl) === key);
-                }).map((l: any) => ({
-                  ...l, stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
-                  nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral'
-                }));
-                if (toAdd.length > 0) {
-                  const normalized = [...toAdd, ...crmLeads].map(normalizeCrmLead);
-                  setCrmLeads(normalized);
-                  try { localStorage.setItem('geoleads_crm', JSON.stringify(normalized)); } catch { /* ignore */ }
-                  const rows = normalized.map(lead => crmLeadToRow(lead, user.id!));
-                  supabase.from('crm_leads').upsert(rows, { onConflict: 'user_id,lead_key' }).then(({ error }) => {
-                    if (error) console.warn('CRM auto-sync failed:', error.message);
-                    else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
-                  });
-                  showToast(`${toAdd.length} leads salvos no CRM! Enriquecendo...`, 'success');
-                  startBatchEnrichment(toAdd, (enrichments) => {
-                    setCrmLeads(prev => prev.map(l => enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l));
-                  });
-                  setChartRefreshKey(k => k + 1);
-                } else {
-                  showToast('Leads já existem no CRM.', 'info');
-                }
+              const leadCount = j.leads?.length || 0;
+              if (leadCount > 0) {
+                showToast(`Extração concluída! ${leadCount} leads encontrados. Revise e clique em "Salvar no CRM".`, 'success');
               }
             } else {
               setHasSearched(true);

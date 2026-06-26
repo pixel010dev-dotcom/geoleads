@@ -5,9 +5,10 @@ import { enrichLead } from '../../extract/enrichment/website';
 interface BatchLead {
   nome: string; site?: string; cidade?: string; cnpj?: string;
   email?: string; instagram?: string; facebook?: string; tiktok?: string; telefone?: string;
+  leadKey?: string;
 }
 
-interface BatchResult { nome: string; enriched: Record<string, any> | null; error?: string; }
+interface BatchResult { nome: string; enriched: Record<string, any> | null; error?: string; leadKey?: string; }
 
 interface BatchState {
   status: 'running' | 'completed' | 'failed';
@@ -192,6 +193,7 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
 }
 
 async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<BatchResult> {
+  const leadKey = lead.leadKey;
   try {
     const enriched: Record<string, any> = {};
     let discoveredSite = lead.site && lead.site !== 'Sem site' ? lead.site : null;
@@ -323,9 +325,9 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
       } catch { /* silence */ }
     }
 
-    return { nome: lead.nome, enriched: Object.keys(enriched).length > 0 ? enriched : null };
+    return { nome: lead.nome, leadKey, enriched: Object.keys(enriched).length > 0 ? enriched : null };
   } catch (error: unknown) {
-    return { nome: lead.nome, enriched: null, error: error instanceof Error ? error.message : 'erro desconhecido' };
+    return { nome: lead.nome, leadKey, enriched: null, error: error instanceof Error ? error.message : 'erro desconhecido' };
   }
 }
 
