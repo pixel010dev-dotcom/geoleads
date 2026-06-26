@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
+import type { BatchResult } from '@/types/crm';
 import { enrichLead } from '../../extract/enrichment/website';
 
 interface BatchLead {
@@ -7,8 +8,6 @@ interface BatchLead {
   email?: string; instagram?: string; facebook?: string; tiktok?: string; telefone?: string;
   leadKey?: string;
 }
-
-interface BatchResult { nome: string; enriched: Record<string, any> | null; error?: string; leadKey?: string; }
 
 interface BatchState {
   status: 'running' | 'completed' | 'failed';

@@ -1,16 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, requireFeature } from '@/lib/server-auth';
+import type { AiCopyResult as CopyResult } from '@/types/crm';
 import { AIProvider } from '@/lib/ai-provider';
 import { checkApiRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-type CopyResult = {
-  title: string;
-  desc: string;
-  text: string;
-};
 
 const tags = '{Nome}, {Cidade}, {Nicho}, {Site}, {Telefone}';
 

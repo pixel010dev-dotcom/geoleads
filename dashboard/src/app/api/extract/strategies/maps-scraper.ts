@@ -1,5 +1,5 @@
-import type { SearchLead } from '../lib/types';
-import { createEmptySearchLead } from '../lib/types';
+import type { SearchLead, MapsPlaceExtraData } from '../lib/types';
+import { createEmptySearchLead, emptyMapsPlaceExtraData } from '../lib/types';
 import { normalizePhone, applySignalsToLead, mergeMapsPlaceExtraData } from '../lib/validation';
 import { getRandomUserAgent, getRandomViewport, getRandomTimezone, getRandomGeolocation, getHumanDelay, simulateHumanScroll, withMapsLocale, GOOGLE_CONSENT_COOKIE, GOOGLE_SOCS_COOKIE } from '../lib/stealth';
 
@@ -302,17 +302,17 @@ export async function extractFromPlaywrightMaps(
   while (allLeads.length < targetLimit && scrollCount < maxScrolls && !(signal?.aborted)) {
     const rawChunk = await extractCardsFromPage(page);
 
-    const newLeads = rawChunk.filter((l: any) => {
+    const newLeads = rawChunk.filter((l: SearchLead) => {
       if (scrapedNames.has(l.nome)) return false;
       if (l.telefone !== 'Não informado' && scrapedPhones.has(l.telefone)) return false;
       return true;
     });
 
-    newLeads.forEach((l: any) => {
+    newLeads.forEach((l: SearchLead) => {
       scrapedNames.add(l.nome);
       if (l.telefone !== 'Não informado') scrapedPhones.add(l.telefone);
       if (l.telefone && l.telefone !== 'Não informado') l.telefone = normalizePhone(l.telefone);
-      allLeads.push(l as SearchLead);
+      allLeads.push(l);
     });
 
     if (newLeads.length === 0) {
@@ -370,8 +370,8 @@ export async function extractFromPlaywrightMaps(
   return { leads: allLeads, blocked: wasBlocked };
 }
 
-export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promise<any> {
-  const result: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
+export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promise<MapsPlaceExtraData> {
+  const result: MapsPlaceExtraData = emptyMapsPlaceExtraData();
 
   try {
     try {
@@ -396,7 +396,7 @@ export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promi
     }
 
     const extraData = await tab.evaluate(() => {
-      const r: any = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
+      const r: Record<string, string> = { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
       const text = document.body?.innerText || '';
       const html = document.body?.innerHTML || '';
 
@@ -473,7 +473,7 @@ export async function extractMapsPlaceDetails(tab: any, placeUrl: string): Promi
     if (!result.telefone && !result.site) {
       await tab.waitForTimeout(1500);
       const retryData = await tab.evaluate(() => {
-        const r: any = { telefone: '', site: '' };
+        const r: Record<string, string> = { telefone: '', site: '' };
         const text = document.body?.innerText || '';
         for (const pat of PHONE_REGEX_PATTERNS) {
           const ms = text.match(pat);
