@@ -92,6 +92,78 @@ export interface StrategyWeights {
 export type ScoreQuality = 'high' | 'medium' | 'low' | 'trash';
 
 /**
+ * Palavras genéricas do português que NUNCA são nomes de negócios reais
+ * quando aparecem sozinhas ou como título de listagem ("Dentista", "Academia").
+ * Usado para penalizar leads que são páginas de categoria, não negócios.
+ */
+const GENERIC_WORDS = new Set([
+  // Profissões (singular + plural)
+  'dentista', 'dentistas', 'advogado', 'advogados', 'medico', 'medicos',
+  'médico', 'engenheiro', 'engenheiros', 'arquiteto', 'arquitetos',
+  'contador', 'contadores', 'professor', 'professores', 'psicologo',
+  'psicologos', 'psicólogo', 'fisioterapeuta', 'fisioterapeutas',
+  'nutricionista', 'nutricionistas', 'cabeleireiro', 'cabeleireiros',
+  'barbeiro', 'barbeiros', 'manicure', 'manicures', 'esteticista',
+  'esteticistas', 'veterinario', 'veterinarios', 'veterinário',
+  // Estabelecimentos genéricos
+  'academia', 'academias', 'restaurante', 'restaurantes', 'pizzaria',
+  'pizzarias', 'padaria', 'padarias', 'lanchonete', 'lanchonetes',
+  'mercado', 'mercados', 'supermercado', 'supermercados', 'loja', 'lojas',
+  'boutique', 'boutiques', 'clinica', 'clinicas', 'clínica', 'clínicas',
+  'hospital', 'hospitais', 'escola', 'escolas', 'hotel', 'hoteis',
+  'hotéis', 'pousada', 'pousadas', 'oficina', 'oficinas', 'borracharia',
+  'borracharias', 'mecanica', 'mecanicas', 'mecânica', 'conveniencia',
+  'barbearia', 'barbearias', 'salão', 'salão',
+  // Palavras genéricas (contato, endereço, etc.)
+  'contato', 'contatos', 'home', 'info', 'site', 'email', 'telefone',
+  'whatsapp', 'endereco', 'endereço', 'negocio', 'negocios', 'negócio',
+  'negócios', 'comercio', 'comercios', 'comércio', 'servico', 'servicos',
+  'serviço', 'serviços', 'produto', 'produtos', 'artigo', 'artigos',
+  'local', 'locais', 'lugar', 'lugares', 'geral',
+]);
+
+/**
+ * Retorna penalidade de score baseada no quão genérico é o nome.
+ * Quanto mais genérico (categoria, profissão, listagem), maior a penalidade.
+ * Leads legítimos com nome específico ou com placeUrl não são penalizados.
+ * placeUrl é a prova real: se o lead tem URL única do Maps, é negócio real.
+ */
+function getGenericNamePenalty(nome: string, categoria: string, placeUrl: string): number {
+  // Se tem placeUrl, é negócio real do Maps — sem penalidade
+  if (placeUrl) return 0;
+
+  const n = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const words = n.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 0;
+
+  // 1. Página de listagem: "Os 20 Dentistas mais recomendados"
+  if (/^(os|as|o|a)\s+\d+/i.test(n)) return 35;
+
+  // 2. Nome é APENAS um genérico
+  //    Ex: "Dentista", "Academia", "Contato"
+  if (words.length === 1) {
+    if (GENERIC_WORDS.has(words[0])) return 35;
+    return 0;
+  }
+
+  // 3. Nome = palavra genérica + localização (sem "em")
+  //    Ex: "Dentista Belo Horizonte", "Academia Curitiba"
+  const firstWord = words[0];
+  if (GENERIC_WORDS.has(firstWord)) {
+    const catNormalized = categoria.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const catFirstWord = catNormalized.split(/\s+/)[0];
+
+    // Começa com a própria categoria + sem placeUrl = página de listagem
+    if (firstWord === catFirstWord) return 35;
+
+    // Nome curto começando com genérico + sem vinculo real com Maps
+    if (words.length <= 4) return 25;
+  }
+
+  return 0;
+}
+
+/**
  * Remove sufixo " em [Cidade], [UF]" de nomes de negócios reais
  * que tiveram localização anexada pelo scraper.
  * Ex: "ACADEMIA FERNANDES em Rio de Janeiro, RJ" → "ACADEMIA FERNANDES"
@@ -181,6 +253,9 @@ export function scoreLeadQuality(lead: SearchLead): { score: number; tier: Score
   ].filter(Boolean).length;
   if (contactChannels >= 3) score += 10;
   else if (contactChannels >= 2) score += 5;
+
+  // Penalidade para nomes genéricos sem placeUrl (páginas de categoria)
+  score -= getGenericNamePenalty(lead.nome || '', lead.categoria || '', lead.placeUrl || '');
 
   let tier: ScoreQuality;
   if (score >= 70) tier = 'high';
