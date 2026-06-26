@@ -2,326 +2,371 @@ import { NextResponse } from 'next/server';
 import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
 import { enrichLead } from '../extract/enrichment/website';
 
+const BR_PHONE_REGEX = /(?:\(\d{2,3}\)\s?)?\d{4,5}[\s-]?\d{4}/g;
+const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
+const URL_REGEX = /https?:\/\/[^\s"'<>)\]]+/g;
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
 function normalizeName(name: string) {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, '')
-    .trim();
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim();
 }
 
-function scoreMatch(query: string, result: string): number {
-  const q = normalizeName(query);
-  const r = normalizeName(result);
-  if (q === r) return 100;
-  if (r.includes(q) || q.includes(r)) return 75;
-  const qWords = q.split(/\s+/);
-  const rWords = r.split(/\s+/);
-  let matches = 0;
-  for (const w of qWords) {
-    if (w.length < 3) continue;
-    if (rWords.some(rw => rw.includes(w) || w.includes(rw))) matches++;
+function extractPhoneFromText(text: string): string[] {
+  const phones: string[] = [];
+  let m: RegExpExecArray | null;
+  const brRegex = /\(?(\d{2,3})\)?\s?(\d{4,5})[\s-]?(\d{4})/g;
+  while ((m = brRegex.exec(text)) !== null) {
+    const full = `(${m[1]}) ${m[2]}-${m[3]}`;
+    if (!phones.includes(full)) phones.push(full);
   }
-  return Math.round((matches / qWords.length) * 70);
+  return phones;
 }
 
-function normalizeCnpj(value: string) {
-  return value.replace(/\D/g, '').slice(0, 14);
+function extractCNPJFromText(text: string): string | null {
+  const m = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+  if (!m) return null;
+  const digits = m[0].replace(/\D/g, '');
+  if (digits.length !== 14) return null;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
-async function enrichCNPJ(cnpjValue?: string): Promise<any> {
-  if (cnpjValue) {
-    const normalized = normalizeCnpj(cnpjValue);
-    if (normalized.length === 14) {
-      try {
-        const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${normalized}`, {
-          headers: { 'User-Agent': 'GeoLeads/1.0' },
-          signal: AbortSignal.timeout(5000)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          return {
-            cnpj: `${normalized.slice(0, 2)}.${normalized.slice(2, 5)}.${normalized.slice(5, 8)}/${normalized.slice(8, 12)}-${normalized.slice(12)}`,
-            razao_social: data.razao_social || '',
-            nome_fantasia: data.nome_fantasia || '',
-            telefone_empresa: data.ddd_telefone_1 ? `(${data.ddd_telefone_1}) ${data.telefone_1}` : '',
-            endereco_completo: data.logradouro ? `${data.logradouro}, ${data.numero} - ${data.bairro}` : '',
-            cidade: data.municipio || '',
-            uf: data.uf || '',
-            cep: data.cep || '',
-            data_abertura: data.data_inicio_atividade || '',
-            situacao_cadastral: data.situacao_cadastral || '',
-            atividade: data.descricao_atividade_principal?.[0]?.text || '',
-          };
-        }
-      } catch { /* silence */ }
-    }
+function extractAddressFromText(text: string, city?: string): string | null {
+  const patterns = [
+    new RegExp(`Rua?[\\s\\S]{0,60}(?:${city || ''}|\\d{5}[\\s-]?\\d{3})`, 'i'),
+    /(?:Rua|Av|Avenida|Travessa|Alameda|Praça|Rodovia)\s[^\n,.]{5,80}(?:,?\s*\d{1,5})?/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[0].trim().replace(/\s+/g, ' ');
   }
   return null;
 }
 
-async function searchSocial(name: string, platform: string, city?: string, attempt = 1): Promise<{ url?: string; score: number }> {
+function extractSiteFromUrls(html: string, name: string): string | null {
+  const nameNorm = normalizeName(name);
+  const nameWords = nameNorm.split(/\s+/).filter(w => w.length > 3);
+  const urls = Array.from(html.matchAll(URL_REGEX), m => m[0]);
+  const blocked = ['instagram.com', 'facebook.com', 'tiktok.com', 'youtube.com', 'whatsapp.com',
+    'twitter.com', 'linkedin.com', 'duckduckgo.com', 'google.', 'doubleclick.net'];
+  for (const url of urls) {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+      if (blocked.some(b => host.includes(b) || host === b)) continue;
+      if (host.split('.').length < 2) continue;
+      const hostClean = host.replace(/\.com(\.br)?$/, '').replace(/\./g, '');
+      if (nameWords.some(w => w.length >= 4 && (hostClean.includes(w) || w.includes(hostClean)))) {
+        return url.split('?')[0].split('#')[0];
+      }
+    } catch { continue; }
+  }
+  return null;
+}
+
+async function duckduckgoSearch(query: string): Promise<string> {
+  const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+    },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) return '';
+  return res.text();
+}
+
+async function fetchPageText(url: string): Promise<string> {
   try {
-    const query = encodeURIComponent(`${name} ${city || ''} ${platform}`);
-    const res = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
+    const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept-Language': 'pt-BR,pt;q=0.9',
       },
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return { score: 0 };
-    const html = await res.text();
+    if (!res.ok) return '';
+    const text = await res.text();
+    return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  } catch { return ''; }
+}
 
-    let regex: RegExp;
-    if (platform === 'instagram') {
-      regex = /https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)/g;
-    } else if (platform === 'facebook') {
-      regex = /https?:\/\/(?:www\.)?facebook\.com\/([^\s"'<>]+)/g;
-    } else if (platform === 'tiktok') {
-      regex = /https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/g;
-    } else {
-      return { score: 0 };
+async function searchBusinessData(name: string, city?: string): Promise<Record<string, any>> {
+  const data: Record<string, any> = {};
+
+  const queries = [
+    `"${name}" ${city || ''}`,
+    `${name} ${city || ''} telefone endereco`,
+    `${name} ${city || ''} site`,
+  ];
+
+  for (const query of queries) {
+    const html = await duckduckgoSearch(query);
+    if (!html) continue;
+
+    if (!data.telefone) {
+      const phones = extractPhoneFromText(html);
+      if (phones.length > 0) data.telefone = phones[0];
     }
 
-    let match: RegExpExecArray | null;
-    let bestUrl = '';
-    let bestScore = 0;
+    if (!data.cnpj) {
+      const cnpj = extractCNPJFromText(html);
+      if (cnpj) data.cnpj = cnpj;
+    }
 
-    while ((match = regex.exec(html))) {
-      const url = match[0];
-      if (platform === 'facebook' && (url.includes('/p/') || url.includes('/share') || url.includes('/events'))) continue;
-      const username = platform === 'facebook' ? match[1].replace(/[/?].*/, '').replace(/[._]/g, ' ') : match[1].replace(/[._]/g, ' ');
-      const score = scoreMatch(name, username);
-      if (score > bestScore && score >= 40) {
-        bestScore = score;
-        bestUrl = url;
+    if (!data.endereco) {
+      const addr = extractAddressFromText(html, city);
+      if (addr) data.endereco = addr;
+    }
+
+    if (!data.site) {
+      const site = extractSiteFromUrls(html, name);
+      if (site) data.site = site;
+    }
+
+    if (!data.instagram) {
+      const instaMatch = html.match(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)/);
+      if (instaMatch && !instaMatch[1].match(/^(p|reel|stories|explore|accounts)/)) {
+        data.instagram = `https://instagram.com/${instaMatch[1]}`;
       }
     }
 
-    if (!bestUrl && attempt < 2) {
-      return searchSocial(name, platform, city, attempt + 1);
+    if (!data.facebook) {
+      const fbMatch = html.match(/https?:\/\/(?:www\.)?facebook\.com\/([^\s"'<>]+)/);
+      if (fbMatch && !fbMatch[1].match(/^(sharer|share|dialog|plugins|events|groups|login|privacy)/)) {
+        const cleanPath = fbMatch[1].replace(/[/?].*/, '');
+        if (cleanPath.length > 1) data.facebook = `https://facebook.com/${cleanPath}`;
+      }
     }
 
-    return { url: bestUrl || undefined, score: bestScore };
-  } catch {
-    if (attempt < 2) {
-      return searchSocial(name, platform, city, attempt + 1);
+    if (!data.tiktok) {
+      const ttMatch = html.match(/https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/);
+      if (ttMatch) data.tiktok = `https://tiktok.com/@${ttMatch[1]}`;
     }
-    return { score: 0 };
   }
-}
 
-async function discoverSiteViaDuckDuckGo(name: string, city?: string): Promise<string | null> {
-  try {
-    const query = encodeURIComponent(`${name} ${city || ''} site oficial`);
-    const res = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Accept-Language': 'pt-BR,pt;q=0.9',
-      },
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const urlRegex = /(https?:\/\/(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s"'<>]*)?)/g;
-    const matches = Array.from(html.matchAll(urlRegex), m => m[1]);
-    const blocked = ['instagram.com', 'facebook.com', 'tiktok.com', 'youtube.com', 'whatsapp.com', 'twitter.com', 'linkedin.com', 'duckduckgo.com'];
-    for (const url of matches) {
-      try {
-        const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-        if (blocked.some(b => host === b || host.endsWith('.' + b))) continue;
-        if (host.includes('google.') || host.includes('googleapis.')) continue;
-        const nameNorm = normalizeName(name);
-        const hostWords = host.replace(/\.com(\.br)?$/, '').split(/[.-]/);
-        if (hostWords.some(w => w.length >= 4 && nameNorm.includes(w))) {
-          return url;
+  // Follow BR directory links to extract more data
+  if (!data.site || !data.telefone || !data.cnpj) {
+    const html = await duckduckgoSearch(`${name} ${city || ''}`);
+    if (html) {
+      const urls = Array.from(html.matchAll(/href="[^"]*"/g), m => m[1]);
+      const dirDomains = ['restaurantguru.com.br', 'apontador.com.br', 'guiademidia.com.br',
+        'ifood.com.br', 'yelp.com', 'econodata.com.br', 'cnpj.info', 'benditoguia.com.br',
+        'guiafacil.com', 'listamais.com.br', 'tudogostoso.com.br'];
+      for (const rawUrl of urls) {
+        try {
+          const url = rawUrl.startsWith('http') ? rawUrl : `https:${rawUrl}`;
+          const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+          if (dirDomains.some(d => host === d || host.endsWith('.' + d))) {
+            const text = await fetchPageText(url);
+            if (text) {
+              if (!data.telefone) {
+                const phones = extractPhoneFromText(text);
+                if (phones.length > 0) data.telefone = phones[0];
+              }
+              if (!data.cnpj) {
+                const cnpj = extractCNPJFromText(text);
+                if (cnpj) data.cnpj = cnpj;
+              }
+              if (!data.endereco) {
+                const addr = extractAddressFromText(text, city);
+                if (addr) data.endereco = addr;
+              }
+              if (!data.site) {
+                const siteMatch = text.match(/https?:\/\/(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s"'<>]*/);
+                if (siteMatch) {
+                  const s = siteMatch[0].split('?')[0].split('#')[0];
+                  if (!['instagram.com', 'facebook.com', 'tiktok.com', 'youtube.com'].some(b => s.includes(b))) {
+                    data.site = s;
+                  }
+                }
+              }
+            }
+          }
+        } catch { continue; }
+      }
+    }
+  }
+
+  // Try to find CNPJ via BrasilAPI search
+  if (!data.cnpj) {
+    try {
+      const searchRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${encodeURIComponent(name)}`, {
+        headers: { 'User-Agent': 'GeoLeads/1.0' },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (searchRes.ok) {
+        const d = await searchRes.json();
+        if (d.cnpj) {
+          const digits = d.cnpj.replace(/\D/g, '');
+          data.cnpj = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+          if (!data.telefone && d.ddd_telefone_1) {
+            data.telefone = `(${d.ddd_telefone_1}) ${d.telefone_1}`;
+          }
+          data.endereco_completo = d.logradouro ? `${d.logradouro}, ${d.numero} - ${d.bairro}` : '';
+          data.cidade = d.municipio || '';
+          data.uf = d.uf || '';
+          data.cep = d.cep || '';
+          data.razao_social = d.razao_social || '';
+          data.nome_fantasia = d.nome_fantasia || '';
+          data.atividade = d.descricao_atividade_principal?.[0]?.text || '';
+          data.situacao_cadastral = d.situacao_cadastral || '';
         }
-      } catch { continue; }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function discoverCNPJviaCompanyName(name: string): Promise<any | null> {
-  try {
-    const query = encodeURIComponent(name);
-    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${query}`, {
-      headers: { 'User-Agent': 'GeoLeads/1.0' },
-      signal: AbortSignal.timeout(5000)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.cnpj) {
-        const normalized = data.cnpj.replace(/\D/g, '');
-        return {
-          cnpj: `${normalized.slice(0, 2)}.${normalized.slice(2, 5)}.${normalized.slice(5, 8)}/${normalized.slice(8, 12)}-${normalized.slice(12)}`,
-          razao_social: data.razao_social || '',
-          nome_fantasia: data.nome_fantasia || '',
-          telefone_empresa: data.ddd_telefone_1 ? `(${data.ddd_telefone_1}) ${data.telefone_1}` : '',
-          endereco_completo: data.logradouro ? `${data.logradouro}, ${data.numero} - ${data.bairro}` : '',
-          cidade: data.municipio || '',
-          uf: data.uf || '',
-          cep: data.cep || '',
-          data_abertura: data.data_inicio_atividade || '',
-          situacao_cadastral: data.situacao_cadastral || '',
-          atividade: data.descricao_atividade_principal?.[0]?.text || '',
-        };
       }
-    }
-    return null;
-  } catch {
-    return null;
+    } catch { /* silence */ }
   }
+
+  return data;
 }
 
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
-    }
+    if (!auth) return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
 
     const body = await request.json();
-    const { nome, site, cidade, cnpj, email, instagram, facebook, tiktok } = body;
-
-    if (!nome) {
-      return NextResponse.json({ error: 'Informe o nome da empresa.' }, { status: 400 });
-    }
+    const { nome, site, cidade, cnpj } = body;
+    if (!nome) return NextResponse.json({ error: 'Informe o nome da empresa.' }, { status: 400 });
 
     const enriched: Record<string, any> = {};
     const enrichmentPromises: Promise<void>[] = [];
     let discoveredSite = site && site !== 'Sem site' ? site : null;
 
-    // Check Supabase cache before making API calls
+    // 1. Try cache
     try {
       const supabaseCheck = createAdminSupabaseClient();
-      const { data: cached } = await supabaseCheck
-        .from('lead_enrichment_cache')
-        .select('email, instagram, facebook, tiktok, cnpj, site')
-        .eq('company_name', nome)
-        .eq('city', cidade || '')
-        .maybeSingle();
+      const { data: cached } = await supabaseCheck.from('lead_enrichment_cache')
+        .select('*').eq('company_name', nome).eq('city', cidade || '').maybeSingle();
       if (cached) {
         if (cached.email) enriched.email = cached.email;
         if (cached.instagram) enriched.instagram = cached.instagram;
         if (cached.facebook) enriched.facebook = cached.facebook;
         if (cached.tiktok) enriched.tiktok = cached.tiktok;
         if (!cnpj && cached.cnpj) enriched.cnpj = cached.cnpj;
-        if (cached.site && (!site || site === 'Sem site')) discoveredSite = cached.site;
-        if (Object.keys(enriched).length > 0 && discoveredSite) {
-          return NextResponse.json({ success: true, enriched, message: 'Usando cache do Supabase.' });
+        if (!discoveredSite && cached.site) discoveredSite = cached.site;
+        if (cached.telefone) enriched.telefone = cached.telefone;
+        if (Object.keys(enriched).length >= 3 && discoveredSite) {
+          return NextResponse.json({ success: true, enriched, message: 'Cache.' });
         }
       }
-    } catch { /* continue se cache falhar */ }
+    } catch { /* continue */ }
 
-    // 0. Site discovery via DuckDuckGo if no site
-    if (!discoveredSite) {
+    // 2. AGGRESSIVE: Search the web for this business
+    enrichmentPromises.push(
+      (async () => {
+        try {
+          const bizData = await searchBusinessData(nome, cidade);
+          if (bizData.telefone && !enriched.telefone) enriched.telefone = bizData.telefone;
+          if (bizData.cnpj && !enriched.cnpj) enriched.cnpj = bizData.cnpj;
+          if (bizData.endereco && !enriched.endereco) enriched.endereco = bizData.endereco;
+          if (bizData.instagram && !enriched.instagram) enriched.instagram = bizData.instagram;
+          if (bizData.facebook && !enriched.facebook) enriched.facebook = bizData.facebook;
+          if (bizData.tiktok && !enriched.tiktok) enriched.tiktok = bizData.tiktok;
+          if (bizData.site && !discoveredSite) {
+            discoveredSite = bizData.site;
+            enriched.site_descoberto = bizData.site;
+          }
+          if (bizData.razao_social) enriched.razao_social = bizData.razao_social;
+          if (bizData.nome_fantasia) enriched.nome_fantasia = bizData.nome_fantasia;
+          if (bizData.atividade) enriched.atividade = bizData.atividade;
+          if (bizData.situacao_cadastral) enriched.situacao_cadastral = bizData.situacao_cadastral;
+          if (bizData.endereco_completo) enriched.endereco_completo = bizData.endereco_completo;
+          if (bizData.cidade) enriched.cidade_encontrada = bizData.cidade;
+          if (bizData.uf) enriched.uf = bizData.uf;
+          if (bizData.cep) enriched.cep = bizData.cep;
+        } catch { /* silence */ }
+      })()
+    );
+
+    // 3. If we already have CNPJ, look it up on BrasilAPI
+    if (cnpj && cnpj.replace(/\D/g, '').length === 14) {
       enrichmentPromises.push(
         (async () => {
           try {
-            const foundSite = await discoverSiteViaDuckDuckGo(nome, cidade);
-            if (foundSite) {
-              discoveredSite = foundSite;
-              enriched.site_descoberto = foundSite;
+            const digits = cnpj.replace(/\D/g, '');
+            const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, {
+              headers: { 'User-Agent': 'GeoLeads/1.0' }, signal: AbortSignal.timeout(5000),
+            });
+            if (res.ok) {
+              const d = await res.json();
+              enriched.cnpj ||= `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+              if (d.razao_social) enriched.razao_social = d.razao_social;
+              if (d.nome_fantasia) enriched.nome_fantasia = d.nome_fantasia;
+              if (!enriched.telefone && d.ddd_telefone_1) enriched.telefone = `(${d.ddd_telefone_1}) ${d.telefone_1}`;
+              if (d.logradouro) enriched.endereco_completo = `${d.logradouro}, ${d.numero} - ${d.bairro}`;
+              if (d.municipio) enriched.cidade_encontrada = d.municipio;
+              if (d.uf) enriched.uf = d.uf;
+              if (d.cep) enriched.cep = d.cep;
+              if (d.descricao_atividade_principal?.[0]?.text) enriched.atividade = d.descricao_atividade_principal[0].text;
+              if (d.situacao_cadastral) enriched.situacao_cadastral = d.situacao_cadastral;
             }
           } catch { /* silence */ }
         })()
       );
     }
 
-    // 1. Website enrichment (email + social links do site)
+    // 4. Website scraping if we discovered a site
     if (discoveredSite) {
       enrichmentPromises.push(
         (async () => {
           try {
             const result = await enrichLead({ nome, site: discoveredSite, cidade, email: '', instagram: '', facebook: '', tiktok: '', cnpj: '' });
-            if (result.email) enriched.email = result.email;
-            if (result.instagram) enriched.instagram = result.instagram;
-            if (result.facebook) enriched.facebook = result.facebook;
-            if (result.tiktok) enriched.tiktok = result.tiktok;
+            if (result.email && !enriched.email) enriched.email = result.email;
+            if (result.instagram && !enriched.instagram) enriched.instagram = result.instagram;
+            if (result.facebook && !enriched.facebook) enriched.facebook = result.facebook;
+            if (result.tiktok && !enriched.tiktok) enriched.tiktok = result.tiktok;
           } catch { /* silence */ }
         })()
       );
     }
 
-    // 2. CNPJ enrichment via BrasilAPI (try with provided CNPJ or discover by name)
-    if (cnpj && !enriched.cnpj) {
-      enrichmentPromises.push(
-        (async () => {
-          try {
-            const cnpjData = await enrichCNPJ(cnpj);
-            if (cnpjData) Object.assign(enriched, cnpjData);
-          } catch { /* silence */ }
-        })()
-      );
-    } else if (!cnpj && !enriched.cnpj) {
-      enrichmentPromises.push(
-        (async () => {
-          try {
-            const cnpjData = await discoverCNPJviaCompanyName(nome);
-            if (cnpjData) Object.assign(enriched, cnpjData);
-          } catch { /* silence */ }
-        })()
-      );
-    }
-
-    // 3. Social search (Instagram, Facebook, TikTok) - only for missing fields
+    // 5. Social search for remaining missing social fields
     if (!enriched.instagram || !enriched.facebook || !enriched.tiktok) {
       enrichmentPromises.push(
         (async () => {
           try {
-            const [insta, fb, tt] = await Promise.all([
-              !enriched.instagram ? searchSocial(nome, 'instagram', cidade) : Promise.resolve({ url: undefined, score: 0 }),
-              !enriched.facebook ? searchSocial(nome, 'facebook', cidade) : Promise.resolve({ url: undefined, score: 0 }),
-              !enriched.tiktok ? searchSocial(nome, 'tiktok', cidade) : Promise.resolve({ url: undefined, score: 0 }),
-            ]);
-            if (insta.url && !enriched.instagram) enriched.instagram = insta.url;
-            if (fb.url && !enriched.facebook) enriched.facebook = fb.url;
-            if (tt.url && !enriched.tiktok) enriched.tiktok = tt.url;
+            const socialHtml = await duckduckgoSearch(`${nome} ${cidade || ''} instagram facebook tiktok`);
+            if (!enriched.instagram) {
+              const m = socialHtml.match(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)/);
+              if (m && !m[1].match(/^(p|reel|stories|explore|accounts)/)) enriched.instagram = `https://instagram.com/${m[1]}`;
+            }
+            if (!enriched.facebook) {
+              const m = socialHtml.match(/https?:\/\/(?:www\.)?facebook\.com\/([^\s"'<>]+)/);
+              if (m && !m[1].match(/^(sharer|share|dialog|plugins|events|groups|login|privacy)/)) {
+                const cleanPath = m[1].replace(/[/?].*/, '');
+                if (cleanPath.length > 1) enriched.facebook = `https://facebook.com/${cleanPath}`;
+              }
+            }
+            if (!enriched.tiktok) {
+              const m = socialHtml.match(/https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/);
+              if (m) enriched.tiktok = `https://tiktok.com/@${m[1]}`;
+            }
           } catch { /* silence */ }
         })()
       );
     }
 
-    // Aguarda todos os enriquecimentos (max 20s)
+    // Wait for all enrichment (max 30s)
     await Promise.race([
       Promise.all(enrichmentPromises),
-      new Promise(r => setTimeout(r, 20000)),
+      new Promise(r => setTimeout(r, 30000)),
     ]);
 
-    // Se nao encontrou nada, retorna vazio
     if (Object.keys(enriched).length === 0) {
-      return NextResponse.json({
-        success: true,
-        enriched: null,
-        message: 'Nenhum dado adicional encontrado.'
-      });
+      return NextResponse.json({ success: true, enriched: null, message: 'Nenhum dado adicional encontrado.' });
     }
 
+    // Save to cache
     try {
       const supabase = createAdminSupabaseClient();
       await supabase.from('lead_enrichment_cache').upsert({
-        company_name: nome,
-        city: cidade || '',
-        site: discoveredSite || site || '',
-        email: enriched.email || '',
-        instagram: enriched.instagram || '',
-        facebook: enriched.facebook || '',
-        tiktok: enriched.tiktok || '',
-        cnpj: enriched.cnpj || '',
+        company_name: nome, city: cidade || '', site: discoveredSite || site || '',
+        email: enriched.email || '', instagram: enriched.instagram || '',
+        facebook: enriched.facebook || '', tiktok: enriched.tiktok || '',
+        cnpj: enriched.cnpj || '', telefone: enriched.telefone || '',
         enriched_at: new Date().toISOString(),
       }, { onConflict: 'company_name,city' });
-    } catch { /* silence - cache e opcional */ }
+    } catch { /* silence */ }
 
-    return NextResponse.json({
-      success: true,
-      enriched: enriched,
-      message: `${Object.keys(enriched).length} campos enriquecidos para "${nome}"`
-    });
+    return NextResponse.json({ success: true, enriched, message: `${Object.keys(enriched).length} campos enriquecidos para "${nome}"` });
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'erro desconhecido';

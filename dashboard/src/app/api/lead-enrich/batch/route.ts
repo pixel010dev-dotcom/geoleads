@@ -3,31 +3,16 @@ import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
 import { enrichLead } from '../../extract/enrichment/website';
 
 interface BatchLead {
-  nome: string;
-  site?: string;
-  cidade?: string;
-  cnpj?: string;
-  email?: string;
-  instagram?: string;
-  facebook?: string;
-  tiktok?: string;
-  telefone?: string;
+  nome: string; site?: string; cidade?: string; cnpj?: string;
+  email?: string; instagram?: string; facebook?: string; tiktok?: string; telefone?: string;
 }
 
-interface BatchResult {
-  nome: string;
-  enriched: Record<string, any> | null;
-  error?: string;
-}
+interface BatchResult { nome: string; enriched: Record<string, any> | null; error?: string; }
 
 interface BatchState {
   status: 'running' | 'completed' | 'failed';
-  total: number;
-  completed: number;
-  failed: number;
-  results: BatchResult[];
-  error?: string;
-  createdAt: number;
+  total: number; completed: number; failed: number;
+  results: BatchResult[]; error?: string; createdAt: number;
 }
 
 const batchStore = new Map<string, BatchState>();
@@ -37,205 +22,190 @@ function generateBatchId(): string {
   return `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+const BR_PHONE_REGEX = /\(?(\d{2,3})\)?\s?(\d{4,5})[\s-]?(\d{4})/g;
+const URL_REGEX = /https?:\/\/[^\s"'<>)\]]+/g;
+
 function normalizeName(name: string) {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, '')
-    .trim();
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim();
 }
 
-function scoreMatch(query: string, result: string): number {
-  const q = normalizeName(query);
-  const r = normalizeName(result);
-  if (q === r) return 100;
-  if (r.includes(q) || q.includes(r)) return 75;
-  const qWords = q.split(/\s+/);
-  const rWords = r.split(/\s+/);
-  let matches = 0;
-  for (const w of qWords) {
-    if (w.length < 3) continue;
-    if (rWords.some(rw => rw.includes(w) || w.includes(rw))) matches++;
+function extractPhoneFromText(text: string): string[] {
+  const phones: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = BR_PHONE_REGEX.exec(text)) !== null) {
+    const full = `(${m[1]}) ${m[2]}-${m[3]}`;
+    if (!phones.includes(full)) phones.push(full);
   }
-  return Math.round((matches / qWords.length) * 70);
+  return phones;
 }
 
-function normalizeCnpj(value: string) {
-  return value.replace(/\D/g, '').slice(0, 14);
+function extractCNPJFromText(text: string): string | null {
+  const m = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+  if (!m) return null;
+  const digits = m[0].replace(/\D/g, '');
+  if (digits.length !== 14) return null;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
-async function enrichCNPJ(cnpjValue?: string): Promise<any> {
-  if (cnpjValue) {
-    const normalized = normalizeCnpj(cnpjValue);
-    if (normalized.length === 14) {
-      try {
-        const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${normalized}`, {
-          headers: { 'User-Agent': 'GeoLeads/1.0' },
-          signal: AbortSignal.timeout(5000)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          return {
-            cnpj: `${normalized.slice(0, 2)}.${normalized.slice(2, 5)}.${normalized.slice(5, 8)}/${normalized.slice(8, 12)}-${normalized.slice(12)}`,
-            razao_social: data.razao_social || '',
-            nome_fantasia: data.nome_fantasia || '',
-            telefone_empresa: data.ddd_telefone_1 ? `(${data.ddd_telefone_1}) ${data.telefone_1}` : '',
-            endereco_completo: data.logradouro ? `${data.logradouro}, ${data.numero} - ${data.bairro}` : '',
-            cidade: data.municipio || '',
-            uf: data.uf || '',
-            cep: data.cep || '',
-            data_abertura: data.data_inicio_atividade || '',
-            situacao_cadastral: data.situacao_cadastral || '',
-            atividade: data.descricao_atividade_principal?.[0]?.text || '',
-          };
-        }
-      } catch { /* silence */ }
-    }
+function extractAddressFromText(text: string, city?: string): string | null {
+  const patterns = [
+    new RegExp(`Rua?[\\s\\S]{0,60}(?:${city || ''}|\\d{5}[\\s-]?\\d{3})`, 'i'),
+    /(?:Rua|Av|Avenida|Travessa|Alameda|Praça|Rodovia)\s[^\n,.]{5,80}(?:,?\s*\d{1,5})?/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[0].trim().replace(/\s+/g, ' ');
   }
   return null;
 }
 
-async function searchSocial(name: string, platform: string, city?: string, attempt = 1): Promise<{ url?: string; score: number }> {
+function extractSiteFromUrls(html: string, name: string): string | null {
+  const nameNorm = normalizeName(name);
+  const nameWords = nameNorm.split(/\s+/).filter(w => w.length > 3);
+  const urls = Array.from(html.matchAll(URL_REGEX), m => m[0]);
+  const blocked = ['instagram.com', 'facebook.com', 'tiktok.com', 'youtube.com', 'whatsapp.com',
+    'twitter.com', 'linkedin.com', 'duckduckgo.com', 'google.', 'doubleclick.net'];
+  for (const url of urls) {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+      if (blocked.some(b => host.includes(b) || host === b)) continue;
+      if (host.split('.').length < 2) continue;
+      const hostClean = host.replace(/\.com(\.br)?$/, '').replace(/\./g, '');
+      if (nameWords.some(w => w.length >= 4 && (hostClean.includes(w) || w.includes(hostClean)))) {
+        return url.split('?')[0].split('#')[0];
+      }
+    } catch { continue; }
+  }
+  return null;
+}
+
+async function duckduckgoSearch(query: string): Promise<string> {
+  const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+    },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) return '';
+  return res.text();
+}
+
+async function fetchPageText(url: string): Promise<string> {
   try {
-    const query = encodeURIComponent(`${name} ${city || ''} ${platform}`);
-    const res = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
+    const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept-Language': 'pt-BR,pt;q=0.9',
       },
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return { score: 0 };
-    const html = await res.text();
+    if (!res.ok) return '';
+    const text = await res.text();
+    return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  } catch { return ''; }
+}
 
-    let regex: RegExp;
-    if (platform === 'instagram') {
-      regex = /https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)/g;
-    } else if (platform === 'facebook') {
-      regex = /https?:\/\/(?:www\.)?facebook\.com\/([^\s"'<>]+)/g;
-    } else if (platform === 'tiktok') {
-      regex = /https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/g;
-    } else {
-      return { score: 0 };
+async function searchBusinessData(name: string, city?: string): Promise<Record<string, any>> {
+  const data: Record<string, any> = {};
+  const queries = [`"${name}" ${city || ''}`, `${name} ${city || ''} telefone endereco`, `${name} ${city || ''} site`];
+
+  for (const query of queries) {
+    const html = await duckduckgoSearch(query);
+    if (!html) continue;
+
+    if (!data.telefone) {
+      const phones = extractPhoneFromText(html);
+      if (phones.length > 0) data.telefone = phones[0];
     }
+    if (!data.cnpj) { const c = extractCNPJFromText(html); if (c) data.cnpj = c; }
+    if (!data.endereco) { const a = extractAddressFromText(html, city); if (a) data.endereco = a; }
+    if (!data.site) { const s = extractSiteFromUrls(html, name); if (s) data.site = s; }
 
-    let match: RegExpExecArray | null;
-    let bestUrl = '';
-    let bestScore = 0;
-
-    while ((match = regex.exec(html))) {
-      const url = match[0];
-      if (platform === 'facebook' && (url.includes('/p/') || url.includes('/share') || url.includes('/events'))) continue;
-      const username = platform === 'facebook' ? match[1].replace(/[/?].*/, '').replace(/[._]/g, ' ') : match[1].replace(/[._]/g, ' ');
-      const score = scoreMatch(name, username);
-      if (score > bestScore && score >= 40) {
-        bestScore = score;
-        bestUrl = url;
+    if (!data.instagram) {
+      const m = html.match(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)/);
+      if (m && !m[1].match(/^(p|reel|stories|explore|accounts)/)) data.instagram = `https://instagram.com/${m[1]}`;
+    }
+    if (!data.facebook) {
+      const m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/([^\s"'<>]+)/);
+      if (m && !m[1].match(/^(sharer|share|dialog|plugins|events|groups|login|privacy)/)) {
+        const cleanPath = m[1].replace(/[/?].*/, '');
+        if (cleanPath.length > 1) data.facebook = `https://facebook.com/${cleanPath}`;
       }
     }
-
-    if (!bestUrl && attempt < 2) {
-      return searchSocial(name, platform, city, attempt + 1);
+    if (!data.tiktok) {
+      const m = html.match(/https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/);
+      if (m) data.tiktok = `https://tiktok.com/@${m[1]}`;
     }
-
-    return { url: bestUrl || undefined, score: bestScore };
-  } catch {
-    if (attempt < 2) {
-      return searchSocial(name, platform, city, attempt + 1);
-    }
-    return { score: 0 };
   }
-}
 
-function hasMissingFields(lead: BatchLead): boolean {
-  return !lead.email || !lead.instagram || !lead.facebook || !lead.tiktok;
-}
+  // Follow BR directory links
+  if (!data.site || !data.telefone || !data.cnpj) {
+    const html = await duckduckgoSearch(`${name} ${city || ''}`);
+    if (html) {
+      const urls = Array.from(html.matchAll(/href="[^"]*"/g), m => m[1]);
+      const dirDomains = ['restaurantguru.com.br', 'apontador.com.br', 'ifood.com.br', 'yelp.com',
+        'econodata.com.br', 'cnpj.info', 'benditoguia.com.br', 'guiafacil.com', 'listamais.com.br'];
+      for (const rawUrl of urls) {
+        try {
+          const url = rawUrl.startsWith('http') ? rawUrl : `https:${rawUrl}`;
+          const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+          if (dirDomains.some(d => host === d || host.endsWith('.' + d))) {
+            const text = await fetchPageText(url);
+            if (text) {
+              if (!data.telefone) { const p = extractPhoneFromText(text); if (p.length > 0) data.telefone = p[0]; }
+              if (!data.cnpj) { const c = extractCNPJFromText(text); if (c) data.cnpj = c; }
+              if (!data.endereco) { const a = extractAddressFromText(text, city); if (a) data.endereco = a; }
+              if (!data.site) {
+                const s = text.match(/https?:\/\/(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s"'<>]*/);
+                if (s && !['instagram.com', 'facebook.com', 'tiktok.com', 'youtube.com'].some(b => s[0].includes(b))) {
+                  data.site = s[0].split('?')[0].split('#')[0];
+                }
+              }
+            }
+          }
+        } catch { continue; }
+      }
+    }
+  }
 
-async function discoverSiteViaDuckDuckGo(name: string, city?: string): Promise<string | null> {
-  try {
-    const query = encodeURIComponent(`${name} ${city || ''} site oficial`);
-    const res = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Accept-Language': 'pt-BR,pt;q=0.9',
-      },
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const urlRegex = /(https?:\/\/(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s"'<>]*)?)/g;
-    const matches = Array.from(html.matchAll(urlRegex), m => m[1]);
-    const blocked = ['instagram.com', 'facebook.com', 'tiktok.com', 'youtube.com', 'whatsapp.com', 'twitter.com', 'linkedin.com', 'duckduckgo.com'];
-    for (const url of matches) {
-      try {
-        const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-        if (blocked.some(b => host === b || host.endsWith('.' + b))) continue;
-        if (host.includes('google.') || host.includes('googleapis.')) continue;
-        const nameNorm = normalizeName(name);
-        const hostWords = host.replace(/\.com(\.br)?$/, '').split(/[.-]/);
-        if (hostWords.some(w => w.length >= 4 && nameNorm.includes(w))) {
-          return url;
+  // CNPJ via BrasilAPI
+  if (!data.cnpj) {
+    try {
+      const searchRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${encodeURIComponent(name)}`, {
+        headers: { 'User-Agent': 'GeoLeads/1.0' }, signal: AbortSignal.timeout(5000),
+      });
+      if (searchRes.ok) {
+        const d = await searchRes.json();
+        if (d.cnpj) {
+          const digits = d.cnpj.replace(/\D/g, '');
+          data.cnpj = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+          if (!data.telefone && d.ddd_telefone_1) data.telefone = `(${d.ddd_telefone_1}) ${d.telefone_1}`;
+          data.razao_social = d.razao_social || '';
+          data.nome_fantasia = d.nome_fantasia || '';
+          data.endereco_completo = d.logradouro ? `${d.logradouro}, ${d.numero} - ${d.bairro}` : '';
+          data.cidade = d.municipio || '';
+          data.uf = d.uf || '';
+          data.cep = d.cep || '';
+          data.atividade = d.descricao_atividade_principal?.[0]?.text || '';
+          data.situacao_cadastral = d.situacao_cadastral || '';
         }
-      } catch { continue; }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function discoverCNPJviaCompanyName(name: string): Promise<any | null> {
-  try {
-    const query = encodeURIComponent(name);
-    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${query}`, {
-      headers: { 'User-Agent': 'GeoLeads/1.0' },
-      signal: AbortSignal.timeout(5000)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.cnpj) {
-        const normalized = data.cnpj.replace(/\D/g, '');
-        return {
-          cnpj: `${normalized.slice(0, 2)}.${normalized.slice(2, 5)}.${normalized.slice(5, 8)}/${normalized.slice(8, 12)}-${normalized.slice(12)}`,
-          razao_social: data.razao_social || '',
-          nome_fantasia: data.nome_fantasia || '',
-          telefone_empresa: data.ddd_telefone_1 ? `(${data.ddd_telefone_1}) ${data.telefone_1}` : '',
-          endereco_completo: data.logradouro ? `${data.logradouro}, ${data.numero} - ${data.bairro}` : '',
-          cidade: data.municipio || '',
-          uf: data.uf || '',
-          cep: data.cep || '',
-          data_abertura: data.data_inicio_atividade || '',
-          situacao_cadastral: data.situacao_cadastral || '',
-          atividade: data.descricao_atividade_principal?.[0]?.text || '',
-        };
       }
-    }
-    return null;
-  } catch {
-    return null;
+    } catch { /* silence */ }
   }
+
+  return data;
 }
 
 async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<BatchResult> {
   try {
     const enriched: Record<string, any> = {};
-    const hasMissing = hasMissingFields(lead);
-
-    if (!hasMissing && lead.cnpj) {
-      return { nome: lead.nome, enriched: null };
-    }
-
     let discoveredSite = lead.site && lead.site !== 'Sem site' ? lead.site : null;
 
+    // Check cache
     try {
-      const { data: cached } = await supabase
-        .from('lead_enrichment_cache')
-        .select('email, instagram, facebook, tiktok, cnpj, site')
-        .eq('company_name', lead.nome)
-        .eq('city', lead.cidade || '')
-        .maybeSingle();
-
+      const { data: cached } = await supabase.from('lead_enrichment_cache')
+        .select('*').eq('company_name', lead.nome).eq('city', lead.cidade || '').maybeSingle();
       if (cached) {
         if (!lead.email && cached.email) enriched.email = cached.email;
         if (!lead.instagram && cached.instagram) enriched.instagram = cached.instagram;
@@ -243,31 +213,74 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
         if (!lead.tiktok && cached.tiktok) enriched.tiktok = cached.tiktok;
         if (!lead.cnpj && cached.cnpj) enriched.cnpj = cached.cnpj;
         if (!discoveredSite && cached.site) discoveredSite = cached.site;
+        if (cached.telefone) enriched.telefone = cached.telefone;
       }
-    } catch { /* continue without cache */ }
+    } catch { /* continue */ }
 
     const enrichmentPromises: Promise<void>[] = [];
 
-    // Site discovery se nao tem site
-    if (!discoveredSite) {
+    // Web search for business data
+    enrichmentPromises.push(
+      (async () => {
+        try {
+          const bizData = await searchBusinessData(lead.nome, lead.cidade);
+          if (bizData.telefone && !enriched.telefone) enriched.telefone = bizData.telefone;
+          if (bizData.cnpj && !enriched.cnpj) enriched.cnpj = bizData.cnpj;
+          if (bizData.endereco && !enriched.endereco) enriched.endereco = bizData.endereco;
+          if (bizData.instagram && !enriched.instagram) enriched.instagram = bizData.instagram;
+          if (bizData.facebook && !enriched.facebook) enriched.facebook = bizData.facebook;
+          if (bizData.tiktok && !enriched.tiktok) enriched.tiktok = bizData.tiktok;
+          if (bizData.site && !discoveredSite) {
+            discoveredSite = bizData.site;
+            enriched.site_descoberto = bizData.site;
+          }
+          if (bizData.razao_social) enriched.razao_social = bizData.razao_social;
+          if (bizData.nome_fantasia) enriched.nome_fantasia = bizData.nome_fantasia;
+          if (bizData.atividade) enriched.atividade = bizData.atividade;
+          if (bizData.endereco_completo) enriched.endereco_completo = bizData.endereco_completo;
+          if (bizData.uf) enriched.uf = bizData.uf;
+          if (bizData.cep) enriched.cep = bizData.cep;
+        } catch { /* silence */ }
+      })()
+    );
+
+    // CNPJ lookup if already known
+    if (lead.cnpj && lead.cnpj.replace(/\D/g, '').length === 14) {
       enrichmentPromises.push(
         (async () => {
           try {
-            const foundSite = await discoverSiteViaDuckDuckGo(lead.nome, lead.cidade);
-            if (foundSite) {
-              discoveredSite = foundSite;
-              enriched.site_descoberto = foundSite;
+            const digits = lead.cnpj!.replace(/\D/g, '');
+            const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, {
+              headers: { 'User-Agent': 'GeoLeads/1.0' }, signal: AbortSignal.timeout(5000),
+            });
+            if (res.ok) {
+              const d = await res.json();
+              enriched.cnpj ||= `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+              if (d.razao_social) enriched.razao_social = d.razao_social;
+              if (d.nome_fantasia) enriched.nome_fantasia = d.nome_fantasia;
+              if (!enriched.telefone && d.ddd_telefone_1) enriched.telefone = `(${d.ddd_telefone_1}) ${d.telefone_1}`;
+              if (d.logradouro) enriched.endereco_completo = `${d.logradouro}, ${d.numero} - ${d.bairro}`;
+              if (d.municipio) enriched.cidade_encontrada = d.municipio;
+              if (d.uf) enriched.uf = d.uf;
+              if (d.cep) enriched.cep = d.cep;
+              if (d.descricao_atividade_principal?.[0]?.text) enriched.atividade = d.descricao_atividade_principal[0].text;
+              if (d.situacao_cadastral) enriched.situacao_cadastral = d.situacao_cadastral;
             }
           } catch { /* silence */ }
         })()
       );
     }
 
+    // Website scrape
     if (discoveredSite) {
       enrichmentPromises.push(
         (async () => {
           try {
-            const result = await enrichLead({ nome: lead.nome, site: discoveredSite, cidade: lead.cidade, email: lead.email || '', instagram: lead.instagram || '', facebook: lead.facebook || '', tiktok: lead.tiktok || '', cnpj: lead.cnpj || '' });
+            const result = await enrichLead({
+              nome: lead.nome, site: discoveredSite, cidade: lead.cidade,
+              email: lead.email || '', instagram: lead.instagram || '',
+              facebook: lead.facebook || '', tiktok: lead.tiktok || '', cnpj: lead.cnpj || '',
+            });
             if (result.email && !enriched.email) enriched.email = result.email;
             if (result.instagram && !enriched.instagram) enriched.instagram = result.instagram;
             if (result.facebook && !enriched.facebook) enriched.facebook = result.facebook;
@@ -277,38 +290,27 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
       );
     }
 
-    if (lead.cnpj && !enriched.cnpj) {
-      enrichmentPromises.push(
-        (async () => {
-          try {
-            const cnpjData = await enrichCNPJ(lead.cnpj);
-            if (cnpjData) Object.assign(enriched, cnpjData);
-          } catch { /* silence */ }
-        })()
-      );
-    } else if (!lead.cnpj && !enriched.cnpj) {
-      enrichmentPromises.push(
-        (async () => {
-          try {
-            const cnpjData = await discoverCNPJviaCompanyName(lead.nome);
-            if (cnpjData) Object.assign(enriched, cnpjData);
-          } catch { /* silence */ }
-        })()
-      );
-    }
-
+    // Social search fallback
     if (!enriched.instagram || !enriched.facebook || !enriched.tiktok) {
       enrichmentPromises.push(
         (async () => {
           try {
-            const [insta, fb, tt] = await Promise.all([
-              searchSocial(lead.nome, 'instagram', lead.cidade),
-              searchSocial(lead.nome, 'facebook', lead.cidade),
-              searchSocial(lead.nome, 'tiktok', lead.cidade),
-            ]);
-            if (insta.url && !enriched.instagram) enriched.instagram = insta.url;
-            if (fb.url && !enriched.facebook) enriched.facebook = fb.url;
-            if (tt.url && !enriched.tiktok) enriched.tiktok = tt.url;
+            const html = await duckduckgoSearch(`${lead.nome} ${lead.cidade || ''} instagram facebook tiktok`);
+            if (!enriched.instagram) {
+              const m = html.match(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]+)/);
+              if (m && !m[1].match(/^(p|reel|stories|explore|accounts)/)) enriched.instagram = `https://instagram.com/${m[1]}`;
+            }
+            if (!enriched.facebook) {
+              const m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/([^\s"'<>]+)/);
+              if (m && !m[1].match(/^(sharer|share|dialog|plugins|events|groups|login|privacy)/)) {
+                const cleanPath = m[1].replace(/[/?].*/, '');
+                if (cleanPath.length > 1) enriched.facebook = `https://facebook.com/${cleanPath}`;
+              }
+            }
+            if (!enriched.tiktok) {
+              const m = html.match(/https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]+)/);
+              if (m) enriched.tiktok = `https://tiktok.com/@${m[1]}`;
+            }
           } catch { /* silence */ }
         })()
       );
@@ -316,41 +318,31 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
 
     await Promise.race([
       Promise.all(enrichmentPromises),
-      new Promise(r => setTimeout(r, 15000)),
+      new Promise(r => setTimeout(r, 25000)),
     ]);
 
     if (Object.keys(enriched).length > 0) {
       try {
         await supabase.from('lead_enrichment_cache').upsert({
-          company_name: lead.nome,
-          city: lead.cidade || '',
+          company_name: lead.nome, city: lead.cidade || '',
           site: discoveredSite || lead.site || '',
-          email: enriched.email || '',
-          instagram: enriched.instagram || '',
-          facebook: enriched.facebook || '',
-          tiktok: enriched.tiktok || '',
-          cnpj: enriched.cnpj || '',
+          email: enriched.email || '', instagram: enriched.instagram || '',
+          facebook: enriched.facebook || '', tiktok: enriched.tiktok || '',
+          cnpj: enriched.cnpj || '', telefone: enriched.telefone || '',
           enriched_at: new Date().toISOString(),
         }, { onConflict: 'company_name,city' });
       } catch { /* silence */ }
     }
 
-    return {
-      nome: lead.nome,
-      enriched: Object.keys(enriched).length > 0 ? enriched : null,
-    };
+    return { nome: lead.nome, enriched: Object.keys(enriched).length > 0 ? enriched : null };
   } catch (error: unknown) {
-    return {
-      nome: lead.nome,
-      enriched: null,
-      error: error instanceof Error ? error.message : 'erro desconhecido',
-    };
+    return { nome: lead.nome, enriched: null, error: error instanceof Error ? error.message : 'erro desconhecido' };
   }
 }
 
 async function processBatch(leads: BatchLead[], batchId: string, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<void> {
   const state = batchStore.get(batchId)!;
-  const concurrency = 5;
+  const concurrency = 3;
   const executing = new Set<Promise<void>>();
 
   for (const lead of leads) {
@@ -359,71 +351,38 @@ async function processBatch(leads: BatchLead[], batchId: string, supabase: Retur
       const currentState = batchStore.get(batchId);
       if (!currentState) return;
       currentState.results.push(result);
-      if (result.error) {
-        currentState.failed++;
-      } else {
-        currentState.completed++;
-      }
+      if (result.error) currentState.failed++;
+      else currentState.completed++;
     })();
     executing.add(p);
     const clean = () => executing.delete(p);
     p.then(clean, clean);
-    if (executing.size >= concurrency) {
-      await Promise.race(executing);
-    }
+    if (executing.size >= concurrency) await Promise.race(executing);
   }
 
   await Promise.all(executing);
-
   const finalState = batchStore.get(batchId);
-  if (finalState) {
-    finalState.status = finalState.failed === leads.length ? 'failed' : 'completed';
-  }
+  if (finalState) finalState.status = finalState.failed === leads.length ? 'failed' : 'completed';
 }
 
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
-    }
+    if (!auth) return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
 
     const body = await request.json();
     const { leads } = body;
-
-    if (!Array.isArray(leads) || leads.length === 0) {
-      return NextResponse.json({ error: 'Envie um array de leads.' }, { status: 400 });
-    }
-
-    if (leads.length > 100) {
-      return NextResponse.json({ error: 'Maximo de 100 leads por lote.' }, { status: 400 });
-    }
+    if (!Array.isArray(leads) || leads.length === 0) return NextResponse.json({ error: 'Envie um array de leads.' }, { status: 400 });
+    if (leads.length > 100) return NextResponse.json({ error: 'Maximo de 100 leads por lote.' }, { status: 400 });
 
     const batchId = generateBatchId();
     const supabase = createAdminSupabaseClient();
-
-    const batchState: BatchState = {
-      status: 'running',
-      total: leads.length,
-      completed: 0,
-      failed: 0,
-      results: [],
-      createdAt: Date.now(),
-    };
+    const batchState: BatchState = { status: 'running', total: leads.length, completed: 0, failed: 0, results: [], createdAt: Date.now() };
     batchStore.set(batchId, batchState);
 
-    processBatch(leads, batchId, supabase).catch(() => {
-      const s = batchStore.get(batchId);
-      if (s) s.status = 'failed';
-    });
+    processBatch(leads, batchId, supabase).catch(() => { const s = batchStore.get(batchId); if (s) s.status = 'failed'; });
 
-    return NextResponse.json({
-      success: true,
-      batchId,
-      total: leads.length,
-      status: 'running',
-    });
-
+    return NextResponse.json({ success: true, batchId, total: leads.length, status: 'running' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'erro desconhecido';
     console.error('ERRO BATCH ENRICH:', message);
@@ -434,31 +393,18 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const batchId = searchParams.get('batchId');
-
-  if (!batchId) {
-    return NextResponse.json({ error: 'Informe batchId.' }, { status: 400 });
-  }
+  if (!batchId) return NextResponse.json({ error: 'Informe batchId.' }, { status: 400 });
 
   const state = batchStore.get(batchId);
-  if (!state) {
-    return NextResponse.json({ error: 'Batch não encontrado ou expirado.' }, { status: 404 });
-  }
+  if (!state) return NextResponse.json({ error: 'Batch não encontrado ou expirado.' }, { status: 404 });
 
-  // Cleanup expired batches periodically
   for (const [id, s] of batchStore) {
-    if (Date.now() - s.createdAt > BATCH_TTL) {
-      batchStore.delete(id);
-    }
+    if (Date.now() - s.createdAt > BATCH_TTL) batchStore.delete(id);
   }
 
   return NextResponse.json({
-    success: true,
-    batchId,
-    total: state.total,
-    completed: state.completed,
-    failed: state.failed,
-    percentage: Math.round(((state.completed + state.failed) / state.total) * 100),
-    results: state.results,
-    status: state.status,
+    success: true, batchId, total: state.total, completed: state.completed,
+    failed: state.failed, percentage: Math.round(((state.completed + state.failed) / state.total) * 100),
+    results: state.results, status: state.status,
   });
 }
