@@ -5,6 +5,7 @@ import { extractFromOpenStreetMap } from './strategies/alternative-sources';
 import { extractFromDuckDuckGo } from './strategies/duckduckgo';
 import { extractFromBingMaps } from './strategies/bing-maps';
 import { extractFromGoogleMapsMobile } from './strategies/google-maps-mobile';
+import { extractFromPlaywrightMaps } from './strategies/maps-scraper';
 import { getCachedQuery, setCachedQuery, generateQueryCacheKey } from './lib/cache';
 
 export interface RunnerResult {
@@ -77,16 +78,9 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   } = config;
 
   const startTime = Date.now();
-  // Timeout adaptativo para grandes volumes
-  // Com o motor rapido, conseguimos ~3 leads/s, entao: 300ms por lead + base de 30s
-  const dynamicTimeout = Math.max(
-    30000,
-    Math.min(targetLimit * 300 + 15000, 300000) // ~300ms por lead + 15s base, max 5min
-  );
-  const GLOBAL_TIMEOUT = Math.max(config.maxTimeMs || dynamicTimeout, 45000);
-  const hardDeadline = startTime + GLOBAL_TIMEOUT;
+  const MAX_TOTAL_MS = 1800000;
+  const hardDeadline = startTime + MAX_TOTAL_MS;
   let finalized = false;
-  const globalAbort = new AbortController();
   const leadsByName = new Map<string, SearchLead>();
   const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
   const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
@@ -116,10 +110,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   function processResults(leads: SearchLead[], source: string): number {
     let added = 0;
     for (const lead of leads) {
-      // Bug #1: Ignora leads com nome vazio — vão para o Map com key="" e são filtrados como 'trash' no finalize
-      if (!lead.nome || lead.nome.trim() === '') {
-        continue;
-      }
+      if (!lead.nome || lead.nome.trim() === '') continue;
       const key = lead.nome.toLowerCase();
       if (scrapedNames.has(key)) {
         if (leadsByName.has(key)) {
@@ -141,27 +132,15 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
   const notify = (message?: string) => {
     if (onProgress) {
-      onProgress(
-        getLeadsArray(),
-        scannedTotal,
-        citiesDone,
-        message || `${leadsByName.size} leads encontrados`
-      );
+      onProgress(getLeadsArray(), scannedTotal, citiesDone, message || `${leadsByName.size} leads encontrados`);
     }
   };
 
-  const isOverTime = () => Date.now() >= hardDeadline;
-
   const finalize = async (leads: SearchLead[], error?: string) => {
-    if (finalized) return leads.slice(0, targetLimit); // already finalized
+    if (finalized) return leads.slice(0, targetLimit);
     finalized = true;
 
-    // DEBUG: loga cada lead com score e tier antes de filtrar
     const scoredLeads = leads.map(l => ({ lead: l, score: scoreLeadQuality(l) }));
-    for (const s of scoredLeads) {
-      console.log(`[SCORE] "${s.lead.nome}" score=${s.score.score} tier=${s.score.tier} phone="${s.lead.telefone}" site="${s.lead.site}"`);
-    }
-
     const validLeads = scoredLeads
       .filter(s => s.score.tier !== 'trash')
       .map(s => s.lead)
@@ -171,159 +150,119 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${leadsByName.size} unique (${scoredLeads.filter(s => s.score.tier === 'trash').length} trash) in ${elapsed()}s`);
 
     if (onDone) {
-      await onDone({
-        leads: validLeads,
-        scanned: scannedTotal,
-        citiesDone,
-        totalTimeMs: Date.now() - startTime,
-        error,
-      });
+      await onDone({ leads: validLeads, scanned: scannedTotal, citiesDone, totalTimeMs: Date.now() - startTime, error });
     }
     return validLeads;
   };
 
-  try {
-    // Verifica cache primeiro
-    const cacheKey = generateQueryCacheKey(keyword, location);
-    const cachedLeads = getCachedQuery(cacheKey);
-    if (cachedLeads && cachedLeads.length >= targetLimit) {
-      console.log(`[EXTRACT] Cache HIT: ${cachedLeads.length} leads for "${keyword}" in "${location}"`);
-      for (const lead of cachedLeads) {
-        if (leadsByName.size >= targetLimit) break;
-        processResults([lead], 'cache');
-      }
-      notify(`${leadsByName.size} leads (cache)`);
-      // Finaliza sem precisar rodar as estrategias
-      return finalize(getLeadsArray());
-    }
+  async function runAllStrategies(): Promise<number> {
+    const roundStart = leadsByName.size;
 
-    const cfWorkerUrl = process.env.CF_WORKER_URL || '';
-    console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit}`);
-    console.log(`[EXTRACT] CF_WORKER_URL: ${cfWorkerUrl ? 'configured' : 'NOT SET'}`);
-
-    notify('Buscando leads em múltiplas fontes...');
-
-    // =========================================================================
-    // SMART FETCH: estrategias em paralelo com abort inteligente
-    // Cada estrategia tem timeout de 8s (exceto OSM que tem 12s)
-    // Se uma estrategia ja achou leads suficientes, aborta as outras
-    // =========================================================================
+    const stratTimeout = Math.min(15000 + targetLimit * 2, 45000);
 
     const fetchWithTimeout = (name: string, fn: () => Promise<SearchLead[]>, timeoutMs: number): Promise<SearchLead[]> =>
       new Promise<SearchLead[]>((resolve) => {
         let done = false;
         const timer = setTimeout(() => {
-          if (!done) {
-            done = true;
-            console.log(`[EXTRACT] ${name}: TIMEOUT after ${timeoutMs}ms`);
-            resolve([]);
-          }
+          if (!done) { done = true; console.log(`[EXTRACT] ${name}: TIMEOUT after ${timeoutMs}ms`); resolve([]); }
         }, timeoutMs);
-
         fn().then(leads => {
-          if (!done) {
-            done = true;
-            clearTimeout(timer);
-            console.log(`[EXTRACT] ${name}: ${leads.length} leads in ${elapsed()}s`);
-            resolve(leads);
-          }
+          if (!done) { done = true; clearTimeout(timer); console.log(`[EXTRACT] ${name}: ${leads.length} leads in ${elapsed()}s`); resolve(leads); }
         }).catch(() => {
-          if (!done) {
-            done = true;
-            clearTimeout(timer);
-            console.log(`[EXTRACT] ${name}: FAILED`);
-            resolve([]);
-          }
+          if (!done) { done = true; clearTimeout(timer); console.log(`[EXTRACT] ${name}: FAILED`); resolve([]); }
         });
       });
 
     const existingForFetch = new Set<string>(Array.from(scrapedNames));
     const existingForMobile = new Set<string>(Array.from(scrapedNames));
 
-    // Timeouts otimizados para VELOCIDADE MAXIMA
-    // Google e Bing sao rapidos (6s), DuckDuckGo medio (8s), OSM lento (12s)
-    const googleTimeout = 8000;
-    const mobileTimeout = 6000;
-    const bingTimeout = 8000;
-    const ddgTimeout = 8000;
-    const osmTimeout = 12000;
-
-    // Dispara todas as estrategias em paralelo
     const strategyPromises = [
-      { name: 'GoogleSearch', promise: fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch, globalAbort.signal).then(r => r.leads), googleTimeout) },
-      { name: 'GoogleMobile', promise: fetchWithTimeout('GoogleMobile', () => extractFromGoogleMapsMobile(keyword, location, targetLimit, existingForMobile, globalAbort.signal), mobileTimeout) },
-      { name: 'BingMaps', promise: fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch, globalAbort.signal), bingTimeout) },
-      { name: 'DuckDuckGo', promise: fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch, globalAbort.signal), ddgTimeout) },
-      { name: 'OSM', promise: fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch, globalAbort.signal), osmTimeout) },
+      { name: 'GoogleSearch', promise: fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch).then(r => r.leads), stratTimeout) },
+      { name: 'GoogleMobile', promise: fetchWithTimeout('GoogleMobile', () => extractFromGoogleMapsMobile(keyword, location, targetLimit, existingForMobile), stratTimeout) },
+      { name: 'BingMaps', promise: fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), stratTimeout) },
+      { name: 'DuckDuckGo', promise: fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), stratTimeout) },
+      { name: 'OSM', promise: fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), stratTimeout) },
     ];
 
-    // Smart: processa resultados conforme chegam (nao espera todos)
-    // A cada estrategia que completa, verifica se ja tem leads suficientes
-    const remainingPromises = [...strategyPromises];
-    const fetchResults: SearchLead[][] = [];
-
-    while (remainingPromises.length > 0 && !isOverTime()) {
-      const result = await Promise.race(remainingPromises.map(s => 
+    const remaining = [...strategyPromises];
+    while (remaining.length > 0 && Date.now() < hardDeadline) {
+      if (await cancelled()) break;
+      const result = await Promise.race(remaining.map(s =>
         s.promise.then(leads => ({ name: s.name, leads, done: true }))
       ));
-      
-      // Remove a que completou
-      const idx = remainingPromises.findIndex(s => s.name === result.name);
-      if (idx !== -1) remainingPromises.splice(idx, 1);
-
-      // Processa os leads dessa estrategia IMEDIATAMENTE
+      const idx = remaining.findIndex(s => s.name === result.name);
+      if (idx !== -1) remaining.splice(idx, 1);
       const added = processResults(result.leads, result.name);
       if (added > 0) citiesDone++;
-      fetchResults.push(result.leads);
-
-      console.log(`[EXTRACT] ${result.name}: ${result.leads.length} leads (+${added} new) total=${leadsByName.size}/${targetLimit}`);
-      
-      // SMART ABORT: se ja temos leads suficientes, cancela o resto
-      // Para targets grandes, espera mais tempo (ate 120s)
-      const abortElapsed = Math.min(25 + Math.max(0, targetLimit - 100) * 0.02, 120);
-      if (leadsByName.size >= targetLimit || elapsed() >= abortElapsed) {
-        console.log(`[EXTRACT] Target met (${leadsByName.size}/${targetLimit}) or time up (${elapsed()}s/${abortElapsed.toFixed(0)}s), aborting remaining strategies`);
-        globalAbort.abort();
-        remainingPromises.length = 0; // Clear remaining
+      notify(`${leadsByName.size} leads (${result.name})`);
+      if (leadsByName.size >= targetLimit) {
+        remaining.length = 0;
         break;
       }
     }
 
-    // Se ainda tem promises pendentes (porque abortamos), espera so mais 2s
-    if (remainingPromises.length > 0) {
+    if (remaining.length > 0) {
+      try { await Promise.race([Promise.all(remaining.map(s => s.promise)), new Promise(r => setTimeout(r, 2000))]); } catch { }
+    }
+
+    return leadsByName.size - roundStart;
+  }
+
+  try {
+    const cacheKey = generateQueryCacheKey(keyword, location);
+    const cachedLeads = getCachedQuery(cacheKey);
+    if (cachedLeads && cachedLeads.length >= targetLimit) {
+      console.log(`[EXTRACT] Cache HIT: ${cachedLeads.length} leads`);
+      for (const lead of cachedLeads) {
+        if (leadsByName.size >= targetLimit) break;
+        processResults([lead], 'cache');
+      }
+      return finalize(getLeadsArray());
+    }
+
+    console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit}`);
+
+    // ROUND 1: all HTTP strategies in parallel
+    notify(`Buscando ${targetLimit} leads em multiplas fontes...`);
+    await runAllStrategies();
+    notify(`${leadsByName.size}/${targetLimit} leads (HTTP)`);
+
+    // ROUND 2: if target not met, try again (some strategies may have different cached results)
+    if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+      console.log(`[EXTRACT] Round 2: target ${targetLimit} not met (${leadsByName.size}), retrying strategies...`);
+      notify(`Rodada 2: refinando busca...`);
+      await runAllStrategies();
+      notify(`${leadsByName.size}/${targetLimit} leads (apos 2 rodadas)`);
+    }
+
+    // PHASE 2: Playwright — only if target still not met (falha silenciosamente sem Chromium)
+    if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+      console.log(`[EXTRACT] Playwright: target ${targetLimit} not met (${leadsByName.size}), starting browser...`);
+      notify(`Abrindo navegador para coletar mais leads (${leadsByName.size}/${targetLimit})...`);
       try {
-        await Promise.race([
-          Promise.all(remainingPromises.map(s => s.promise)),
-          new Promise(r => setTimeout(r, 2000)),
-        ]);
-      } catch {}
+        const { chromium } = require('playwright');
+        const browser = await chromium.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
+        });
+        const pwResult = await extractFromPlaywrightMaps(browser, keyword, location, targetLimit, existingLeadKeys ? new Set(existingLeadKeys) : new Set());
+        await browser.close();
+        const pwAdded = processResults(pwResult.leads, 'Playwright');
+        console.log(`[EXTRACT] Playwright: ${pwResult.leads.length} leads (+${pwAdded} new), total ${leadsByName.size}/${targetLimit}`);
+        notify(`${leadsByName.size}/${targetLimit} leads (Playwright)`);
+      } catch (e: any) {
+        console.warn(`[EXTRACT] Playwright failed (non-critical):`, e?.message || e);
+        notify(`Playwright indisponivel, continuando com ${leadsByName.size} leads...`);
+      }
     }
 
-    console.log(`[EXTRACT] All strategies done: ${leadsByName.size} leads in ${elapsed()}s`);
-
-    // Salva no cache SOMENTE se tiver leads validos suficientes
-    // Evita cache poisoning com resultados quebrados
-    const finalLeadCount = leadsByName.size;
-    if (finalLeadCount >= Math.max(3, Math.min(targetLimit, 5))) {
+    // Salva cache
+    const finalCount = leadsByName.size;
+    if (finalCount >= Math.max(3, Math.min(targetLimit, 5))) {
       setCachedQuery(cacheKey, getLeadsArray());
-      console.log(`[EXTRACT] Cache set: ${finalLeadCount} leads for "${cacheKey}"`);
-    } else {
-      console.log(`[EXTRACT] Cache skipped: only ${finalLeadCount} leads (min ${Math.max(3, Math.min(targetLimit, 5))} needed)`);
     }
 
-    // =========================================================================
-    // PHASE 2: removida (Playwright Chromium era instavel no Railway)
-    // Se precisar de mais leads, tente novamente com termo diferente
-    // =========================================================================
-
-    if (isOverTime()) {
-      console.warn(`[EXTRACT] GLOBAL_TIMEOUT reached (${GLOBAL_TIMEOUT}ms). Forcing finalization with ${leadsByName.size} leads.`);
-      notify(`${leadsByName.size} leads (timeout ${Math.round(GLOBAL_TIMEOUT/1000)}s)`);
-      return finalize(getLeadsArray(), `Tempo limite de ${Math.round(GLOBAL_TIMEOUT/1000)}s atingido. Resultados parciais.`);
-    }
-
-    notify(`${leadsByName.size} leads encontrados (${elapsed()}s)`);
-
+    notify(`${leadsByName.size} leads encontrados em ${elapsed()}s`);
     return finalize(getLeadsArray());
 
   } catch (err: any) {

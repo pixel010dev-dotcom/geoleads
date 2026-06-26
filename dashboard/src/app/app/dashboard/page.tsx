@@ -592,6 +592,31 @@ export default function Home() {
     };
   }, []);
 
+  const enrichedLeadKeysRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!mountedRef.current || crmLeads.length === 0) return;
+    const needsEnrichment = crmLeads.filter(l => {
+      if (enrichedLeadKeysRef.current.has(getLeadKey(l))) return false;
+      if (l.email || l.instagram || l.facebook || l.tiktok) return false;
+      if (!l.site || l.site === 'Sem site') return false;
+      return true;
+    });
+    if (needsEnrichment.length === 0) return;
+    for (const l of needsEnrichment) enrichedLeadKeysRef.current.add(getLeadKey(l));
+    startBatchEnrichment(needsEnrichment, (enrichments) => {
+      setCrmLeads(prev => {
+        const merged = prev.map(l => {
+          const key = getLeadKey(l);
+          return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+        });
+        try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { }
+        syncCrmToCloud(merged);
+        return merged;
+      });
+    });
+  }, [crmLeads]);
+
   const saveCrm = (updatedCrm: CrmLead[]) => {
     const normalized = updatedCrm.map(normalizeCrmLead);
     setCrmLeads(normalized);
@@ -702,11 +727,16 @@ export default function Home() {
         });
         const data = await res.json();
         if (data.success && data.batchId) {
-          const batchDone = await new Promise<void>((resolve) => {
+          await new Promise<void>((resolve) => {
+            const MAX_POLL_MS = 300000;
+            const pollStart = Date.now();
+            let pollFailCount = 0;
             const poll = setInterval(async () => {
               if (!mountedRef.current) { clearInterval(poll); resolve(); return; }
+              if (Date.now() - pollStart > MAX_POLL_MS) { clearInterval(poll); resolve(); return; }
               try {
                 const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
+                pollFailCount = 0;
                 const pollData = await pollRes.json();
                 if (pollData.success) {
                   if (!mountedRef.current) { clearInterval(poll); resolve(); return; }
@@ -735,7 +765,10 @@ export default function Home() {
                     resolve();
                   }
                 }
-              } catch { clearInterval(poll); resolve(); }
+              } catch {
+                pollFailCount++;
+                if (pollFailCount >= 5) { clearInterval(poll); resolve(); }
+              }
             }, 1200);
           });
         }
