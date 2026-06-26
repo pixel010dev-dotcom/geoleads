@@ -33,10 +33,10 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const batchIdRef = useRef<string | null>(null);
 
-  const leadsToEnrich = crmLeads.filter(l => (l.site && l.site !== 'Sem site') || l.placeUrl);
-
   const enrichedLeads = crmLeads.filter(l => l.email || l.instagram || l.facebook || l.tiktok);
   const needsEnrichment = crmLeads.filter(l => !l.email && !l.instagram && !l.facebook && !l.tiktok);
+  // Mostra todos os leads que precisam de enriquecimento (o motor descobre site automaticamente)
+  const leadsToEnrich = needsEnrichment.length > 0 ? needsEnrichment : crmLeads.filter(l => (l.site && l.site !== 'Sem site') || l.placeUrl);
 
   useEffect(() => {
     return () => {
@@ -149,7 +149,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
 
   return (
     <div className="space-y-6">
-      <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden animate-slide-up">
+      <div className="app-card p-7 rounded-[2rem] bg-gradient-to-b from-white/[0.03] to-black/40 border border-white/10 shadow-2xl relative overflow-hidden animate-slide-up" id="enrich-section">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
@@ -161,7 +161,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
               {t('enrich.needData', { count: needsEnrichment.length, done: enrichedLeads.length })}
             </div>
             {needsEnrichment.length > 0 && (
-              <button onClick={enrichAll} disabled={isBatchRunning} className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-all">
+              <button onClick={enrichAll} disabled={isBatchRunning} className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-all shadow-lg shadow-purple-600/20">
                 {isBatchRunning ? t('enrich.enriching') : t('enrich.enrichAll')}
               </button>
             )}
@@ -173,7 +173,7 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                <span className="text-xs font-bold text-blue-300">Enriquecendo leads...</span>
+                <span className="text-xs font-bold text-blue-300">{t('enrich.enriching')}</span>
               </div>
               <span className="text-xs text-gray-400 font-mono">
                 {batchProgress.completed + batchProgress.failed}/{batchProgress.total} ({batchProgress.percentage}%)
@@ -186,9 +186,9 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
               />
             </div>
             <div className="flex gap-4 mt-2 text-[11px]">
-              <span className="text-green-400">{batchProgress.completed} concluídos</span>
-              {batchProgress.failed > 0 && <span className="text-red-400">{batchProgress.failed} falhas</span>}
-              <span className="text-gray-500">{batchProgress.total - batchProgress.completed - batchProgress.failed} pendentes</span>
+              <span className="text-green-400">{batchProgress.completed} {t('enrich.completedLabel')}</span>
+              {batchProgress.failed > 0 && <span className="text-red-400">{batchProgress.failed} {t('enrich.failedLabel')}</span>}
+              <span className="text-gray-500">{batchProgress.total - batchProgress.completed - batchProgress.failed} {t('enrich.pendingLabel')}</span>
             </div>
           </div>
         )}
@@ -208,17 +208,8 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
           </div>
           <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-purple-400">{leadsToEnrich.length}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">{t('enrich.withSite')}</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{t('enrich.readyToEnrich')}</div>
           </div>
-        </div>
-
-        <div className="bg-purple-500/5 border border-purple-500/15 rounded-xl p-4 mb-6">
-          <h3 className="text-sm font-bold text-purple-300 mb-2">⚡ {t('enrich.howItWorksTitle')}</h3>
-          <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
-            <li>{t('enrich.howItWorks1')}</li>
-            <li>{t('enrich.howItWorks2')}</li>
-            <li>{t('enrich.howItWorks3')}</li>
-          </ol>
         </div>
 
         <div className="rounded-2xl border border-white/5 bg-black/20 overflow-hidden">
@@ -302,6 +293,15 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
         {leadsToEnrich.length > 30 && (
           <p className="text-xs text-gray-500 text-center mt-3">{t('enrich.showMore', { total: leadsToEnrich.length })}</p>
         )}
+
+        <div className="bg-purple-500/5 border border-purple-500/15 rounded-xl p-4 mt-6">
+          <h3 className="text-sm font-bold text-purple-300 mb-2">⚡ {t('enrich.howItWorksTitle')}</h3>
+          <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+            <li>{t('enrich.howItWorks1')}</li>
+            <li>{t('enrich.howItWorks2')}</li>
+            <li>{t('enrich.howItWorks3')}</li>
+          </ol>
+        </div>
       </div>
     </div>
   );

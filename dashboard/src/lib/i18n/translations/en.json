@@ -753,8 +753,8 @@
     "stageLost": "Lost"
   },
   "enrich": {
-    "title": "🔍 Search More Data",
-    "desc": "Choose CRM leads and search for additional data like tax ID, email and social media.",
+    "title": "🔍 Enrich Data",
+    "desc": "Automatically search for tax ID, email, Instagram, Facebook and TikTok for your CRM leads.",
     "needData": "{count} need data · {done} complete",
     "enriching": "Enriching...",
     "enrichAll": "🚀 Enrich All",
@@ -779,7 +779,12 @@
     "searchData": "🔍 Search data",
     "noLeadsWithSite": "No leads with website to enrich.",
     "noLeadsHint": "Add leads to CRM first through the Extraction Engine.",
-    "enrichmentDone": "Enrichment done!"
+    "enrichmentDone": "Enrichment done!",
+    "completedLabel": "completed",
+    "failedLabel": "failed",
+    "pendingLabel": "pending",
+    "enrichPrompt": "💡 Go to \"Leads\" tab and use \"Enrich All\" to search for tax ID, email and social media!",
+    "readyToEnrich": "Ready to enrich"
   },
   "autovendas": {
     "title": "AutoSales",

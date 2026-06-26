@@ -78,6 +78,26 @@ export async function enrichLead(lead: any): Promise<any> {
       });
     }
 
+    if (!lead.email && domain) {
+      const emailPatterns = ['contato', 'comercial', 'sac', 'vendas', 'admin', 'info', 'adm', 'suporte'];
+      const safeDomain = domain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const allContent = [homeHtml, ...contactUrls.map(u => fetchHtml(u))];
+      const fullText = (await Promise.all(allContent)).join(' ');
+      for (const prefix of emailPatterns) {
+        const regex = new RegExp(`(${prefix}@${safeDomain})`, 'gi');
+        const match = fullText.match(regex);
+        if (match) {
+          lead.email = match[0].toLowerCase();
+          break;
+        }
+      }
+      if (!lead.email) {
+        const emailRegex = new RegExp(`[a-zA-Z0-9._%+-]+@${safeDomain}`, 'g');
+        const matches = fullText.match(emailRegex);
+        if (matches) lead.email = matches[0].toLowerCase();
+      }
+    }
+
     if (domain) {
       setEnrichCache(domain, {
         email: lead.email,

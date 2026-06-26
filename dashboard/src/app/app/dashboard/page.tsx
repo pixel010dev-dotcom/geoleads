@@ -576,33 +576,49 @@ export default function Home() {
     if (addedCount > 0) {
       saveCrm(updated);
       if (newDispatchableKeys.length > 0) setSelectedWaLeads(prev => Array.from(new Set([...newDispatchableKeys, ...prev])));
-      showToast(`${addedCount} leads adicionados ao CRM! Enriquecendo...`, 'success');
-      // Auto-enriquecimento em lote (background) - acumula e salva uma vez pra evitar race condition
+      showToast(`${addedCount} leads adicionados ao CRM! Enriquecendo em lote...`, 'success');
       const updatedSnapshot = [...updated];
-      const enrichments: Record<string, any> = {};
       (async () => {
         const headers = await getAuthedJsonHeaders();
         if (!headers) return;
-        for (const newLead of leads) {
-          try {
-            const res = await fetch('/api/lead-enrich', {
-              method: 'POST', headers,
-              body: JSON.stringify({ nome: newLead.nome, site: newLead.site, cidade: newLead.cidade || location, cnpj: newLead.cnpj })
-            });
-            const data = await res.json();
-            if (data.success && data.enriched) {
-              enrichments[getLeadKey(newLead)] = data.enriched;
-            }
-          } catch { /* silence */ }
-        }
-        // Salva tudo de uma vez
-        if (Object.keys(enrichments).length > 0) {
-          const finalCopy = updatedSnapshot.map(l => {
-            const key = getLeadKey(l);
-            return enrichments[key] ? { ...l, ...enrichments[key] } : l;
+        try {
+          const res = await fetch('/api/lead-enrich/batch', {
+            method: 'POST', headers,
+            body: JSON.stringify({
+              leads: leads.map((l: any) => ({
+                nome: l.nome, site: l.site, cidade: l.cidade || location,
+                cnpj: l.cnpj, email: l.email, instagram: l.instagram,
+                facebook: l.facebook, tiktok: l.tiktok,
+              }))
+            }),
           });
-          saveCrm(finalCopy);
-        }
+          const data = await res.json();
+          if (data.success && data.batchId) {
+            const pollBatch = setInterval(async () => {
+              try {
+                const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers });
+                const pollData = await pollRes.json();
+                if (pollData.status === 'completed' || pollData.status === 'failed') {
+                  clearInterval(pollBatch);
+                  if (pollData.results) {
+                    const enrichments: Record<string, any> = {};
+                    pollData.results.forEach((r: any) => {
+                      if (r.enriched) enrichments[r.nome] = r.enriched;
+                    });
+                    if (Object.keys(enrichments).length > 0) {
+                      const finalCopy = updatedSnapshot.map((l: any) => {
+                        return enrichments[l.nome] ? { ...l, ...enrichments[l.nome] } : l;
+                      });
+                      saveCrm(finalCopy);
+                    }
+                  }
+                  if (pollData.completed > 0) showToast(`${pollData.completed} leads enriquecidos automaticamente!`, 'success');
+                  if (pollData.failed > 0) showToast(`${pollData.failed} leads falharam no enriquecimento.`, 'info');
+                }
+              } catch { clearInterval(pollBatch); }
+            }, 2000);
+          }
+        } catch { /* silence */ }
       })();
     } else showToast('Todos esses leads já existem no CRM.', 'info');
   };
@@ -990,6 +1006,7 @@ export default function Home() {
                     else { setCrmSyncStatus('cloud'); setCrmSyncMessage('CRM na nuvem'); }
                   });
                   showToast(`${toAdd.length} leads salvos no CRM!`, 'success');
+                  setTimeout(() => showToast('💡 Vá na aba "Leads" e use "Enriquecer Todos" para buscar CNPJ, e-mail e redes sociais!', 'info'), 2000);
                   setChartRefreshKey(k => k + 1);
                 } else {
                   showToast('Leads já existem no CRM.', 'info');
@@ -1371,6 +1388,17 @@ export default function Home() {
 
         {activeTab === 'crm' && !activeTabLocked && (
           <>
+          <EnrichSection
+            crmLeads={crmLeads}
+            handleReEnrichSingle={handleReEnrichSingle}
+            handleReEnrichSelected={handleReEnrichSelected}
+            enrichLoading={enrichLoading}
+            selectedCrmLeads={selectedCrmLeads}
+            setSelectedCrmLeads={setSelectedCrmLeads}
+            openWhatsApp={openWhatsApp}
+            showToast={showToast}
+          />
+          <div className="mt-6">
           <CRMSection
             crmLeads={crmLeads} crmSearch={crmSearch} setCrmSearch={setCrmSearch}
             crmFilterStage={crmFilterStage} setCrmFilterStage={setCrmFilterStage}
@@ -1400,17 +1428,6 @@ export default function Home() {
               showToast(msg, 'success');
             }}
           />
-          <div className="mt-6">
-            <EnrichSection
-              crmLeads={crmLeads}
-              handleReEnrichSingle={handleReEnrichSingle}
-              handleReEnrichSelected={handleReEnrichSelected}
-              enrichLoading={enrichLoading}
-              selectedCrmLeads={selectedCrmLeads}
-              setSelectedCrmLeads={setSelectedCrmLeads}
-              openWhatsApp={openWhatsApp}
-              showToast={showToast}
-            />
           </div>
           </>
         )}

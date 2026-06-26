@@ -96,7 +96,7 @@ async function enrichCNPJ(cnpjValue?: string): Promise<any> {
   return null;
 }
 
-async function searchSocial(name: string, platform: string, city?: string): Promise<{ url?: string; score: number }> {
+async function searchSocial(name: string, platform: string, city?: string, attempt = 1): Promise<{ url?: string; score: number }> {
   try {
     const query = encodeURIComponent(`${name} ${city || ''} ${platform}`);
     const res = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
@@ -104,7 +104,7 @@ async function searchSocial(name: string, platform: string, city?: string): Prom
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept-Language': 'pt-BR,pt;q=0.9',
       },
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(10000)
     });
     if (!res.ok) return { score: 0 };
     const html = await res.text();
@@ -135,14 +135,86 @@ async function searchSocial(name: string, platform: string, city?: string): Prom
       }
     }
 
+    if (!bestUrl && attempt < 2) {
+      return searchSocial(name, platform, city, attempt + 1);
+    }
+
     return { url: bestUrl || undefined, score: bestScore };
   } catch {
+    if (attempt < 2) {
+      return searchSocial(name, platform, city, attempt + 1);
+    }
     return { score: 0 };
   }
 }
 
 function hasMissingFields(lead: BatchLead): boolean {
   return !lead.email || !lead.instagram || !lead.facebook || !lead.tiktok;
+}
+
+async function discoverSiteViaDuckDuckGo(name: string, city?: string): Promise<string | null> {
+  try {
+    const query = encodeURIComponent(`${name} ${city || ''} site oficial`);
+    const res = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept-Language': 'pt-BR,pt;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const urlRegex = /(https?:\/\/(?:www\.)?[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s"'<>]*)?)/g;
+    const matches = Array.from(html.matchAll(urlRegex), m => m[1]);
+    const blocked = ['instagram.com', 'facebook.com', 'tiktok.com', 'youtube.com', 'whatsapp.com', 'twitter.com', 'linkedin.com', 'duckduckgo.com'];
+    for (const url of matches) {
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+        if (blocked.some(b => host === b || host.endsWith('.' + b))) continue;
+        if (host.includes('google.') || host.includes('googleapis.')) continue;
+        const nameNorm = normalizeName(name);
+        const hostWords = host.replace(/\.com(\.br)?$/, '').split(/[.-]/);
+        if (hostWords.some(w => w.length >= 4 && nameNorm.includes(w))) {
+          return url;
+        }
+      } catch { continue; }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function discoverCNPJviaCompanyName(name: string): Promise<any | null> {
+  try {
+    const query = encodeURIComponent(name);
+    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${query}`, {
+      headers: { 'User-Agent': 'GeoLeads/1.0' },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.cnpj) {
+        const normalized = data.cnpj.replace(/\D/g, '');
+        return {
+          cnpj: `${normalized.slice(0, 2)}.${normalized.slice(2, 5)}.${normalized.slice(5, 8)}/${normalized.slice(8, 12)}-${normalized.slice(12)}`,
+          razao_social: data.razao_social || '',
+          nome_fantasia: data.nome_fantasia || '',
+          telefone_empresa: data.ddd_telefone_1 ? `(${data.ddd_telefone_1}) ${data.telefone_1}` : '',
+          endereco_completo: data.logradouro ? `${data.logradouro}, ${data.numero} - ${data.bairro}` : '',
+          cidade: data.municipio || '',
+          uf: data.uf || '',
+          cep: data.cep || '',
+          data_abertura: data.data_inicio_atividade || '',
+          situacao_cadastral: data.situacao_cadastral || '',
+          atividade: data.descricao_atividade_principal?.[0]?.text || '',
+        };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof createAdminSupabaseClient>): Promise<BatchResult> {
@@ -154,12 +226,12 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
       return { nome: lead.nome, enriched: null };
     }
 
-    const cacheKey = `batch_${lead.nome.toLowerCase()}_${(lead.cidade || '').toLowerCase()}`;
+    let discoveredSite = lead.site && lead.site !== 'Sem site' ? lead.site : null;
 
     try {
       const { data: cached } = await supabase
         .from('lead_enrichment_cache')
-        .select('email, instagram, facebook, tiktok, cnpj')
+        .select('email, instagram, facebook, tiktok, cnpj, site')
         .eq('company_name', lead.nome)
         .eq('city', lead.cidade || '')
         .maybeSingle();
@@ -170,16 +242,32 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
         if (!lead.facebook && cached.facebook) enriched.facebook = cached.facebook;
         if (!lead.tiktok && cached.tiktok) enriched.tiktok = cached.tiktok;
         if (!lead.cnpj && cached.cnpj) enriched.cnpj = cached.cnpj;
+        if (!discoveredSite && cached.site) discoveredSite = cached.site;
       }
     } catch { /* continue without cache */ }
 
     const enrichmentPromises: Promise<void>[] = [];
 
-    if (lead.site && lead.site !== 'Sem site') {
+    // Site discovery se nao tem site
+    if (!discoveredSite) {
       enrichmentPromises.push(
         (async () => {
           try {
-            const result = await enrichLead({ nome: lead.nome, site: lead.site, cidade: lead.cidade, email: lead.email || '', instagram: lead.instagram || '', facebook: lead.facebook || '', tiktok: lead.tiktok || '', cnpj: lead.cnpj || '' });
+            const foundSite = await discoverSiteViaDuckDuckGo(lead.nome, lead.cidade);
+            if (foundSite) {
+              discoveredSite = foundSite;
+              enriched.site_descoberto = foundSite;
+            }
+          } catch { /* silence */ }
+        })()
+      );
+    }
+
+    if (discoveredSite) {
+      enrichmentPromises.push(
+        (async () => {
+          try {
+            const result = await enrichLead({ nome: lead.nome, site: discoveredSite, cidade: lead.cidade, email: lead.email || '', instagram: lead.instagram || '', facebook: lead.facebook || '', tiktok: lead.tiktok || '', cnpj: lead.cnpj || '' });
             if (result.email && !enriched.email) enriched.email = result.email;
             if (result.instagram && !enriched.instagram) enriched.instagram = result.instagram;
             if (result.facebook && !enriched.facebook) enriched.facebook = result.facebook;
@@ -189,24 +277,21 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
       );
     }
 
-    if (lead.cnpj) {
+    if (lead.cnpj && !enriched.cnpj) {
       enrichmentPromises.push(
         (async () => {
           try {
             const cnpjData = await enrichCNPJ(lead.cnpj);
-            if (cnpjData) {
-              enriched.cnpj = cnpjData.cnpj;
-              enriched.razao_social = cnpjData.razao_social;
-              enriched.nome_fantasia = cnpjData.nome_fantasia;
-              enriched.endereco_completo = cnpjData.endereco_completo;
-              enriched.cep = cnpjData.cep;
-              enriched.situacao_cadastral = cnpjData.situacao_cadastral;
-              enriched.atividade = cnpjData.atividade;
-              enriched.data_abertura = cnpjData.data_abertura;
-              if (!enriched.telefone && cnpjData.telefone_empresa) {
-                enriched.telefone = cnpjData.telefone_empresa;
-              }
-            }
+            if (cnpjData) Object.assign(enriched, cnpjData);
+          } catch { /* silence */ }
+        })()
+      );
+    } else if (!lead.cnpj && !enriched.cnpj) {
+      enrichmentPromises.push(
+        (async () => {
+          try {
+            const cnpjData = await discoverCNPJviaCompanyName(lead.nome);
+            if (cnpjData) Object.assign(enriched, cnpjData);
           } catch { /* silence */ }
         })()
       );
@@ -231,7 +316,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
 
     await Promise.race([
       Promise.all(enrichmentPromises),
-      new Promise(r => setTimeout(r, 8000)),
+      new Promise(r => setTimeout(r, 15000)),
     ]);
 
     if (Object.keys(enriched).length > 0) {
@@ -239,7 +324,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
         await supabase.from('lead_enrichment_cache').upsert({
           company_name: lead.nome,
           city: lead.cidade || '',
-          site: lead.site || '',
+          site: discoveredSite || lead.site || '',
           email: enriched.email || '',
           instagram: enriched.instagram || '',
           facebook: enriched.facebook || '',

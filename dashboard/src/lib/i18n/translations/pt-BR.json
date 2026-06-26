@@ -753,8 +753,8 @@
     "stageLost": "Perdido"
   },
   "enrich": {
-    "title": "🔍 Buscar Mais Dados",
-    "desc": "Escolha leads do CRM e busque dados adicionais como CNPJ, e-mail e redes sociais.",
+    "title": "🔍 Enriquecer Dados",
+    "desc": "Busque CNPJ, e-mail, Instagram, Facebook e TikTok automaticamente para seus leads do CRM.",
     "needData": "{count} precisam de dados · {done} completos",
     "enriching": "Enriquecendo...",
     "enrichAll": "🚀 Enriquecer Todos",
@@ -779,7 +779,12 @@
     "searchData": "🔍 Buscar dados",
     "noLeadsWithSite": "Nenhum lead com site para enriquecer.",
     "noLeadsHint": "Adicione leads ao CRM primeiro através do Motor Extrator.",
-    "enrichmentDone": "Enriquecimento concluído!"
+    "enrichmentDone": "Enriquecimento concluído!",
+    "completedLabel": "concluídos",
+    "failedLabel": "falhas",
+    "pendingLabel": "pendentes",
+    "enrichPrompt": "💡 Vá na aba \"Leads\" e use \"Enriquecer Todos\" para buscar CNPJ, e-mail e redes sociais!",
+    "readyToEnrich": "Prontos p/ enriquecer"
   },
   "autovendas": {
     "title": "AutoVendas",
