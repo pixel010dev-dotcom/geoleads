@@ -163,43 +163,6 @@ export async function POST(request: Request) {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
-        const jobUpdate = {
-          status: result.error ? 'failed' : 'completed',
-          error: result.error || undefined,
-          leads: result.leads,
-          leads_count: result.leads.length,
-          scanned: result.scanned,
-          cities_scanned: result.citiesDone,
-          message: result.error || `Extração concluída: ${result.leads.length} leads em ${totalTimeSec}s`,
-          search_time_seconds: totalTimeSec,
-          completed_at: new Date().toISOString(),
-          delivered: true,
-        };
-
-        const doFinalUpdate = async (retries = 3) => {
-          try {
-            await updateJob(jobId, jobUpdate);
-          } catch (e: any) {
-            console.error(`[EXTRACT] Final update failed for job ${jobId}, retries=${retries}:`, e.message || e);
-            if (retries > 0) {
-              await new Promise(r => setTimeout(r, 2000));
-              return doFinalUpdate(retries - 1);
-            }
-            // Último recurso: tenta update sem leads pra pelo menos marcar como concluído
-            console.error(`[EXTRACT] All retries exhausted for job ${jobId}, trying minimal update...`);
-            try {
-              await updateJob(jobId, {
-                status: result.error ? 'failed' : 'completed',
-                delivered: true,
-                completed_at: new Date().toISOString(),
-                error: result.error || `Leads salvos parcialmente. Tente atualizar a página.`,
-              });
-            } catch (e2: any) {
-              console.error(`[EXTRACT] Even minimal update FAILED for job ${jobId}:`, e2.message || e2);
-            }
-          }
-        };
-
         // Deduz tokens ANTES de marcar como entregue
         if (gastos > 0) {
           try {
@@ -230,52 +193,75 @@ export async function POST(request: Request) {
           });
         } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
 
-        // Agora marca como entregue (com tokens já deduzidos)
+        // ENRIQUECE ANTES DE MARCAR COMO ENTREGUE
+        // Timeout de 8s por lead, 30s total — dados enriquecidos chegam junto com os leads
+        const enrichedLeads = await Promise.race([
+          (async (): Promise<SearchLead[]> => {
+            const enriched: SearchLead[] = [];
+            for (const lead of result.leads) {
+              try {
+                if (lead.site && lead.site !== 'Sem site' && (!lead.email || !lead.instagram || !lead.facebook || !lead.tiktok)) {
+                  const enrichedLead = await Promise.race([
+                    enrichLead({ ...lead }),
+                    new Promise<SearchLead>(r => setTimeout(() => { r(lead); }, 8000)),
+                  ]);
+                  if (enrichedLead.email) lead.email = enrichedLead.email;
+                  if (enrichedLead.instagram) lead.instagram = enrichedLead.instagram;
+                  if (enrichedLead.facebook) lead.facebook = enrichedLead.facebook;
+                  if (enrichedLead.tiktok) lead.tiktok = enrichedLead.tiktok;
+                }
+                enriched.push(lead);
+              } catch { enriched.push(lead); }
+            }
+            console.log(`[ENRICH] Pre-delivery enrichment: ${enriched.filter(l => l.email && l.email !== '').length} emails, ${enriched.filter(l => l.instagram && l.instagram !== '').length} insta`);
+            return enriched;
+          })(),
+          new Promise<SearchLead[]>(r => setTimeout(() => r(result.leads), 30000)),
+        ]);
+
+        const jobUpdate = {
+          status: result.error ? 'failed' : 'completed',
+          error: result.error || undefined,
+          leads: enrichedLeads,
+          leads_count: enrichedLeads.length,
+          scanned: result.scanned,
+          cities_scanned: result.citiesDone,
+          message: result.error || `Extração concluída: ${enrichedLeads.length} leads em ${totalTimeSec}s`,
+          search_time_seconds: totalTimeSec,
+          completed_at: new Date().toISOString(),
+          delivered: true,
+        };
+
+        const doFinalUpdate = async (retries = 3) => {
+          try {
+            await updateJob(jobId, jobUpdate);
+          } catch (e: any) {
+            console.error(`[EXTRACT] Final update failed for job ${jobId}, retries=${retries}:`, e.message || e);
+            if (retries > 0) {
+              await new Promise(r => setTimeout(r, 2000));
+              return doFinalUpdate(retries - 1);
+            }
+            console.error(`[EXTRACT] All retries exhausted for job ${jobId}, trying minimal update...`);
+            try {
+              await updateJob(jobId, {
+                status: result.error ? 'failed' : 'completed',
+                delivered: true,
+                completed_at: new Date().toISOString(),
+                error: result.error || `Leads salvos parcialmente. Tente atualizar a página.`,
+              });
+            } catch (e2: any) {
+              console.error(`[EXTRACT] Even minimal update FAILED for job ${jobId}:`, e2.message || e2);
+            }
+          }
+        };
+
+        // Marca como entregue (com leads já enriquecidos)
         try {
           await doFinalUpdate(3);
         } catch (e: any) {
           console.error(`[EXTRACT] onDone: all updates failed for job ${jobId}:`, e?.message || e);
         } finally {
           done();
-        }
-
-        // Enriquecimento em background (nao bloqueante)
-        // Para cada lead com site, tenta extrair email + redes sociais
-        // Para leads sem CNPJ, tenta BrasilAPI
-        if (result.leads.length > 0) {
-          (async () => {
-            const enrichedLeads: SearchLead[] = [];
-            for (const lead of result.leads) {
-              try {
-                // Enriquecimento via website (email, social) - somente se tiver site
-                if (lead.site && lead.site !== 'Sem site' && (!lead.email || !lead.instagram || !lead.facebook)) {
-                  const enriched = await enrichLead({ ...lead });
-                  if (enriched.email) lead.email = enriched.email;
-                  if (enriched.instagram) lead.instagram = enriched.instagram;
-                  if (enriched.facebook) lead.facebook = enriched.facebook;
-                  if (enriched.tiktok) lead.tiktok = enriched.tiktok;
-                  console.log(`[ENRICH] Website: "${lead.nome}" email=${!!lead.email} insta=${!!lead.instagram} fb=${!!lead.facebook}`);
-                }
-                enrichedLeads.push(lead);
-              } catch (e: any) {
-                console.warn(`[ENRICH] Failed for "${lead.nome}":`, e?.message || e);
-              }
-            }
-
-            // Salva leads enriquecidos no job
-            if (enrichedLeads.length > 0) {
-              try {
-                await updateJob(jobId, {
-                  leads: enrichedLeads,
-                  leads_count: enrichedLeads.length,
-                  message: `${enrichedLeads.length} leads com enriquecimento`,
-                });
-                console.log(`[ENRICH] Saved ${enrichedLeads.length} enriched leads`);
-              } catch (e: any) {
-                console.warn(`[ENRICH] Failed to save enriched leads:`, e?.message || e);
-              }
-            }
-          })();
         }
       },
       shouldCancel: async () => {

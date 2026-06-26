@@ -8,6 +8,7 @@ const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 
 const GEO_CACHE = new Map<string, { bbox: string; lat: number; lon: number }>();
 const CNPJ_CACHE = new Map<string, any>();
+const MAX_CACHE_SIZE = 500;
 
 const STATE_CODES_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
@@ -52,6 +53,10 @@ async function geocodeLocation(location: string): Promise<{ bbox: string; lat: n
       const bbox = `${bboxRaw[0]},${bboxRaw[2]},${bboxRaw[1]},${bboxRaw[3]}`;
       const result = { bbox, lat, lon };
       GEO_CACHE.set(cacheKey, result);
+      if (GEO_CACHE.size > MAX_CACHE_SIZE) {
+        const firstKey = GEO_CACHE.keys().next().value;
+        if (firstKey !== undefined) GEO_CACHE.delete(firstKey);
+      }
       return result;
     }
 
@@ -59,8 +64,13 @@ async function geocodeLocation(location: string): Promise<{ bbox: string; lat: n
     const bbox = `${lon - padding},${lat - padding},${lon + padding},${lat + padding}`;
     const result = { bbox, lat, lon };
     GEO_CACHE.set(cacheKey, result);
+    if (GEO_CACHE.size > MAX_CACHE_SIZE) {
+      const firstKey = GEO_CACHE.keys().next().value;
+      if (firstKey !== undefined) GEO_CACHE.delete(firstKey);
+    }
     return result;
-  } catch {
+  } catch (e: any) {
+    console.warn('[AlternativeSources] geocodeLocation failed:', e?.message || e);
     return null;
   }
 }
@@ -75,7 +85,8 @@ async function runOverpass(query: string, timeoutMs = 15000): Promise<any[]> {
     if (!res.ok) return [];
     const data = await res.json();
     return data.elements || [];
-  } catch {
+  } catch (e: any) {
+    console.warn('[AlternativeSources] runOverpass failed:', e?.message || e);
     return [];
   }
 }
@@ -258,8 +269,13 @@ export async function extractFromBrasilApiCNPJ(
     if (!response.ok) return null;
     const data = await response.json();
     CNPJ_CACHE.set(cleanCnpj, data);
+    if (CNPJ_CACHE.size > MAX_CACHE_SIZE) {
+      const firstKey = CNPJ_CACHE.keys().next().value;
+      if (firstKey !== undefined) CNPJ_CACHE.delete(firstKey);
+    }
     return data;
-  } catch {
+  } catch (e: any) {
+    console.warn('[AlternativeSources] BrasilApi CNPJ failed:', e?.message || e);
     return null;
   }
 }

@@ -143,7 +143,7 @@ export async function hasActiveReservation(reservationId: string): Promise<boole
   return true;
 }
 
-export async function getReservationByJobId(jobId: number): Promise<{
+export async function getReservationByJobId(jobId: string): Promise<{
   id: string;
   amount: number;
   status: string;

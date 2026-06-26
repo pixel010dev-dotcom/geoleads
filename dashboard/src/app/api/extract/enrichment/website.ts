@@ -71,8 +71,11 @@ export async function enrichLead(lead: any): Promise<any> {
     applySignalsToLead(lead, homeHtml, lead.site);
 
     const contactUrls = pickContactUrls(homeHtml, lead.site);
+    const extraPages = contactUrls.length > 0
+      ? await Promise.all(contactUrls.map(url => fetchHtml(url)))
+      : [];
+
     if (contactUrls.length > 0 && (!lead.email || !lead.cnpj || !lead.instagram || !lead.facebook || !lead.tiktok)) {
-      const extraPages = await Promise.all(contactUrls.map(url => fetchHtml(url)));
       extraPages.forEach((html, index) => {
         if (html) applySignalsToLead(lead, html, contactUrls[index]);
       });
@@ -81,8 +84,8 @@ export async function enrichLead(lead: any): Promise<any> {
     if (!lead.email && domain) {
       const emailPatterns = ['contato', 'comercial', 'sac', 'vendas', 'admin', 'info', 'adm', 'suporte'];
       const safeDomain = domain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const allContent = [homeHtml, ...contactUrls.map(u => fetchHtml(u))];
-      const fullText = (await Promise.all(allContent)).join(' ');
+      const allContent = [homeHtml, ...extraPages];
+      const fullText = allContent.join(' ');
       for (const prefix of emailPatterns) {
         const regex = new RegExp(`(${prefix}@${safeDomain})`, 'gi');
         const match = fullText.match(regex);

@@ -77,7 +77,7 @@ export async function PATCH(
 
     if (body.status === 'cancelled') {
       // Reembolso atomico da reserva ANTES de marcar como cancelado
-      const reservation = await getReservationByJobId(Number(jobId));
+      const reservation = await getReservationByJobId(jobId);
       if (reservation) {
         const refundResult = await refundReservation(reservation.id);
         if ('error' in refundResult) {

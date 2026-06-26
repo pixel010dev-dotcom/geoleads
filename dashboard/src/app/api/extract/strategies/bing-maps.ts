@@ -228,8 +228,8 @@ export async function extractFromBingMaps(
 
         // Delay entre tentativas
         await new Promise(r => setTimeout(r, 600 + Math.random() * 600));
-      } catch {
-        // Bing failed, continue to next zoom
+      } catch (e: any) {
+        console.warn('[BingMaps] request failed:', e?.message || e);
       }
     }
 

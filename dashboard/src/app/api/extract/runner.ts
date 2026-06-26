@@ -23,7 +23,7 @@ export interface RunnerConfig {
   isBroadRegion: boolean;
   existingLeadKeys: string[];
   onProgress?: (leads: SearchLead[], scanned: number, citiesDone: number, message: string) => void;
-  onDone?: (result: RunnerResult) => void;
+  onDone?: (result: RunnerResult) => void | Promise<void>;
   shouldCancel?: () => Promise<boolean>;
   maxTimeMs?: number;
 }
@@ -146,7 +146,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
 
   const isOverTime = () => Date.now() >= hardDeadline;
 
-  const finalize = (leads: SearchLead[], error?: string) => {
+  const finalize = async (leads: SearchLead[], error?: string) => {
     if (finalized) return leads.slice(0, targetLimit); // already finalized
     finalized = true;
 
@@ -165,7 +165,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${leadsByName.size} unique (${scoredLeads.filter(s => s.score.tier === 'trash').length} trash) in ${elapsed()}s`);
 
     if (onDone) {
-      onDone({
+      await onDone({
         leads: validLeads,
         scanned: scannedTotal,
         citiesDone,

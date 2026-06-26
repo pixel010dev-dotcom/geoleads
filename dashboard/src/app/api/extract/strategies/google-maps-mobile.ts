@@ -1,6 +1,7 @@
 import type { SearchLead } from '../lib/types';
 import { createEmptySearchLead } from '../lib/types';
 import { normalizePhone, isBusinessWebsiteCandidate } from '../lib/validation';
+import { combineSignals } from '../lib/signals';
 
 /**
  * Estrategia Google Maps Mobile
@@ -273,7 +274,8 @@ export async function extractFromGoogleMapsMobile(
         }
 
         if (newLeads.length > 0) break; // Found results, no need for other URL
-      } catch {
+      } catch (e: any) {
+        console.warn('[GoogleMapsMobile] request failed:', e?.message || e);
         continue;
       }
     }
@@ -288,10 +290,3 @@ export async function extractFromGoogleMapsMobile(
   return allLeads;
 }
 
-function combineSignals(s1: AbortSignal, s2: AbortSignal): AbortSignal {
-  const c = new AbortController();
-  const abort = () => c.abort();
-  s1.addEventListener('abort', abort, { once: true });
-  s2.addEventListener('abort', abort, { once: true });
-  return c.signal;
-}

@@ -45,3 +45,6 @@ export function getEnrichCache(domain: string): EnrichmentData | undefined {
 export function setEnrichCache(domain: string, data: EnrichmentData) {
   enrichCache.set(domain, { ...data, timestamp: Date.now() });
 }
+
+// Auto-cleanup expired entries every 10 minutes
+setInterval(clearExpiredCache, 10 * 60 * 1000);

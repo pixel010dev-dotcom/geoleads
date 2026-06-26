@@ -2,6 +2,7 @@ import type { SearchLead } from '../lib/types';
 import { createEmptySearchLead } from '../lib/types';
 import { normalizePhone, isBusinessWebsiteCandidate } from '../lib/validation';
 import { getRandomHeaders } from '../lib/stealth';
+import { combineSignals } from '../lib/signals';
 
 const BLOCKED_KEYWORDS = ['captcha', 'sorry', 'unusual traffic', 'tráfego incomum', "please show you're not a robot", 'robô', 'automated queries', 'our systems have detected', 'nossos sistemas detectaram', 'automated queries', 'consulta automatizada', 'enter the code', 'digite o código'];
 
@@ -160,7 +161,8 @@ async function fetchViaUrl(url: string, signal?: AbortSignal): Promise<{ html: s
     const html = await response.text();
     const blocked = isBlocked(html, url);
     return { html, blocked };
-  } catch {
+  } catch (e: any) {
+    console.warn('[GoogleSearch] fetchViaUrl failed:', e?.message || e);
     return { html: '', blocked: false };
   }
 }
@@ -180,7 +182,8 @@ async function fetchViaCfWorker(url: string, cfWorkerUrl: string, signal?: Abort
     const html = await response.text();
     const blocked = isBlocked(html, url);
     return { html, blocked };
-  } catch {
+  } catch (e: any) {
+    console.warn('[GoogleSearch] fetchViaCfWorker failed:', e?.message || e);
     return { html: '', blocked: false };
   }
 }
@@ -285,10 +288,10 @@ export async function extractFromGoogleSearch(
                   allLeads.push(lead);
                 }
               }
-            } catch { /* pagination failed, continue */ }
+            } catch (e: any) { console.warn('[GoogleSearch] pagination failed:', e?.message || e); }
           }
         }
-      } catch { /* continue to next TLD */ }
+      } catch (e: any) { console.warn('[GoogleSearch] TLD request failed:', e?.message || e); }
     }
 
     if (!blocked && !foundInThisQuery) {
@@ -314,7 +317,7 @@ export async function extractFromGoogleSearch(
             allLeads.push(lead);
           }
         }
-      } catch { /* web search failed */ }
+      } catch (e: any) { console.warn('[GoogleSearch] web search failed:', e?.message || e); }
     }
 
     if (!blocked) await new Promise(r => setTimeout(r, BATCH_DELAY * (0.5 + Math.random())));
@@ -341,17 +344,10 @@ export async function extractFromGoogleSearch(
         blocked = false; // CF worker worked!
         console.log(`[GoogleSearch] Cloudflare Worker bypassed block: ${newLeads.length} leads`);
       }
-    } catch { /* CF also failed */ }
+    } catch (e: any) { console.warn('[GoogleSearch] CF fallback failed:', e?.message || e); }
   }
 
   console.log(`[GoogleSearch] ${usedCfWorker ? '(via CF)' : '(direct)'}: ${allLeads.length} leads, blocked=${blocked}`);
   return { leads: allLeads, blocked };
 }
 
-function combineSignals(s1: AbortSignal, s2: AbortSignal): AbortSignal {
-  const c = new AbortController();
-  const abort = () => c.abort();
-  s1.addEventListener('abort', abort, { once: true });
-  s2.addEventListener('abort', abort, { once: true });
-  return c.signal;
-}
