@@ -1,0 +1,37 @@
+name: Auto Lead Pipeline
+
+on:
+  schedule:
+    - cron: '0 8,14,20 * * *'  # 3x/dia: 8h, 14h, 20h BRT
+  workflow_dispatch:
+    inputs:
+      city:
+        description: 'Filtrar cidade (opcional)'
+        required: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run pipeline
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          APP_URL: https://geoleads-production.up.railway.app
+        run: |
+          if [ -n "${{ github.event.inputs.city }}" ]; then
+            python scripts/auto_lead_pipeline.py --city "${{ github.event.inputs.city }}"
+          else
+            python scripts/auto_lead_pipeline.py
+          fi
