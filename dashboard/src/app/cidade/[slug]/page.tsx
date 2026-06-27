@@ -5,6 +5,16 @@ import { getCityBySlug, getAllCitySlugs, CITIES, NICHE_EXAMPLES } from '@/lib/ci
 export const dynamic = 'force-static';
 export const revalidate = 86400;
 
+const APP_URL = 'https://geoleads-production.up.railway.app';
+
+const faqData = [
+  { q: 'Como extrair leads do Google Maps?', a: 'Com o GeoLeads voce informa o nicho e a cidade, e o sistema navega automaticamente pelo Google Maps coletando nome, telefone, site, email e endereco de cada negocio. Em minutos voce tem uma lista pronta para usar.' },
+  { q: 'Preciso de cartao de credito para testar?', a: 'Nao. Oferecemos 10 tokens gratuitos sem necessidade de cartao. Voce pode extrair seus primeiros leads e testar todas as funcionalidades antes de assinar.' },
+  { q: 'Quais dados posso extrair?', a: 'Telefone, WhatsApp, site, email, endereco, CEP, avaliacao, horarios, Instagram, Facebook, TikTok e CNPJ. Os dados sao enriquecidos automaticamente visitando os sites dos negocios.' },
+  { q: 'Funciona para qualquer nicho?', a: 'Sim. Qualquer negocio cadastrado no Google Maps pode ser extraido: advogados, dentistas, restaurantes, lojas, oficinas, imobiliarias, construtoras, clinicas, academias e muito mais.' },
+  { q: 'Posso usar os leads para disparar no WhatsApp?', a: 'Sim. O GeoLeads tem disparador assistido com fila inteligente, intervalos entre mensagens e templates personalizados para voce abordar cada lead sem risco de bloqueio.' },
+];
+
 export async function generateStaticParams() {
   return getAllCitySlugs().map(slug => ({ slug }));
 }
@@ -22,14 +32,14 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     openGraph: {
       title,
       description,
-      url: `https://geoleads-production.up.railway.app/cidade/${city.slug}`,
+      url: `${APP_URL}/cidade/${city.slug}`,
       siteName: 'GeoLeads',
       type: 'website',
       locale: 'pt_BR',
     },
     twitter: { card: 'summary_large_image', title, description },
     robots: { index: true, follow: true },
-    alternates: { canonical: `https://geoleads-production.up.railway.app/cidade/${city.slug}` },
+    alternates: { canonical: `${APP_URL}/cidade/${city.slug}` },
   };
 }
 
@@ -50,12 +60,42 @@ export default function CityPage({ params }: { params: { slug: string } }) {
     );
   }
 
+  const cityNichePages = NICHE_EXAMPLES.slice(0, 10).map(n => ({
+    name: n,
+    slug: slugify(n),
+    url: `${APP_URL}/nicho/${slugify(n)}/${city.slug}`,
+  }));
+
   const similarCities = CITIES
     .filter(c => c.state === city.state && c.name !== city.name)
     .slice(0, 6);
 
+  const cityName = `${city.name}${city.state ? `, ${city.state}` : ''}`;
+
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqData.map(item => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  };
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'GeoLeads', item: APP_URL },
+      { '@type': 'ListItem', position: 2, name: `Extrair leads ${city.name}`, item: `${APP_URL}/cidade/${city.slug}` },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -63,20 +103,30 @@ export default function CityPage({ params }: { params: { slug: string } }) {
               Geo<span className="text-blue-400">Leads</span>
             </span>
           </Link>
-          <Link href="/login?next=/app/dashboard" className="px-5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-sm font-bold transition-colors">
-            Testar Gratis
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/blog" className="text-sm text-gray-400 hover:text-white transition-colors hidden sm:inline">Blog</Link>
+            <Link href="/login?next=/app/dashboard" className="px-5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-sm font-bold transition-colors">
+              Testar Gratis
+            </Link>
+          </div>
         </div>
       </nav>
 
       <main className="max-w-6xl mx-auto px-4 py-12 lg:py-20">
+        {/* Breadcrumbs visiveis */}
+        <nav className="text-sm text-gray-500 mb-8 flex flex-wrap items-center gap-1" aria-label="Breadcrumb">
+          <Link href="/" className="hover:text-white transition-colors">GeoLeads</Link>
+          <span>/</span>
+          <span className="text-gray-300">Extrair leads {city.name}</span>
+        </nav>
+
         <section className="text-center mb-16">
           <h1 className="text-3xl sm:text-5xl font-extrabold mb-6 leading-tight">
-            Extrair Leads de <span className="text-blue-400">{city.name}{city.state ? `, ${city.state}` : ''}</span>
+            Extrair Leads de <span className="text-blue-400">{cityName}</span>
           </h1>
           <p className="text-lg sm:text-xl text-gray-400 max-w-3xl mx-auto mb-8 leading-relaxed">
             Encontre telefone, email, site, WhatsApp e redes sociais de negocios em {city.name} automaticamente.
-            Nossa ferramenta extrai leads do Google Maps em minutos.
+            Nossa ferramenta extrai leads do Google Maps em minutos. Ideal para quem quer prospectar clientes em {city.name} sem gastar horas navegando manualmente.
           </p>
           <Link
             href={`/login?next=/app/dashboard`}
@@ -110,9 +160,67 @@ export default function CityPage({ params }: { params: { slug: string } }) {
           </h2>
           <div className="flex flex-wrap justify-center gap-3">
             {NICHE_EXAMPLES.slice(0, 20).map(niche => (
-              <span key={niche} className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300">
-                {niche.charAt(0).toUpperCase() + niche.slice(1)}
-              </span>
+              <Link
+                key={niche}
+                href={`/nicho/${slugify(niche)}/${city.slug}`}
+                className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300 hover:text-white hover:border-blue-400 transition-colors"
+              >
+                {niche.charAt(0).toUpperCase() + niche.slice(1)} em {city.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">
+            Por que extrair leads de {city.name}?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-2xl p-6">
+              <h3 className="font-bold text-lg mb-3">Economia de tempo</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Em vez de passar horas copiando telefone por telefone do Google Maps, o GeoLeads extrai automaticamente
+                centenas de leads de {city.name} em minutos. O que levava um dia inteiro, agora leva uma pausa do cafe.
+              </p>
+            </div>
+            <div className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-2xl p-6">
+              <h3 className="font-bold text-lg mb-3">Dados completos</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Nao so telefone. Cada lead de {city.name} vem com site, email, CNPJ, Instagram, Facebook e TikTok
+                quando disponiveis. Quanto mais dados, mais canais de abordagem e maior chance de conversao.
+              </p>
+            </div>
+            <div className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-2xl p-6">
+              <h3 className="font-bold text-lg mb-3">Segmentacao precisa</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Escolha exatamente o nicho que voce quer atingir: dentistas, advogados, restaurantes, academias.
+                O GeoLeads busca apenas negocios do segmento escolhido dentro de {city.name}, sem ruido.
+              </p>
+            </div>
+            <div className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-2xl p-6">
+              <h3 className="font-bold text-lg mb-3">Abordagem integrada</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Apos extrair, salve os leads no CRM integrado e dispare mensagens personalizadas pelo WhatsApp
+                com templates de IA. Tudo em um lugar so, sem precisar de ferramentas externas.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">
+            Paginas de nicho em {city.name}
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {cityNichePages.map(n => (
+              <Link
+                key={n.url}
+                href={n.url.replace(APP_URL, '')}
+                className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-xl p-4 text-center hover:border-blue-400 transition-all text-sm"
+              >
+                <span className="text-gray-300 hover:text-white">{n.name.charAt(0).toUpperCase() + n.name.slice(1)}</span>
+                <span className="block text-xs text-gray-500 mt-1">{city.name}</span>
+              </Link>
             ))}
           </div>
         </section>
@@ -154,6 +262,42 @@ export default function CityPage({ params }: { params: { slug: string } }) {
           </div>
         </section>
 
+        {/* FAQ + FAQ Schema */}
+        <section className="mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">
+            Perguntas frequentes sobre extracao de leads em {city.name}
+          </h2>
+          <div className="max-w-3xl mx-auto space-y-3">
+            {faqData.map((item, i) => (
+              <details key={i} className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-xl p-4 group open:border-blue-500/30 transition-all cursor-pointer">
+                <summary className="text-sm sm:text-base font-bold text-gray-200 group-open:text-blue-300 transition-colors list-none flex items-center justify-between gap-3">
+                  {item.q}
+                  <span className="text-blue-400 text-lg shrink-0 group-open:rotate-180 transition-transform">▾</span>
+                </summary>
+                <p className="mt-3 text-xs sm:text-sm text-gray-400 leading-relaxed border-t border-white/5 pt-3">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        {similarCities.length > 0 && (
+          <section className="mb-16 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">Quer explorar outras cidades?</h2>
+            <p className="text-gray-400 mb-6">Veja tambem paginas de nicho especifico em {city.name}:</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {NICHE_EXAMPLES.slice(0, 10).map(niche => (
+                <Link
+                  key={niche}
+                  href={`/nicho/${slugify(niche)}`}
+                  className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300 hover:text-white hover:border-blue-400 transition-colors"
+                >
+                  {niche.charAt(0).toUpperCase() + niche.slice(1)}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="text-center bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/20 rounded-2xl p-8 lg:p-12">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">
             Comece a extrair leads de {city.name} agora
@@ -173,6 +317,8 @@ export default function CityPage({ params }: { params: { slug: string } }) {
           <Link href="/" className="hover:text-white transition-colors">GeoLeads</Link>
           {' - '}
           <Link href="/pricing" className="hover:text-white transition-colors">Precos</Link>
+          {' - '}
+          <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
           {' - '}
           <Link href="/privacy" className="hover:text-white transition-colors">Privacidade</Link>
           {' - '}
