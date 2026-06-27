@@ -97,7 +97,7 @@ export async function PATCH(
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: 'Erro ao atualizar job' }, { status: 500 });
+    if (error || !data) return NextResponse.json({ error: 'Erro ao atualizar job' }, { status: 500 });
     return NextResponse.json({ success: true, job: data });
   } catch (err: any) {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });

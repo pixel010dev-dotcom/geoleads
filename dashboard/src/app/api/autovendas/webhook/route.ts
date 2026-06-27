@@ -42,12 +42,12 @@ export async function POST(request: Request) {
       })
       .eq('id', lead.id);
 
-    const { data: camp } = await supabase
+    const { data: camp, error: campError } = await supabase
       .from('autovendas_campaigns')
       .select('total_responses')
       .eq('id', campaignId)
-      .single();
-    if (camp) {
+      .maybeSingle();
+    if (!campError && camp) {
       await supabase
         .from('autovendas_campaigns')
         .update({ total_responses: (camp.total_responses || 0) + 1 })

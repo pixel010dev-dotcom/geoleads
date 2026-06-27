@@ -15,13 +15,14 @@ export async function PATCH(
   const supabase = createAdminSupabaseClient();
   const body = await request.json();
 
-  const { data: campaign } = await supabase
+  const { data: campaign, error: findError } = await supabase
     .from('autovendas_campaigns')
     .select('*')
     .eq('id', id)
     .eq('user_id', auth.user.id)
-    .single();
+    .maybeSingle();
 
+  if (findError) return NextResponse.json({ error: 'Erro ao buscar campanha.' }, { status: 500 });
   if (!campaign) return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });
 
   let update: Record<string, any> = {};
@@ -48,7 +49,7 @@ export async function PATCH(
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data) return NextResponse.json({ error: error?.message || 'Erro ao atualizar campanha' }, { status: 500 });
   return NextResponse.json({ success: true, campaign: data });
 }
 

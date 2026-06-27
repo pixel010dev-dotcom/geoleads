@@ -37,7 +37,7 @@ async function updateJob(jobId: string, updates: Record<string, any>): Promise<v
     ]);
     if (error) throw error;
   } catch (e: any) {
-    console.error(`[EXTRACT] updateJob: FAILED for job ${jobId}:`, e.message || e);
+    console.error(`[EXTRACT] updateJob: FAILED for job ${jobId}:`, e?.message || e);
     throw e; // Propagar erro para que as retentativas funcionem
   }
 }
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
           message,
           search_time_seconds: Math.round((Date.now() - extractionStartTime) / 1000),
         }).catch((e: any) => {
-          console.warn('[EXTRACT] onProgress update failed (non-critical):', e.message || e);
+          console.warn('[EXTRACT] onProgress update failed (non-critical):', e?.message || e);
         });
       },
       onDone: async (result) => {
@@ -263,7 +263,7 @@ export async function POST(request: Request) {
           try {
             await updateJob(jobId, jobUpdate);
           } catch (e: any) {
-            console.error(`[EXTRACT] Final update failed for job ${jobId}, retries=${retries}:`, e.message || e);
+            console.error(`[EXTRACT] Final update failed for job ${jobId}, retries=${retries}:`, e?.message || e);
             if (retries > 0) {
               await new Promise(r => setTimeout(r, 2000));
               return doFinalUpdate(retries - 1);
@@ -277,7 +277,7 @@ export async function POST(request: Request) {
                 error: result.error || `Leads salvos parcialmente. Tente atualizar a página.`,
               });
             } catch (e2: any) {
-              console.error(`[EXTRACT] Even minimal update FAILED for job ${jobId}:`, e2.message || e2);
+              console.error(`[EXTRACT] Even minimal update FAILED for job ${jobId}:`, e2?.message || e2);
             }
           }
         };
@@ -292,9 +292,12 @@ export async function POST(request: Request) {
         }
       },
       shouldCancel: async () => {
-        const supabase = createAdminSupabaseClient();
-        const { data } = await supabase.from('extraction_jobs').select('status').eq('id', jobId).single();
-        return data?.status === 'cancelled';
+        try {
+          const supabase = createAdminSupabaseClient();
+          const { data, error } = await supabase.from('extraction_jobs').select('status').eq('id', jobId).maybeSingle();
+          if (error || !data) return false;
+          return data.status === 'cancelled';
+        } catch { return false; }
       },
     }).catch((err) => {
       console.error('[EXTRACT] Background extraction failed:', err);

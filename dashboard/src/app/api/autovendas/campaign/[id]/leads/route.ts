@@ -14,12 +14,13 @@ export async function GET(
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
-  const { data: campaign } = await supabase
+  const { data: campaign, error: campError } = await supabase
     .from('autovendas_campaigns')
     .select('user_id')
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
+  if (campError) return NextResponse.json({ error: 'Erro ao buscar campanha.' }, { status: 500 });
   if (!campaign || campaign.user_id !== auth.user.id) {
     return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });
   }
