@@ -10,7 +10,7 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-const googleVerification = '2xD0DF7y2_22UwNCUufufnKH5OmElr2qv2faSiotQNw';
+const googleVerification = 'Hp8q0blbMExSdzZSqYjSS-cjEEUoxSEKCrKIVnqBb7M';
 
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies();
