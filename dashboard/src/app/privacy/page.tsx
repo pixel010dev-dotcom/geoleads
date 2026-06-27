@@ -1,40 +1,67 @@
-"use client";
-
-import Link from 'next/link';
-import { useTranslations } from '@/lib/i18n';
+export const metadata = {
+  title: 'Política de Privacidade - GeoLeads',
+  description: 'Política de privacidade do GeoLeads - entenda como tratamos seus dados.',
+};
 
 export default function PrivacyPage() {
-  const { t } = useTranslations();
-
   return (
-    <div className="min-h-screen text-white font-sans selection:bg-blue-500/30 bg-black relative overflow-x-hidden">
-      <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-30" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(600px,92vw)] h-[200px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
+    <main className="min-h-screen bg-black text-gray-300 py-20 px-4">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold text-white mb-8">Política de Privacidade</h1>
+        <p className="text-sm text-gray-500 mb-8">Última atualização: 27 de junho de 2026</p>
 
-      <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="app-container min-h-14 py-2 flex items-center justify-between gap-3">
-          <Link href="/" className="font-extrabold text-lg tracking-tight text-white">Geo<span className="text-blue-400">Leads</span></Link>
-          <Link href="/" className="text-xs text-gray-400 hover:text-white transition-colors">{t('privacy.back')}</Link>
-        </div>
-      </nav>
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-3">1. Coleta de Dados</h2>
+          <p className="mb-3">O GeoLeads coleta os seguintes dados para funcionamento do serviço:</p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Nome, email e telefone do usuário (cadastro)</li>
+            <li>Dados de leads extraídos do Google Maps (informações públicas)</li>
+            <li>Histórico de extrações e uso do sistema</li>
+            <li>Informações de pagamento (processadas pelo Mercado Pago, não armazenamos dados de cartão)</li>
+          </ul>
+        </section>
 
-      <main className="app-container py-10 sm:py-16 relative z-10 max-w-3xl">
-        <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">{t('privacy.title')}</h1>
-        <p className="text-sm text-gray-500 mb-8">{t('privacy.updated')}</p>
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-3">2. Uso dos Dados</h2>
+          <p>Os dados coletados são utilizados exclusivamente para:</p>
+          <ul className="list-disc pl-6 space-y-2 mt-2">
+            <li>Fornecer e melhorar o serviço de extração de leads</li>
+            <li>Processar pagamentos e gerenciar planos</li>
+            <li>Enviar comunicações relacionadas ao serviço</li>
+            <li>Cumprir obrigações legais e regulatórias</li>
+          </ul>
+        </section>
 
-        <div className="space-y-6 text-sm sm:text-base text-gray-300 leading-relaxed">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-            <section key={i}>
-              <h2 className="text-lg font-bold text-white mb-2">{t(`privacy.sections.${i}.title`)}</h2>
-              <p>{t(`privacy.sections.${i}.text`)}</p>
-            </section>
-          ))}
-        </div>
-      </main>
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-3">3. Armazenamento e Segurança</h2>
+          <p>Seus dados são armazenados em servidores seguros com criptografia. Utilizamos Supabase (PostgreSQL) com políticas de segurança RLS e conexões SSL/TLS.</p>
+        </section>
 
-      <footer className="border-t border-white/5 mt-12 py-6 text-center text-xs text-gray-600">
-        <p>&copy; 2026 GeoLeads. Todos os direitos reservados.</p>
-      </footer>
-    </div>
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-3">4. Compartilhamento de Dados</h2>
+          <p>Não vendemos, alugamos ou compartilhamos seus dados pessoais com terceiros, exceto quando necessário para:</p>
+          <ul className="list-disc pl-6 space-y-2 mt-2">
+            <li>Processamento de pagamentos (Mercado Pago)</li>
+            <li>Cumprimento de obrigações legais</li>
+            <li>Proteção contra fraudes e abusos</li>
+          </ul>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-3">5. Seus Direitos</h2>
+          <p>Você tem direito a acessar, corrigir ou excluir seus dados a qualquer momento. Para isso, entre em contato pelo email: contato@geoleads.com.br</p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-3">6. Cookies</h2>
+          <p>Utilizamos cookies essenciais para o funcionamento do sistema. Não utilizamos cookies de rastreamento ou publicidade sem seu consentimento explícito.</p>
+        </section>
+
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-3">7. Contato</h2>
+          <p>Para questões sobre privacidade: <a href="mailto:contato@geoleads.com.br" className="text-blue-400 hover:underline">contato@geoleads.com.br</a></p>
+        </section>
+      </div>
+    </main>
   );
 }

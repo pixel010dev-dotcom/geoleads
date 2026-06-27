@@ -28,6 +28,7 @@ create table if not exists public.crm_leads (
   instagram text,
   facebook text,
   tiktok text,
+  linkedin text,
   cnpj text,
   stage text not null default 'Novo',
   notes text not null default '',

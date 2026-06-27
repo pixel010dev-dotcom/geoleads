@@ -130,6 +130,37 @@ async function searchTiktok(name: string, city?: string): Promise<{ url?: string
   }
 }
 
+async function searchLinkedin(name: string, city?: string): Promise<{ url?: string; score: number }> {
+  try {
+    const query = encodeURIComponent(`${name} ${city || ''} linkedin`);
+    const res = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!res.ok) return { score: 0 };
+    const html = await res.text();
+
+    const liRegex = /https?:\/\/(?:www\.)?linkedin\.com\/(company|school)\/([a-zA-Z0-9\-_.]+)/g;
+    let match: RegExpExecArray | null;
+    let bestUrl = '';
+    let bestScore = 0;
+
+    while ((match = liRegex.exec(html))) {
+      const url = match[0].split('?')[0];
+      const pageName = match[2].replace(/[._\-]/g, ' ');
+      const score = scoreMatch(name, pageName);
+      if (score > bestScore && score >= 40) {
+        bestScore = score;
+        bestUrl = url;
+      }
+    }
+
+    return { url: bestUrl || undefined, score: bestScore };
+  } catch {
+    return { score: 0 };
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUser(request);
@@ -179,10 +210,11 @@ export async function POST(request: Request) {
     let totalScore = 0;
     let foundCount = 0;
 
-    const [insta, fb, tt] = await Promise.all([
+    const [insta, fb, tt, li] = await Promise.all([
       searchInstagram(name, city),
       searchFacebook(name, city),
-      searchTiktok(name, city)
+      searchTiktok(name, city),
+      searchLinkedin(name, city)
     ]);
 
     if (insta.url && insta.score >= 40) {
@@ -200,6 +232,11 @@ export async function POST(request: Request) {
       totalScore += tt.score;
       foundCount++;
     }
+    if (li.url && li.score >= 40) {
+      results.linkedin = li.url;
+      totalScore += li.score;
+      foundCount++;
+    }
 
     results.confidence_score = foundCount > 0 ? Math.round(totalScore / foundCount) : 0;
 
@@ -211,6 +248,7 @@ export async function POST(request: Request) {
         instagram: results.instagram || '',
         facebook: results.facebook || '',
         tiktok: results.tiktok || '',
+        linkedin: results.linkedin || '',
         confidence_score: results.confidence_score,
         source: 'search'
       });

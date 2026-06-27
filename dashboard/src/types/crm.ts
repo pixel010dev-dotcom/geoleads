@@ -13,6 +13,7 @@ export interface CrmLead {
   instagram: string;
   facebook: string;
   tiktok: string;
+  linkedin: string;
   cnpj: string;
   stage: string;
   notes: string;
@@ -34,6 +35,7 @@ export interface CrmLeadRow {
   instagram: string;
   facebook: string;
   tiktok: string;
+  linkedin: string;
   cnpj: string;
   stage: string;
   notes: string;

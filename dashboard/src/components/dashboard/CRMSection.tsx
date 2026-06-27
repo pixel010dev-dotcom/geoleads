@@ -34,6 +34,7 @@ function exportCrmToCsv(t: Function, leads: CrmLead[], filename: string) {
     [t('crm.csvInstagram')]: 'instagram',
     [t('crm.csvFacebook')]: 'facebook',
     [t('crm.csvTiktok')]: 'tiktok',
+    [t('crm.csvLinkedin')]: 'linkedin',
     [t('crm.csvCnpj')]: 'cnpj',
   };
   const rows = leads.map(l => cols.map(c => {
@@ -60,6 +61,7 @@ function computeQualityScore(lead: CrmLead): number {
   if (lead.instagram) score += 1;
   if (lead.facebook) score += 1;
   if (lead.tiktok) score += 1;
+  if (lead.linkedin) score += 1;
   return score;
 }
 
@@ -458,6 +460,9 @@ export default function CRMSection({
                     {lead.tiktok && (
                       <a href={lead.tiktok} target="_blank" className="text-cyan-300 block hover:underline">🎵 TikTok</a>
                     )}
+                    {lead.linkedin && (
+                      <a href={lead.linkedin} target="_blank" className="text-blue-700 block hover:underline">💼 LinkedIn</a>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-4">
@@ -620,6 +625,11 @@ export default function CRMSection({
                 {lead.tiktok && (
                   <a href={lead.tiktok} target="_blank" className="text-xs text-cyan-300 flex items-center gap-2 hover:underline">
                     <span className="opacity-60">🎵</span> TikTok
+                  </a>
+                )}
+                {lead.linkedin && (
+                  <a href={lead.linkedin} target="_blank" className="text-xs text-blue-700 flex items-center gap-2 hover:underline">
+                    <span className="opacity-60">💼</span> LinkedIn
                   </a>
                 )}
               </div>

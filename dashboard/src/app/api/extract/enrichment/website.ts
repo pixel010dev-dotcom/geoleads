@@ -37,6 +37,7 @@ export async function enrichLead(lead: any): Promise<any> {
   lead.instagram = lead.instagram || '';
   lead.facebook = lead.facebook || '';
   lead.tiktok = lead.tiktok || '';
+  lead.linkedin = lead.linkedin || '';
   lead.cnpj = lead.cnpj || '';
 
   if (!lead.site || lead.site === 'Sem site') return lead;
@@ -62,6 +63,7 @@ export async function enrichLead(lead: any): Promise<any> {
       if (!lead.instagram) lead.instagram = cached.instagram;
       if (!lead.facebook) lead.facebook = cached.facebook;
       if (!lead.tiktok) lead.tiktok = cached.tiktok;
+      if (!lead.linkedin) lead.linkedin = cached.linkedin;
       return lead;
     }
 
@@ -108,6 +110,7 @@ export async function enrichLead(lead: any): Promise<any> {
         instagram: lead.instagram,
         facebook: lead.facebook,
         tiktok: lead.tiktok,
+        linkedin: lead.linkedin,
       });
     }
   } catch (e) { console.error(e); }

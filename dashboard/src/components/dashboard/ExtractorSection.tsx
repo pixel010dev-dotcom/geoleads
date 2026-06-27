@@ -387,7 +387,10 @@ export default function ExtractorSection({
                             {lead.tiktok && (
                               <a href={lead.tiktok} target="_blank" className="text-cyan-300 text-xs hover:underline">🎵 TikTok</a>
                             )}
-                            {!lead.instagram && !lead.facebook && !lead.tiktok && (
+                            {lead.linkedin && (
+                              <a href={lead.linkedin} target="_blank" className="text-blue-700 text-xs hover:underline">💼 LinkedIn</a>
+                            )}
+                            {!lead.instagram && !lead.facebook && !lead.tiktok && !lead.linkedin && (
                               <span className="text-gray-600 text-xs">—</span>
                             )}
                           </div>
@@ -504,6 +507,9 @@ export default function ExtractorSection({
                           )}
                           {lead.tiktok && (
                             <a href={lead.tiktok} target="_blank" className="text-cyan-300 text-xs hover:underline bg-cyan-500/5 px-2 py-1 rounded border border-cyan-500/10">🎵 TikTok</a>
+                          )}
+                          {lead.linkedin && (
+                            <a href={lead.linkedin} target="_blank" className="text-blue-700 text-xs hover:underline bg-blue-700/5 px-2 py-1 rounded border border-blue-700/10">💼 LinkedIn</a>
                           )}
                         </div>
 

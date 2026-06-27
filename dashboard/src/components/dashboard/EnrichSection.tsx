@@ -33,8 +33,8 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const batchIdRef = useRef<string | null>(null);
 
-  const enrichedLeads = crmLeads.filter(l => l.email || l.instagram || l.facebook || l.tiktok);
-  const needsEnrichment = crmLeads.filter(l => !l.email && !l.instagram && !l.facebook && !l.tiktok);
+  const enrichedLeads = crmLeads.filter(l => l.email || l.instagram || l.facebook || l.tiktok || l.linkedin);
+  const needsEnrichment = crmLeads.filter(l => !l.email && !l.instagram && !l.facebook && !l.tiktok && !l.linkedin);
 
   useEffect(() => {
     return () => {

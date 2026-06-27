@@ -67,6 +67,7 @@ function mergeLeadsData(existing: SearchLead, incoming: SearchLead): SearchLead 
     instagram: existing.instagram || incoming.instagram,
     facebook: existing.facebook || incoming.facebook,
     tiktok: existing.tiktok || incoming.tiktok,
+    linkedin: existing.linkedin || incoming.linkedin,
     cnpj: existing.cnpj || incoming.cnpj,
   };
 }

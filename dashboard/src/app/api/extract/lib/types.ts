@@ -13,6 +13,7 @@ export interface SearchLead {
   instagram: string;
   facebook: string;
   tiktok: string;
+  linkedin: string;
   cnpj: string;
   cidade?: string;
   hasWhatsApp?: boolean;
@@ -22,7 +23,7 @@ export function createEmptySearchLead(): SearchLead {
   return {
     nome: '', telefone: 'Não informado', site: 'Sem site', endereco: '',
     avaliacao: 'N/A', reviewCount: '', categoria: '', horarios: '', cep: '',
-    placeUrl: '', email: '', instagram: '', facebook: '', tiktok: '', cnpj: ''
+    placeUrl: '', email: '', instagram: '', facebook: '', tiktok: '', linkedin: '', cnpj: ''
   };
 }
 
@@ -32,12 +33,13 @@ export interface MapsPlaceExtraData {
   instagram: string;
   facebook: string;
   tiktok: string;
+  linkedin: string;
   endereco: string;
   horarios: string;
 }
 
 export function emptyMapsPlaceExtraData(): MapsPlaceExtraData {
-  return { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', endereco: '', horarios: '' };
+  return { telefone: '', site: '', instagram: '', facebook: '', tiktok: '', linkedin: '', endereco: '', horarios: '' };
 }
 
 export interface EnrichmentData {
@@ -46,6 +48,7 @@ export interface EnrichmentData {
   instagram: string;
   facebook: string;
   tiktok: string;
+  linkedin: string;
 }
 
 export interface ExtractionJob {
@@ -238,6 +241,7 @@ export function scoreLeadQuality(lead: SearchLead): { score: number; tier: Score
   if (lead.instagram) score += 8;
   if (lead.facebook) score += 8;
   if (lead.tiktok) score += 8;
+  if (lead.linkedin) score += 8;
   if (lead.avaliacao !== 'N/A') score += 5;
   if (lead.placeUrl) score += 5;
   if (lead.categoria) score += 3;
@@ -251,6 +255,7 @@ export function scoreLeadQuality(lead: SearchLead): { score: number; tier: Score
     !!lead.instagram,
     !!lead.facebook,
     !!lead.tiktok,
+    !!lead.linkedin,
   ].filter(Boolean).length;
   if (contactChannels >= 3) score += 10;
   else if (contactChannels >= 2) score += 5;
