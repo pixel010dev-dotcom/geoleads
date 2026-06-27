@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createRequestSupabaseClient, getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
-import { refundReservation } from '@/lib/billing';
 
 export async function POST(request: Request) {
   try {
@@ -20,7 +19,7 @@ export async function POST(request: Request) {
     // Verifica se o job pertence ao usuario e esta running
     const { data: job, error: jobError } = await supabase
       .from('extraction_jobs')
-      .select('id, status, reservation_id')
+      .select('id, status, leads_count')
       .eq('id', jobId)
       .eq('user_id', auth.user.id)
       .single();
@@ -33,12 +32,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Job já foi finalizado' }, { status: 409 });
     }
 
-    // Reembolso atômico da reserva
-    if (job.reservation_id) {
-      const refundResult = await refundReservation(job.reservation_id);
-      if ('error' in refundResult) {
-        console.error('[CANCEL] Falha ao reembolsar:', refundResult.error);
-        return NextResponse.json({ error: 'Falha ao processar reembolso' }, { status: 500 });
+    // Reembolsa tokens via admin client
+    const leadsConsumed = job.leads_count || 0;
+    if (leadsConsumed > 0) {
+      const { error: refundError } = await adminSupabase.rpc('credit_tokens_with_history', {
+        p_user_id: auth.user.id,
+        p_tokens_to_add: leadsConsumed,
+        p_new_plan_id: auth.planId || 'free',
+        p_mp_payment_id: `refund_cancel_${jobId}`,
+        p_amount: 0,
+      });
+      if (refundError) {
+        console.error('[CANCEL] Falha ao reembolsar tokens:', refundError);
       }
     }
 
@@ -48,7 +53,7 @@ export async function POST(request: Request) {
       .update({
         status: 'cancelled',
         completed_at: new Date().toISOString(),
-        message: 'Extração cancelada pelo usuário. Tokens reembolsados.',
+        message: leadsConsumed > 0 ? 'Extração cancelada. Tokens reembolsados.' : 'Extração cancelada.',
       })
       .eq('id', jobId)
       .eq('user_id', auth.user.id)
@@ -56,17 +61,17 @@ export async function POST(request: Request) {
       .single();
 
     if (updateError) {
-      console.error('[CANCEL] Falha ao atualizar job:', updateError.message);
+      console.error('[CANCEL] Falha ao atualizar job:', updateError?.message || updateError);
       return NextResponse.json({ error: 'Falha ao cancelar extração' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Extração cancelada e tokens reembolsados.',
+      message: leadsConsumed > 0 ? 'Extração cancelada e tokens reembolsados.' : 'Extração cancelada.',
       job: updatedJob,
     });
   } catch (err: any) {
-    console.error('[CANCEL] Erro:', err.message);
+    console.error('[CANCEL] Erro:', err?.message || err);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

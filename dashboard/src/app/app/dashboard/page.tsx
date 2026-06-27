@@ -617,9 +617,11 @@ export default function Home() {
   }, []);
 
   const enrichedLeadKeysRef = useRef(new Set<string>());
+  const isEnrichingRef = useRef(false);
 
   useEffect(() => {
     if (!mountedRef.current || crmLeads.length === 0) return;
+    if (isEnrichingRef.current) return;
     const needsEnrichment = crmLeads.filter(l => {
       if (enrichedLeadKeysRef.current.has(getLeadKey(l))) return false;
       if (l.email || l.instagram || l.facebook || l.tiktok) return false;
@@ -628,7 +630,9 @@ export default function Home() {
     });
     if (needsEnrichment.length === 0) return;
     for (const l of needsEnrichment) enrichedLeadKeysRef.current.add(getLeadKey(l));
+    isEnrichingRef.current = true;
     startBatchEnrichment(needsEnrichment, (enrichments) => {
+      isEnrichingRef.current = false;
       setCrmLeads(prev => {
         const merged = prev.map(l => {
           const key = getLeadKey(l);

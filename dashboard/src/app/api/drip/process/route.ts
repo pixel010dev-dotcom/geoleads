@@ -4,8 +4,15 @@ import { sendDripEmail } from '@/lib/email';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const CRON_SECRET = process.env.CRON_SECRET || '';
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')?.replace('Bearer ', '') || '';
+  const querySecret = req.nextUrl.searchParams.get('secret') || '';
+  if (CRON_SECRET && authHeader !== CRON_SECRET && querySecret !== CRON_SECRET) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  }
+
   if (!SUPABASE_SERVICE_KEY || !SUPABASE_URL) {
     return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
   }

@@ -32,7 +32,7 @@ async function fetchCnpjFromReceita(cnpj: string) {
       uf: data.uf || '',
       cep: data.cep || '',
       situacao: data.situacao_cadastral || '',
-      atividade_principal: data.descricao_tipo_de_logradouro || '',
+      atividade_principal: data.cnae_fiscal_descricao || data.descricao_atividade_principal?.[0]?.text || '',
       naturezas_juridica: data.natureza_juridica || '',
       data_abertura: data.data_inicio_atividade || '',
       site: '',
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
       const receitaData = await fetchCnpjFromReceita(normalized);
       if (receitaData) {
-        await supabase.from('cnpj_companies').insert(receitaData);
+        await supabase.from('cnpj_companies').upsert(receitaData, { onConflict: 'cnpj' });
         return NextResponse.json({ success: true, source: 'receita_federal', data: receitaData });
       }
 

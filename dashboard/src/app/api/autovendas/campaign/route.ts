@@ -31,8 +31,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Preencha nicho, região e mensagem.' }, { status: 400 });
   }
 
+  const AUTOVENDAS_PRICE_PER_LEAD = Number(process.env.AUTOVENDAS_PRICE_PER_LEAD) || 0.5;
   const leadsAlvo = Math.min(200, Math.max(10, Number(body.leads_alvo) || 50));
-  const price = leadsAlvo * 0.5;
+  const price = leadsAlvo * AUTOVENDAS_PRICE_PER_LEAD;
 
   const { data, error } = await supabase.from('autovendas_campaigns').insert({
     user_id: auth.user.id,

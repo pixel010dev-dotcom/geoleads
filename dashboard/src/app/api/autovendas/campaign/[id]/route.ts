@@ -63,6 +63,18 @@ export async function DELETE(
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
+  const { data: campaign } = await supabase
+    .from('autovendas_campaigns')
+    .select('status')
+    .eq('id', id)
+    .eq('user_id', auth.user.id)
+    .maybeSingle();
+
+  if (!campaign) return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });
+  if (campaign.status === 'running') {
+    return NextResponse.json({ error: 'Não é possível excluir uma campanha em execução.' }, { status: 400 });
+  }
+
   const { error } = await supabase
     .from('autovendas_campaigns')
     .delete()

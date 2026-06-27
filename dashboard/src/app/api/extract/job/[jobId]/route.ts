@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createRequestSupabaseClient, getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
-import { refundReservation, getReservationByJobId } from '@/lib/billing';
 
 export async function GET(
   _request: Request,
@@ -76,12 +75,24 @@ export async function PATCH(
     }
 
     if (body.status === 'cancelled') {
-      // Reembolso atomico da reserva ANTES de marcar como cancelado
-      const reservation = await getReservationByJobId(jobId);
-      if (reservation) {
-        const refundResult = await refundReservation(reservation.id);
-        if ('error' in refundResult) {
-          console.error('[BILLING] Falha ao reembolsar no cancelamento:', refundResult.error);
+      const { data: job } = await supabase
+        .from('extraction_jobs')
+        .select('leads_count')
+        .eq('id', jobId)
+        .eq('user_id', auth.user.id)
+        .maybeSingle();
+      const leadsConsumed = job?.leads_count || 0;
+      if (leadsConsumed > 0) {
+        try {
+          await adminSupabase.rpc('credit_tokens_with_history', {
+            p_user_id: auth.user.id,
+            p_tokens_to_add: leadsConsumed,
+            p_new_plan_id: 'free',
+            p_mp_payment_id: `refund_patch_${jobId}`,
+            p_amount: 0,
+          });
+        } catch (e: any) {
+          console.error('[BILLING] Falha ao reembolsar no cancelamento:', e?.message || e);
         }
       }
     }

@@ -428,6 +428,7 @@ const startBotSession = async (session: BotSession) => {
         session.status = 'connecting';
         session.lastError = `Reconectando WhatsApp (${session.reconnectAttempts}/${maxRetries}). Código: ${session.lastDisconnectCode}`;
 
+        session.socket?.end?.();
         setTimeout(() => {
           startBotSession(session).catch((error) => {
             session.status = 'error';
@@ -495,27 +496,23 @@ const startBotSession = async (session: BotSession) => {
         const supabaseAdmin = createAdminSupabaseClient();
 
         // Store incoming message
-        (async () => {
-          try {
-            await supabaseAdmin.from('chatbot_conversations').insert({
-              user_id: session.userId,
-              contact_jid: jid,
-              contact_name: senderName,
-              contact_phone: contactPhone,
-              message_text: text,
-              direction: 'incoming',
-              rule_id: null,
-            });
-          } catch (e) { console.error(e); }
-        })();
+        void supabaseAdmin.from('chatbot_conversations').insert({
+          user_id: session.userId,
+          contact_jid: jid,
+          contact_name: senderName,
+          contact_phone: contactPhone,
+          message_text: text,
+          direction: 'incoming',
+          rule_id: null,
+        });
 
         // Auto-capture lead if enabled
         if (session.config.enabled) {
-          (async () => {
+          void (async () => {
             try {
               const { data: profileData } = await supabaseAdmin
                 .from('profiles').select('chatbot_auto_capture, chatbot_capture_stage')
-                .eq('id', session.userId).single();
+                .eq('id', session.userId).maybeSingle();
               if (profileData?.chatbot_auto_capture) {
                 const stage = profileData.chatbot_capture_stage || 'Novo';
                 const key = senderName + contactPhone.slice(-4);
@@ -537,7 +534,7 @@ const startBotSession = async (session: BotSession) => {
                   });
                 }
               }
-            } catch (e) { console.error(e); }
+            } catch (e: any) { console.error(e?.message || e); }
           })();
         }
 
@@ -592,21 +589,20 @@ const startBotSession = async (session: BotSession) => {
         await socket.sendMessage(jid, { text: replyText });
 
         // Store outgoing reply
-        (async () => {
-          try {
-            await supabaseAdmin.from('chatbot_conversations').insert({
-              user_id: session.userId,
-              contact_jid: jid,
-              contact_name: senderName,
-              contact_phone: contactPhone,
-              message_text: replyText,
-              direction: 'outgoing',
-              rule_id: matchedRuleId,
-            });
-          } catch (e) { console.error(e); }
-        })();
+        void supabaseAdmin.from('chatbot_conversations').insert({
+          user_id: session.userId,
+          contact_jid: jid,
+          contact_name: senderName,
+          contact_phone: contactPhone,
+          message_text: replyText,
+          direction: 'outgoing',
+          rule_id: matchedRuleId,
+        });
 
-        session.replyThrottle.set(jid, now);
+        if (!aiResponse) {
+          ChatbotMemory.addTurn(session.userId, jid, { role: 'user', content: text, timestamp: Date.now() }).catch(() => {});
+        }
+
         session.lastReplyAt = new Date().toISOString();
         session.lastReplyText = replyText;
         session.lastMessageAt = session.lastReplyAt;
@@ -775,6 +771,7 @@ export async function POST(request: Request) {
           session.status = 'connecting';
           session.lastError = `Reconectando WhatsApp (${session.reconnectAttempts}/${maxRetries}). Código: ${session.lastDisconnectCode}`;
 
+          session.socket?.end?.();
           setTimeout(async () => {
             try {
               await startBotSession(session);
@@ -819,6 +816,7 @@ export async function POST(request: Request) {
     session.status = 'disconnected';
     session.qr = '';
     session.qrDataUrl = '';
+    getSessionStore().delete(session.userId);
     return NextResponse.json({ success: true, session: getPublicSession(session) });
   }
 
@@ -827,6 +825,7 @@ export async function POST(request: Request) {
       session.socket?.end?.();
     } catch (e) { console.error(e); }
     session.socket = undefined;
+    getSessionStore().delete(session.userId);
 
     const supabase = createAdminSupabaseClient();
     await supabase.from('whatsapp_sessions').delete().eq('user_id', auth.user.id);
