@@ -113,6 +113,7 @@ export async function extractFromDuckDuckGo(
         if (name.length < 3 || name.length > 100) continue;
         if (seenNames.has(name.toLowerCase())) continue;
         if (/^(road|aerial|hybrid|satellite|terrain|street|roadmap|JSWarning|\+n)$/i.test(name)) continue;
+        if (/^(encontre|busque|procure|ache|localize|pesquise|descubra)\s/i.test(name.toLowerCase())) continue;
 
         const lead = createEmptySearchLead();
         lead.nome = name;

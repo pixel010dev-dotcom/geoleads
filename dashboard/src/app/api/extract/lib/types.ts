@@ -188,6 +188,9 @@ export function cleanLeadName(nome: string): string {
 function isJunkResult(nome: string, telefone: string): boolean {
   const n = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+  // Uma única palavra genérica que NUNCA é nome de negócio
+  if (/^(road|aerial|hybrid|satellite|terrain|street|roadmap|jswarning|\+n|sign\s*in|login|register|privacy|terms|search|home|about|contact|help|faq|blog|news|settings|account|profile|dashboard|menu|close|open|back|next|previous|submit|cancel|ok|yes|no|loading|error|warning|success)$/i.test(n)) return true;
+
   // Padrões de página de listagem/diretório
   const junkPatterns = [
     /^\d+\s+(melhore|melhor|top|melhores)(s\s+|e\s+)/i,
@@ -214,6 +217,10 @@ function isJunkResult(nome: string, telefone: string): boolean {
   // "em" aparece duas vezes (categoria com local duplicada)
   // Ex: "Academias em Rio de Janeiro, RJ em Rio de Janeiro, RJ"
   if (/\bem\b.*\bem\b/i.test(nome)) return true;
+
+  // Página de busca/diretório: começa com verbo imperativo
+  // Ex: "Encontre Dentistas", "Busque Advogados"
+  if (/^(encontre|busque|procure|ache|localize|pesquise|descubra)\s/i.test(n)) return true;
 
   // Página de categoria do Google Maps: "SingleWord em Location"
   // Ex: "Academia em Rio", "Academias em SP", "Clinicas em São Paulo"
