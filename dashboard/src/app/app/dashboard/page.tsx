@@ -850,14 +850,17 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.success && data.batchId) {
-        // Poll for results
+        if (batchPollRef.current) clearInterval(batchPollRef.current);
+        const pollStart = Date.now();
+        const MAX_POLL_MS = 300000;
         const poll = setInterval(async () => {
-          if (!mountedRef.current) { clearInterval(poll); return; }
+          if (!mountedRef.current || Date.now() - pollStart > MAX_POLL_MS) { clearInterval(poll); batchPollRef.current = null; setEnrichLoading(false); return; }
           try {
             const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers });
             const pollData = await pollRes.json();
             if (pollData.status === 'completed' || pollData.status === 'failed') {
               clearInterval(poll);
+              batchPollRef.current = null;
               if (pollData.results) {
                 setCrmLeads(prev => {
                   const updated = prev.map(l => {
@@ -872,7 +875,7 @@ export default function Home() {
               showToast(`${pollData.completed} leads enriquecidos!`, 'success');
               setEnrichLoading(false);
             }
-          } catch { clearInterval(poll); setEnrichLoading(false); }
+          } catch { clearInterval(poll); batchPollRef.current = null; setEnrichLoading(false); }
         }, 1500);
         batchPollRef.current = poll;
       } else {

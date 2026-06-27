@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const DRIP_DAYS = [1, 3, 5, 7];
 
 export async function POST(req: NextRequest) {
-  if (!SUPABASE_SERVICE_KEY) {
-    return NextResponse.json({ error: 'Service key not configured' }, { status: 500 });
+  if (!SUPABASE_SERVICE_KEY || !SUPABASE_URL) {
+    return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
   }
 
   const { userId, email, name } = await req.json();

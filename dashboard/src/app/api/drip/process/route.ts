@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendDripEmail } from '@/lib/email';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export async function GET(_req: NextRequest) {
-  if (!SUPABASE_SERVICE_KEY) {
-    return NextResponse.json({ error: 'Service key not configured' }, { status: 500 });
+  if (!SUPABASE_SERVICE_KEY || !SUPABASE_URL) {
+    return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);

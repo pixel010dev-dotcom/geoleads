@@ -361,7 +361,7 @@ export async function POST(request: Request) {
         company_name: nome, city: cidade || '', site: discoveredSite || site || '',
         email: enriched.email || '', instagram: enriched.instagram || '',
         facebook: enriched.facebook || '', tiktok: enriched.tiktok || '',
-        cnpj: enriched.cnpj || '', telefone: enriched.telefone || '',
+        cnpj: enriched.cnpj || '',
         enriched_at: new Date().toISOString(),
       }, { onConflict: 'company_name,city' });
     } catch (e) { console.warn('[ENRICH] step:', e); }
