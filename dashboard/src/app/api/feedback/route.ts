@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient, getAuthUser } from '@/lib/server-auth';
 import { sendFeedbackNotification } from '@/lib/email';
+import { checkApiRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
     const auth = await getAuthUser(request);
     if (!auth) {
       return NextResponse.json({ error: 'Faça login para enviar feedback' }, { status: 401 });
+    }
+
+    const rateLimit = checkApiRateLimit(`feedback:${auth.user.id}`);
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Muitos feedbacks. Aguarde 1 minuto.' }, { status: 429 });
     }
 
     const body = await request.json();

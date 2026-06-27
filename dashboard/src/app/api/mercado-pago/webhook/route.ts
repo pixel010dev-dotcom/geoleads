@@ -23,7 +23,10 @@ function verifyMercadoPagoSignature(request: Request, body: string): boolean {
   if (!ts || !v1) return false;
   const manifest = `id:${body ? JSON.parse(body).data?.id : ''};request-id:${requestId};ts:${ts};`;
   const hmac = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(v1));
+  const hmacBuf = Buffer.from(hmac, 'hex');
+  const v1Buf = Buffer.from(v1, 'hex');
+  if (hmacBuf.length !== v1Buf.length) return false;
+  return crypto.timingSafeEqual(hmacBuf, v1Buf);
 }
 
 async function handlePaymentNotification(paymentId: string) {

@@ -306,9 +306,9 @@ export async function POST(request: Request) {
       console.error('[EXTRACT] Background extraction failed:', err);
       updateJob(jobId, {
         status: 'failed',
-        error: err?.message || 'Erro inesperado',
+        error: err?.message || 'Erro inesperado na extração',
         completed_at: new Date().toISOString(),
-        delivered: true,
+        delivered: false,
       });
       done();
     });

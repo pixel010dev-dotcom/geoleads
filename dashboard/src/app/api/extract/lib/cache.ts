@@ -4,6 +4,7 @@ const queryCache = new Map<string, { leads: any[]; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 const ENRICH_CACHE_TTL = 24 * 60 * 60 * 1000;
 const enrichCache = new Map<string, EnrichmentData & { timestamp: number }>();
+const MAX_QUERY_CACHE_SIZE = 200;
 
 export function getCachedQuery(key: string): any[] | null {
   const cached = queryCache.get(key);
@@ -13,6 +14,10 @@ export function getCachedQuery(key: string): any[] | null {
 
 export function setCachedQuery(key: string, leads: any[]) {
   queryCache.set(key, { leads, timestamp: Date.now() });
+  if (queryCache.size > MAX_QUERY_CACHE_SIZE) {
+    const firstKey = queryCache.keys().next().value;
+    if (firstKey !== undefined) queryCache.delete(firstKey);
+  }
 }
 
 export function generateQueryCacheKey(keyword: string, location: string): string {

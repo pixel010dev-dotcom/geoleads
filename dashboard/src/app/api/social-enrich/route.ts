@@ -241,7 +241,7 @@ export async function POST(request: Request) {
     results.confidence_score = foundCount > 0 ? Math.round(totalScore / foundCount) : 0;
 
     if (foundCount > 0) {
-      await supabase.from('social_enrichment_cache').insert({
+      await supabase.from('social_enrichment_cache').upsert({
         company_name: name,
         city: city || '',
         niche: niche || '',
@@ -251,7 +251,7 @@ export async function POST(request: Request) {
         linkedin: results.linkedin || '',
         confidence_score: results.confidence_score,
         source: 'search'
-      });
+      }, { onConflict: 'company_name,city' });
     }
 
     return NextResponse.json({

@@ -261,10 +261,13 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       }
     }
 
-    // Salva cache
+    // Salva cache (apenas leads filtrados, sem trash)
     const finalCount = leadsByName.size;
     if (finalCount >= Math.max(3, Math.min(targetLimit, 5))) {
-      setCachedQuery(cacheKey, getLeadsArray());
+      const leadsToCache = getLeadsArray().filter(l => scoreLeadQuality(l).tier !== 'trash');
+      if (leadsToCache.length > 0) {
+        setCachedQuery(cacheKey, leadsToCache);
+      }
     }
 
     notify(`${leadsByName.size} leads encontrados em ${elapsed()}s`);

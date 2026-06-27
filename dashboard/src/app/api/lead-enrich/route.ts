@@ -186,18 +186,20 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
     }
   }
 
-  // Try to find CNPJ via BrasilAPI search
-  if (!data.cnpj) {
+  // Try to find CNPJ via BrasilAPI — NOTA: BrasilAPI só aceita CNPJ numérico, não busca por nome
+  // Se tiver CNPJ do step anterior, busca detalhes
+  if (data.cnpj) {
     try {
-      const searchRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${encodeURIComponent(name)}`, {
-        headers: { 'User-Agent': 'GeoLeads/1.0' },
-        signal: AbortSignal.timeout(5000),
-      });
-      if (searchRes.ok) {
-        const d = await searchRes.json();
-        if (d.cnpj) {
-          const digits = d.cnpj.replace(/\D/g, '');
-          data.cnpj = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+      const cnpjDigits = data.cnpj.replace(/\D/g, '');
+      if (cnpjDigits.length === 14) {
+        const searchRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjDigits}`, {
+          headers: { 'User-Agent': 'GeoLeads/1.0' },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (searchRes.ok) {
+          const d = await searchRes.json();
+          if (d.razao_social) data.razao_social = d.razao_social;
+          if (d.nome_fantasia) data.nome_fantasia = d.nome_fantasia;
           if (!data.telefone && d.ddd_telefone_1) {
             data.telefone = `(${d.ddd_telefone_1}) ${d.telefone_1}`;
           }
@@ -205,13 +207,11 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
           data.cidade = d.municipio || '';
           data.uf = d.uf || '';
           data.cep = d.cep || '';
-          data.razao_social = d.razao_social || '';
-          data.nome_fantasia = d.nome_fantasia || '';
           data.atividade = d.descricao_atividade_principal?.[0]?.text || '';
           data.situacao_cadastral = d.situacao_cadastral || '';
         }
       }
-    } catch (e) { console.warn('[ENRICH] step:', e); }
+    } catch (e) { console.warn('[ENRICH] brasilapi step:', e); }
   }
 
   return data;

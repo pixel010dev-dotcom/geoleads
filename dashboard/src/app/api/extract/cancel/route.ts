@@ -16,8 +16,8 @@ export async function POST(request: Request) {
     const supabase = createRequestSupabaseClient(request);
     const adminSupabase = createAdminSupabaseClient();
 
-    // Verifica se o job pertence ao usuario e esta running
-    const { data: job, error: jobError } = await supabase
+    // Verifica se o job pertence ao usuario e esta running (usa admin pra evitar RLS issues)
+    const { data: job, error: jobError } = await adminSupabase
       .from('extraction_jobs')
       .select('id, status, leads_count')
       .eq('id', jobId)

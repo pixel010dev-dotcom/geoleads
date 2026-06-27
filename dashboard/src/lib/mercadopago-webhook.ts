@@ -6,8 +6,6 @@ const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || ''
 });
 
-const supabase = createAdminSupabaseClient();
-
 export type CreditPaymentResult =
   | { ok: true; duplicated?: boolean; userId: string; planId: PlanId; newTokens: number; addedTokens: number }
   | { ok: true; duplicated?: boolean; userId: string; campaignId: string; action: 'autovendas_paid' }
@@ -31,6 +29,8 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
     console.error('Webhook: SUPABASE_SERVICE_ROLE_KEY ausente.');
     return { ok: false, status: 500, error: 'SUPABASE_SERVICE_ROLE_KEY ausente.' };
   }
+
+  const supabase = createAdminSupabaseClient();
 
   const externalRef = payment.external_reference || '';
   const metadata = payment.metadata as Record<string, unknown> | undefined;
