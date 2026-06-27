@@ -62,6 +62,14 @@ export default function Login() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, name: email.split('@')[0] }),
         }).catch(() => {});
+        // Agenda drip de nurture (non-blocking)
+        if (data?.user?.id) {
+          fetch('/api/drip/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: data.user.id, email, name: email.split('@')[0] }),
+          }).catch(() => {});
+        }
       }
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : t('login.errors.unexpected'));

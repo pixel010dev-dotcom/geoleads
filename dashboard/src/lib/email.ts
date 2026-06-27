@@ -147,3 +147,119 @@ export async function sendFeedbackNotification(data: {
     console.error('[EMAIL] Erro ao enviar notificação de feedback:', err);
   }
 }
+
+// --- DRIP NURTURE EMAILS ---
+
+const DRIP_TEMPLATES: Record<number, { subject: string; html: (name: string) => string }> = {
+  1: {
+    subject: '👋 Primeiros passos no GeoLeads',
+    html: (name: string) => `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Bem-vindo ao GeoLeads, ${name}!</h2>
+        <p>Seus <strong>10 tokens gratuitos</strong> ja estao na sua conta. Aqui vai um guia rapido para comecar:</p>
+        <ol>
+          <li><strong>Escolha um nicho</strong> — ex: "dentista", "advogado", "pizzaria"</li>
+          <li><strong>Escolha uma cidade</strong> — qualquer uma das 140 cidades disponiveis</li>
+          <li><strong>Clique em "Extrair"</strong> — em segundos os leads aparecem na tela</li>
+        </ol>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="https://geoleads-production.up.railway.app/app/dashboard" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Ir para o painel
+          </a>
+        </p>
+        <p style="color: #666; font-size: 13px;">Dica: use um nicho especifico. "Restaurante" e muito amplo; "hamburgueria artesanal" traz leads mais qualificados.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">GeoLeads — Extracao inteligente de leads do Google Maps</p>
+      </div>`,
+  },
+  3: {
+    subject: '💰 Enriquecimento: o segredo dos campeoes',
+    html: (name: string) => `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">So telefone nao basta, ${name}</h2>
+        <p>Sabia que leads com <strong>email + CNPJ + Instagram</strong> convertem 5x mais que leads com apenas telefone?</p>
+        <p>O GeoLeads enriquece automaticamente cada lead que voce extrai:</p>
+        <ul>
+          <li>✅ Email de contato</li>
+          <li>✅ CNPJ validado</li>
+          <li>✅ Instagram, Facebook e TikTok</li>
+          <li>✅ Site oficial</li>
+        </ul>
+        <p>Quanto mais dados voce tem, mais canais de abordagem — e mais chances de fechar venda.</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="https://geoleads-production.up.railway.app/pricing" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Ver planos com enriquecimento
+          </a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">GeoLeads — Extracao inteligente de leads do Google Maps</p>
+      </div>`,
+  },
+  5: {
+    subject: '🚀 Automatize suas vendas com AutoVendas',
+    html: (name: string) => `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">E se o GeoLeads vendesse por voce, ${name}?</h2>
+        <p>O <strong>AutoVendas</strong> e uma campanha automatica de lead generation:</p>
+        <ol>
+          <li>Voce define nicho, cidade e template de mensagem</li>
+          <li>O sistema extrai, enriquece e aborda cada lead pelo WhatsApp</li>
+          <li>Os leads que responderem vao direto pro seu CRM</li>
+        </ol>
+        <p>Enquanto voce dorme, o GeoLeads esta prospectando para voce.</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="https://geoleads-production.up.railway.app/pricing" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Ativar AutoVendas
+          </a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">GeoLeads — Extracao inteligente de leads do Google Maps</p>
+      </div>`,
+  },
+  7: {
+    subject: '🎁 Oferta especial — seus tokens estao acabando',
+    html: (name: string) => `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Seus 10 tokens gratuitos estao quase no fim, ${name}</h2>
+        <p>Nosso plano <strong>Profissional</strong> e o favorito dos usuarios:</p>
+        <ul>
+          <li>🔥 1.000 tokens de extracao</li>
+          <li>🔥 Enriquecimento completo (email, CNPJ, redes sociais)</li>
+          <li>🔥 Disparador WhatsApp com fila inteligente</li>
+          <li>🔥 Gerador de mensagens com IA</li>
+          <li>🔥 AutoVendas — campanhas automaticas</li>
+        </ul>
+        <p style="font-size: 20px; font-weight: bold; color: #f59e0b;">So R$ 24,90/mes — menos de R$ 0,025 por lead!</p>
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="https://geoleads-production.up.railway.app/pricing?plan=pro" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Assinar Profissional
+          </a>
+        </p>
+        <p style="color: #666; font-size: 13px;">PS: esta oferta tem garantia de 7 dias. Se nao gostar, devolvemos seu dinheiro.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">GeoLeads — Extracao inteligente de leads do Google Maps</p>
+      </div>`,
+  },
+};
+
+export async function sendDripEmail(toEmail: string, name: string, day: number) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.warn('[DRIP] SMTP nao configurado.');
+    return false;
+  }
+  const template = DRIP_TEMPLATES[day];
+  if (!template) return false;
+  try {
+    await transporter.sendMail({
+      from: `"GeoLeads" <${process.env.SMTP_USER}>`,
+      to: toEmail,
+      subject: template.subject,
+      html: template.html(name),
+    });
+    console.log(`[DRIP] Email dia ${day} enviado para ${toEmail}`);
+    return true;
+  } catch (err) {
+    console.error(`[DRIP] Erro ao enviar email dia ${day}:`, err);
+    return false;
+  }
+}

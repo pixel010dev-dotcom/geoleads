@@ -1,123 +1,91 @@
 'use client';
 
-import { useState } from 'react';
-import { useTranslations } from '@/lib/i18n';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+
+const STEPS = [
+  {
+    emoji: '🎯',
+    title: 'Escolha um nicho e cidade',
+    desc: 'Digite um nicho (ex: "dentista", "pizzaria", "advogado") e uma cidade para comecar a extracao.',
+  },
+  {
+    emoji: '⚡',
+    title: 'Clique em "Extrair"',
+    desc: 'O GeoLeads navega pelo Google Maps e coleta telefone, site, email e endereco de cada negocio.',
+  },
+  {
+    emoji: '📋',
+    title: 'Salve no CRM',
+    desc: 'Os leads aparecem na tela em tempo real. Clique em "Salvar no CRM" para organizar e acompanhar.',
+  },
+  {
+    emoji: '💰',
+    title: 'Ganhe mais tokens',
+    desc: 'Acabou os tokens gratuitos? Veja os planos a partir de R$ 9,90/mes com centenas de tokens.',
+  },
+];
 
 export default function OnboardingOverlay() {
-  const { t } = useTranslations();
+  const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
-  const [visible, setVisible] = useState(true);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
 
-  const steps = [
-    {
-      icon: '🔍',
-      gradient: 'from-blue-600/20 to-cyan-600/10',
-      border: 'border-blue-500/30',
-      title: t('onboarding.step1Title'),
-      desc: t('onboarding.step1Desc'),
-      tip: t('onboarding.step1Tip'),
-    },
-    {
-      icon: '📋',
-      gradient: 'from-emerald-600/20 to-teal-600/10',
-      border: 'border-emerald-500/30',
-      title: t('onboarding.step2Title'),
-      desc: t('onboarding.step2Desc'),
-      tip: t('onboarding.step2Tip'),
-    },
-    {
-      icon: '💬',
-      gradient: 'from-purple-600/20 to-pink-600/10',
-      border: 'border-purple-500/30',
-      title: t('onboarding.step3Title'),
-      desc: t('onboarding.step3Desc'),
-      tip: t('onboarding.step3Tip'),
-    },
-    {
-      icon: '🪙',
-      gradient: 'from-amber-600/20 to-orange-600/10',
-      border: 'border-amber-500/30',
-      title: t('onboarding.step4Title'),
-      desc: t('onboarding.step4Desc'),
-      tip: t('onboarding.step4Tip'),
-    },
-  ];
+  useEffect(() => {
+    const done = localStorage.getItem('geoleads_onboarding_done');
+    if (!done) {
+      const timer = setTimeout(() => setVisible(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const next = () => {
+    if (step < STEPS.length - 1) {
+      setStep(s => s + 1);
+    } else {
+      finish();
+    }
+  };
+
+  const finish = () => {
+    setVisible(false);
+    try { localStorage.setItem('geoleads_onboarding_done', 'true'); } catch {}
+  };
 
   if (!visible) return null;
 
-  const isLast = step === steps.length - 1;
-  const current = steps[step];
-  const progress = ((step + 1) / steps.length) * 100;
-
-  const handleDismiss = () => {
-    setVisible(false);
-    try {
-      localStorage.setItem('geoleads_onboarding_done', 'true');
-    } catch (e) { console.error(e); }
-  };
-
-  const handleFinish = () => {
-    try {
-      localStorage.setItem('geoleads_onboarding_done', 'true');
-    } catch (e) { console.error(e); }
-    setVisible(false);
-  };
+  const s = STEPS[step];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-gradient-to-b from-gray-900 to-black border border-white/10 shadow-2xl overflow-hidden">
-        <div className={`p-8 sm:p-10 text-center border-b ${current.border} ${current.gradient}`}>
-          <div className="text-6xl mb-4 animate-pulse">{current.icon}</div>
-          <h2 className="text-2xl font-bold text-white mb-3 leading-tight">{current.title}</h2>
-          <p className="text-sm text-gray-300 leading-relaxed">{current.desc}</p>
-          <div className="mt-4 p-3 rounded-xl bg-black/40 border border-white/5">
-            <p className="text-xs text-gray-400 leading-relaxed">{current.tip}</p>
-          </div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="app-card w-full max-w-sm p-6 sm:p-8 rounded-[2rem] bg-gradient-to-b from-white/[0.08] to-black/60 border border-blue-500/30 shadow-2xl relative overflow-hidden text-center">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+        <button onClick={finish} className="absolute top-3 right-3 text-gray-500 hover:text-white text-lg cursor-pointer">&times;</button>
+
+        <div className="text-5xl mb-4">{s.emoji}</div>
+        <h2 className="text-lg font-bold mb-2">{s.title}</h2>
+        <p className="text-sm text-gray-400 mb-6">{s.desc}</p>
+
+        <div className="flex items-center justify-center gap-2 mb-6">
+          {STEPS.map((_, i) => (
+            <span key={i} className={`w-2 h-2 rounded-full transition-all ${i === step ? 'bg-blue-400 w-4' : 'bg-white/20'}`} />
+          ))}
         </div>
 
-        <div className="px-8 sm:px-10 py-5">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-gray-500 font-mono">{step + 1}/{steps.length}</span>
-            <span className="text-[10px] text-gray-500 font-mono">{Math.round(progress)}%</span>
-          </div>
-          <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="px-8 sm:px-10 pb-6 flex flex-col gap-3">
-          <div className="flex gap-3">
-            {!isLast ? (
-              <>
-                <button onClick={handleFinish}
-                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-sm font-medium cursor-pointer transition-all hover:bg-white/5"
-                >
-                  {t('onboarding.skip')}
-                </button>
-                <button onClick={() => setStep(s => s + 1)}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-sm font-bold cursor-pointer transition-all"
-                >
-                  {t('onboarding.next')}
-                </button>
-              </>
-            ) : (
-              <button onClick={handleFinish}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white text-sm font-bold cursor-pointer transition-all"
-              >
-                {t('onboarding.start')}
+        <div className="flex gap-3">
+          {step < STEPS.length - 1 ? (
+            <>
+              <button onClick={next} className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-black font-bold text-sm transition-all cursor-pointer">
+                Proximo
               </button>
-            )}
-          </div>
-
-          <label className="flex items-center justify-center gap-2 text-[11px] text-gray-500 cursor-pointer hover:text-gray-400 transition-colors">
-            <input type="checkbox" checked={dontShowAgain} onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="rounded border-gray-600 bg-black/40 text-emerald-500 focus:ring-0 cursor-pointer h-3.5 w-3.5" />
-            {t('onboarding.dontShowAgain')}
-          </label>
+              <button onClick={finish} className="px-4 py-3 rounded-xl border border-white/10 text-gray-400 text-sm cursor-pointer hover:text-white transition-colors">
+                Pular
+              </button>
+            </>
+          ) : (
+            <Link href="/pricing" onClick={finish} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-black font-bold text-sm text-center transition-all">
+              Ver Planos
+            </Link>
+          )}
         </div>
       </div>
     </div>
