@@ -2,14 +2,9 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { getNicheBySlug, getCityBySlug, getAllComboSlugs, CITIES, NICHES } from '@/lib/cities-data';
 
-export const dynamic = 'force-static';
-export const revalidate = 86400;
+export const dynamic = 'force-dynamic';
 
 const APP_URL = 'https://geoleads-production.up.railway.app';
-
-export async function generateStaticParams() {
-  return getAllComboSlugs();
-}
 
 export async function generateMetadata({ params }: { params: { nicho: string; cidade: string } }): Promise<Metadata> {
   const niche = getNicheBySlug(params.nicho);
