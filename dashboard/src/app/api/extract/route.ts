@@ -288,11 +288,11 @@ export async function POST(request: Request) {
         // Marca como entregue (com leads já enriquecidos)
         try {
           await doFinalUpdate(3);
-          // Notifica Telegram em tempo real
+          // Notifica Telegram em tempo real (DM pro admin)
           try {
             const tgToken = process.env.TELEGRAM_BOT_TOKEN;
-            const tgChannel = process.env.TELEGRAM_CHANNEL_ID;
-            if (tgToken && tgChannel && enrichedLeads.length > 0) {
+            const tgAdminId = process.env.TELEGRAM_ADMIN_ID;
+            if (tgToken && tgAdminId && enrichedLeads.length > 0) {
               const withPhone = enrichedLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length;
               const withSite = enrichedLeads.filter(l => l.site && l.site !== 'Sem site').length;
               const withEmail = enrichedLeads.filter(l => l.email).length;
@@ -303,7 +303,7 @@ export async function POST(request: Request) {
               fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: tgChannel, text: msg, parse_mode: 'HTML' }),
+                body: JSON.stringify({ chat_id: tgAdminId, text: msg, parse_mode: 'HTML' }),
               }).catch(() => {});
             }
           } catch { /* telegram notification is non-critical */ }

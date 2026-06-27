@@ -20,7 +20,8 @@ from datetime import datetime, timedelta, timezone
 # ──────────── CONFIG ────────────
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8755188266:AAE0U4gaMc7dKByW_wFeoOEvpm00_E-va-w")
-TELEGRAM_CHANNEL = os.environ.get("TELEGRAM_CHANNEL_ID", "-1003870508744")
+TELEGRAM_ADMIN_ID = os.environ.get("TELEGRAM_ADMIN_ID", "")  # ID do admin pra DM
+TELEGRAM_CHANNEL = os.environ.get("TELEGRAM_CHANNEL_ID", "-1003870508744")  # Fallback pro grupo
 SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "https://mwnpwrzwgwrqqlomqhux.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13bnB3cnp3Z3dycXFsb21xaHV4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzODgyNCwiZXhwIjoyMDk0ODE0ODI0fQ.YVZQ3cPMJaPjBnggkEV4SxNeh4Y-PVisP2ST5YF0rl8")
 APP_URL = os.environ.get("APP_URL", "https://geoleads-production.up.railway.app")
@@ -40,9 +41,11 @@ def supabase_get(table, query=""):
         return r.json()
     return []
 
-def send_telegram(text, parse_mode="HTML"):
+def send_telegram(text, parse_mode="HTML", admin_only=True):
+    """Envia mensagem. Se admin_only=True, manda DM pro admin. Senão, manda pro grupo."""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHANNEL, "text": text, "parse_mode": parse_mode}
+    chat_id = TELEGRAM_ADMIN_ID if (admin_only and TELEGRAM_ADMIN_ID) else TELEGRAM_CHANNEL
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
     try:
         r = requests.post(url, json=payload, timeout=10)
         return r.status_code == 200

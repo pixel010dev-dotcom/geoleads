@@ -23,6 +23,7 @@ SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "https://mwnpwrzwgwrqq
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13bnB3cnp3Z3dycXFsb21xaHV4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzODgyNCwiZXhwIjoyMDk0ODE0ODI0fQ.YVZQ3cPMJaPjBnggkEV4SxNeh4Y-PVisP2ST5YF0rl8")
 APP_URL = os.environ.get("APP_URL", "https://geoleads-production.up.railway.app")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8755188266:AAE0U4gaMc7dKByW_wFeoOEvpm00_E-va-w")
+TELEGRAM_ADMIN_ID = os.environ.get("TELEGRAM_ADMIN_ID", "")
 TELEGRAM_CHANNEL = os.environ.get("TELEGRAM_CHANNEL_ID", "-1003870508744")
 
 # Nichos e cidades pra buscar
@@ -38,8 +39,9 @@ PIPELINE_CONFIG = [
 
 def send_telegram(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    chat_id = TELEGRAM_ADMIN_ID if TELEGRAM_ADMIN_ID else TELEGRAM_CHANNEL
     try:
-        requests.post(url, json={"chat_id": TELEGRAM_CHANNEL, "text": text, "parse_mode": "HTML"}, timeout=10)
+        requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=10)
     except:
         pass
 
