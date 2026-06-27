@@ -9,6 +9,8 @@
 -- 1. PERFORMANCE INDEXES
 -- ============================================================
 
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- crm_leads: user queries plus search/deletion
 CREATE INDEX IF NOT EXISTS idx_crm_leads_user_id ON public.crm_leads(user_id);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_lead_key ON public.crm_leads(lead_key);

@@ -51,11 +51,17 @@ export default function Login() {
         }
         router.push(getRedirectPath());
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error, data } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setMessage(t('login.errors.signupSuccess'));
         setEmail('');
         setPassword('');
+        // Envia email de boas-vindas (non-blocking)
+        fetch('/api/email/welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name: email.split('@')[0] }),
+        }).catch(() => {});
       }
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : t('login.errors.unexpected'));

@@ -36,6 +36,10 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(baseUrl),
     alternates: {
       canonical: '/',
+      languages: {
+        'pt-BR': `${baseUrl}/`,
+        'en': `${baseUrl}/en`,
+      },
     },
     openGraph: {
       title: isEn ? 'GeoLeads - B2B Lead Generation Engine' : 'GeoLeads - Motor de Extração de Leads B2B',
@@ -81,7 +85,32 @@ export default async function RootLayout({
 
   return (
     <html lang={locale === 'en' ? 'en' : 'pt-BR'} className={`h-full antialiased ${inter.variable}`}>
-      <body className="min-h-full flex flex-col font-sans"><I18nProvider>{children}</I18nProvider></body>
+      <body className="min-h-full flex flex-col font-sans">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'SoftwareApplication',
+              name: 'GeoLeads',
+              applicationCategory: 'BusinessApplication',
+              operatingSystem: 'Web',
+              description: 'Extração inteligente de leads via Google Maps com CRM, WhatsApp e IA.',
+              offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'BRL',
+              },
+              author: {
+                '@type': 'Person',
+                name: 'Guilherme Oliveira',
+                email: 'pixel010dev@gmail.com',
+              },
+            }),
+          }}
+        />
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

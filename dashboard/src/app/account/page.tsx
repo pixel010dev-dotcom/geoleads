@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import { getPlanById, plans, paidPlanIds, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
 import { useTranslations } from '@/lib/i18n';
 import Globe from '@/components/Globe';
+import Toast, { showToast } from '@/components/Toast';
+import ShareButtons from '@/components/ShareButtons';
 
 export default function Account() {
   const { t, locale } = useTranslations();
@@ -89,6 +91,7 @@ export default function Account() {
 
   return (
     <div className="app-shell min-h-screen text-white relative pb-16">
+      <Toast />
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
         <div className="app-container min-h-16 py-3 flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2 group">
@@ -197,6 +200,37 @@ export default function Account() {
             </div>
           </div>
         )}
+
+        <div className="app-card p-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">🎁</span>
+            <div>
+              <h2 className="text-xl font-bold">Indique e Ganhe</h2>
+              <p className="text-sm text-gray-400">Ganhe 100 tokens para cada amigo que fizer qualquer plano pago.</p>
+            </div>
+          </div>
+          <div className="bg-black/40 border border-white/10 rounded-xl p-4 mb-4">
+            <label className="text-xs text-gray-500 block mb-1.5">Seu link de indicação</label>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/login?ref=${user?.id || ''}`}
+                className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none"
+                onClick={e => (e.target as HTMLInputElement).select()}
+              />
+              <button
+                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/login?ref=${user?.id || ''}`); showToast('Link copiado!', 'success'); }}
+                className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold cursor-pointer"
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
+          <ShareButtons
+            url={`${typeof window !== 'undefined' ? window.location.origin : ''}/login?ref=${user?.id || ''}`}
+            text="Use o GeoLeads para extrair leads do Google Maps! Ganhe 10 tokens gratis ao se cadastrar."
+          />
+        </div>
       </main>
     </div>
   );

@@ -21,6 +21,7 @@ import AICopySection from '@/components/dashboard/AICopySection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import { generatePdfReport } from '@/lib/pdf-report';
 import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
+import ReferralSection from '@/components/dashboard/ReferralSection';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from '@/lib/i18n';
 
@@ -1493,9 +1494,13 @@ export default function Home() {
                 className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'support' ? 'bg-blue-600/20 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                 {t('dashboard.support')}
               </button>
+              <button onClick={() => setActiveTab('referral')}
+                className={`app-tab px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'referral' ? 'bg-amber-600/20 text-amber-300 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                🎁 {t('dashboard.referral')}
+              </button>
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => setShowReferral(true)} className="text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold">
+              <button onClick={() => setShowReferral(true)} className="hidden text-[11px] px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap font-semibold">
                 {t('dashboard.referral')}
               </button>
               <button onClick={() => setActiveTab('ia')}
@@ -1643,6 +1648,10 @@ export default function Home() {
             isGeneratingCopies={isGeneratingCopies} generateAICopies={generateAICopies}
             setWaTemplate={setWaTemplate} setActiveTab={setActiveTab} showToast={showToast}
           />
+        )}
+
+        {activeTab === 'referral' && (
+          <ReferralSection user={user} showToast={showToast} />
         )}
 
         {activeTab === 'support' && (

@@ -199,6 +199,67 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
     return { ok: false, status: 500, error: `Falha no credit_tokens_with_history: ${txError.message}` };
   }
 
+  // EMAIL DE CONFIRMACAO DE PAGAMENTO
+  try {
+    const { data: payerProfile } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', targetUserId)
+      .maybeSingle();
+    if (payerProfile?.email) {
+      const { sendPaymentConfirmationEmail } = await import('./email');
+      await sendPaymentConfirmationEmail(payerProfile.email, planId, planTokens);
+    }
+  } catch (emailErr) {
+    console.warn('[WEBHOOK] Erro ao enviar email de confirmacao:', emailErr);
+  }
+
+  // CREDITO DE INDICACAO: se o usuario foi indicado, dar 100 tokens ao indicador
+  try {
+    const { data: referrerProfile } = await supabase
+      .from('profiles')
+      .select('referred_by')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    if (referrerProfile?.referred_by) {
+      const referrerId = referrerProfile.referred_by;
+      // Credit 100 tokens to the referrer
+      const { error: refError } = await supabase.rpc('credit_tokens_with_history', {
+        p_user_id: referrerId,
+        p_tokens_to_add: 100,
+        p_new_plan_id: 'free',
+        p_mp_payment_id: `ref_${paymentId}`,
+        p_amount: 0,
+      });
+
+      if (refError) {
+        // Se falhar por unique constraint (webhook duplicado), ignora
+        if (!refError.message?.includes('duplicate') && !refError.message?.includes('unique')) {
+          console.error('[WEBHOOK] Falha ao creditar bonus de indicacao:', refError.message);
+        }
+      } else {
+        console.log(`[WEBHOOK] Bonus de indicacao: 100 tokens para ${referrerId} (indicado por ${targetUserId})`);
+        // Envia notificacao por email
+        try {
+          const { data: referrerEmail } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', referrerId)
+            .maybeSingle();
+          if (referrerEmail?.email) {
+            const { sendReferralBonusEmail } = await import('./email');
+            await sendReferralBonusEmail(referrerEmail.email, 100);
+          }
+        } catch (emailErr) {
+          console.warn('[WEBHOOK] Erro ao enviar email de bonus de indicacao:', emailErr);
+        }
+      }
+    }
+  } catch (refErr) {
+    console.warn('[WEBHOOK] Erro ao processar indicacao:', refErr);
+  }
+
   return {
     ok: true,
     userId: targetUserId,

@@ -1,12 +1,13 @@
 import type { CrmLead, CrmLeadRow } from '@/types/crm';
 
-export type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'ia' | 'support';
+export type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'referral' | 'ia' | 'support';
 
 export const tabFeatureMap: Record<DashboardTab, string | null> = {
   extractor: null,
   crm: 'crm',
   whatsapp: 'whatsappSender',
   chatbot: 'chatbot',
+  referral: null,
   ia: 'aiCopy',
   support: null,
 };

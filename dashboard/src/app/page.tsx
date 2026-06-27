@@ -9,10 +9,26 @@ import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
 import { IconPhone, IconBuilding, IconMail, IconCamera, IconWhatsApp, IconBot, IconChart, IconDownload } from '@/components/FeatureIcon';
+import SocialProofWidget from '@/components/dashboard/SocialProofWidget';
+import { socialProofMsgs } from '@/components/dashboard/dashboard-constants';
 
 export default function LandingPage() {
   const { t } = useTranslations();
   const [testimonialsList, setTestimonialsList] = useState<{ name: string; stars: number; text: string; role: string }[]>([]);
+  const [proofIndex, setProofIndex] = useState(0);
+  const [proofVisible, setProofVisible] = useState(true);
+
+  // Social proof cycling
+  useEffect(() => {
+    const cycle = setInterval(() => {
+      setProofVisible(false);
+      setTimeout(() => {
+        setProofIndex(i => (i + 1) % socialProofMsgs.length);
+        setProofVisible(true);
+      }, 800);
+    }, 6000);
+    return () => clearInterval(cycle);
+  }, []);
 
   useEffect(() => {
     async function fetchTestimonials() {
@@ -333,6 +349,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      <SocialProofWidget proofIndex={proofIndex} proofVisible={proofVisible} />
     </div>
   );
 }
