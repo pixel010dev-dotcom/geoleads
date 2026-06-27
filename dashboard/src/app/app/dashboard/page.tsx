@@ -577,6 +577,7 @@ export default function Home() {
     return () => {
       cancelled = true;
       timers.forEach(t => clearTimeout(t));
+      if (batchPollRef.current) { clearInterval(batchPollRef.current); batchPollRef.current = null; }
     };
   }, []);
 
@@ -1319,6 +1320,7 @@ export default function Home() {
     link.href = url;
     link.download = `GeoLeads_${keyword}_${new Date().toLocaleDateString(locale === 'en' ? 'en-US' : 'pt-BR')}.csv`;
     link.click();
+    URL.revokeObjectURL(url);
   };
 
   const exportToXLSX = async () => {

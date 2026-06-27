@@ -62,6 +62,13 @@ export async function PATCH(request: Request) {
     }
 
     const fb = await getUserFacebookConfig(auth.user.id);
+    if (!fb.adAccount) return NextResponse.json({ error: 'Conta de anúncio não configurada' }, { status: 400 });
+
+    // Valida que o campaignId pertence à conta de anúncios do usuário
+    if (!campaignId.startsWith(`act_${fb.adAccount}`) && !campaignId.match(/^\d+$/)) {
+      return NextResponse.json({ error: 'Campanha não pertence à sua conta' }, { status: 403 });
+    }
+
     const data = await callFacebook(`/${campaignId}`, fb.token, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,6 +91,13 @@ export async function DELETE(request: Request) {
     if (!campaignId) return NextResponse.json({ error: 'campaignId obrigatório' }, { status: 400 });
 
     const fb = await getUserFacebookConfig(auth.user.id);
+    if (!fb.adAccount) return NextResponse.json({ error: 'Conta de anúncio não configurada' }, { status: 400 });
+
+    // Valida que o campaignId pertence à conta de anúncios do usuário
+    if (!campaignId.startsWith(`act_${fb.adAccount}`) && !campaignId.match(/^\d+$/)) {
+      return NextResponse.json({ error: 'Campanha não pertence à sua conta' }, { status: 403 });
+    }
+
     await callFacebook(`/${campaignId}`, fb.token, { method: 'DELETE' });
 
     return NextResponse.json({ success: true });

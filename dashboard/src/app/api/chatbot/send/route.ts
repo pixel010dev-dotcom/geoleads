@@ -21,6 +21,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'leadPhone e message sao obrigatorios.' }, { status: 400 });
   }
 
+  if (message.length > 4096) {
+    return NextResponse.json({ error: 'Mensagem muito longa (max 4096 caracteres).' }, { status: 400 });
+  }
+
+  const sanitizedPhone = leadPhone.replace(/\D/g, '');
+  if (sanitizedPhone.length < 10 || sanitizedPhone.length > 15) {
+    return NextResponse.json({ error: 'Telefone invalido.' }, { status: 400 });
+  }
+
   const supabase = createAdminSupabaseClient();
   const sessionStore = (globalThis as any).__geoleadsChatbotSessions as Map<string, any>;
   const botSession = sessionStore?.get(auth.user.id);
