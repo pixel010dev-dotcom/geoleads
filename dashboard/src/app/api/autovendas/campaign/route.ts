@@ -30,6 +30,9 @@ export async function POST(request: Request) {
   if (!body.nicho || !body.regiao || !body.mensagem_template) {
     return NextResponse.json({ error: 'Preencha nicho, região e mensagem.' }, { status: 400 });
   }
+  const nicho = String(body.nicho).trim();
+  const regiao = String(body.regiao).trim();
+  const mensagem_template = String(body.mensagem_template).trim();
 
   const AUTOVENDAS_PRICE_PER_LEAD = Number(process.env.AUTOVENDAS_PRICE_PER_LEAD) || 0.5;
   const leadsAlvo = Math.min(200, Math.max(10, Number(body.leads_alvo) || 50));
@@ -37,9 +40,9 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase.from('autovendas_campaigns').insert({
     user_id: auth.user.id,
-    nicho: body.nicho.trim(),
-    regiao: body.regiao.trim(),
-    mensagem_template: body.mensagem_template.trim(),
+    nicho,
+    regiao,
+    mensagem_template,
     leads_alvo: leadsAlvo,
     status: 'draft',
     payment_status: 'pending',

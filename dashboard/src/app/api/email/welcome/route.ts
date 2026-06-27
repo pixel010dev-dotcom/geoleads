@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
+import { getAuthUser } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthUser(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
     const { email, name } = await request.json();
     if (!email) {
       return NextResponse.json({ error: 'Email obrigatorio' }, { status: 400 });

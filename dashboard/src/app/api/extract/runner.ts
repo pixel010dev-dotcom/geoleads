@@ -150,7 +150,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     console.log(`[EXTRACT] Finalizing: ${validLeads.length} valid leads from ${leadsByName.size} unique (${scoredLeads.filter(s => s.score.tier === 'trash').length} trash) in ${elapsed()}s`);
 
     if (onDone) {
-      await onDone({ leads: validLeads, scanned: scannedTotal, citiesDone, totalTimeMs: Date.now() - startTime, error });
+      try {
+        await onDone({ leads: validLeads, scanned: scannedTotal, citiesDone, totalTimeMs: Date.now() - startTime, error });
+      } catch (e: any) {
+        console.error('[EXTRACT] onDone error:', e?.message || e);
+      }
     }
     return validLeads;
   };

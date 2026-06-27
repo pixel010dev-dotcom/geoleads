@@ -8,6 +8,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
 
@@ -51,6 +52,10 @@ export async function PATCH(
 
   if (error || !data) return NextResponse.json({ error: error?.message || 'Erro ao atualizar campanha' }, { status: 500 });
   return NextResponse.json({ success: true, campaign: data });
+  } catch (e: any) {
+    console.error('[AUTOVENDAS PATCH] Error:', e?.message || e);
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+  }
 }
 
 export async function DELETE(

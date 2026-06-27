@@ -6,7 +6,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 export async function GET(request: Request) {
   if (!ADMIN_EMAIL) return NextResponse.json({ error: 'Admin not configured' }, { status: 403 });
   const auth = await getAuthUser(request);
-  if (!auth || auth.user.email !== ADMIN_EMAIL) {
+  if (!auth || auth.user.email?.toLowerCase().trim() !== ADMIN_EMAIL.toLowerCase().trim()) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
   }
 
