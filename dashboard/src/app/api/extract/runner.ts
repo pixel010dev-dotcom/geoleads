@@ -82,7 +82,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   const hardDeadline = startTime + MAX_TOTAL_MS;
   let finalized = false;
   const leadsByName = new Map<string, SearchLead>();
-  const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0]).filter(Boolean));
+  const scrapedNames = new Set<string>(existingLeadKeys.map(k => k.split('|')[0].toLowerCase()).filter(Boolean));
   const scrapedPhones = new Set<string>(existingLeadKeys.map(k => k.split('|')[1]).filter(Boolean));
   let scannedTotal = 0;
   let citiesDone = 0;

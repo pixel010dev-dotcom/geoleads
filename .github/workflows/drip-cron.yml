@@ -1,0 +1,12 @@
+name: Drip Email Cron
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # every hour
+
+jobs:
+  process-drip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process drip emails
+        run: curl -s "https://geoleads-production.up.railway.app/api/drip/process"
