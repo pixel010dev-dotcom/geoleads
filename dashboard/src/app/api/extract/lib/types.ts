@@ -189,7 +189,16 @@ function isJunkResult(nome: string, telefone: string): boolean {
   const n = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   // Uma única palavra genérica que NUNCA é nome de negócio
-  if (/^(road|aerial|hybrid|satellite|terrain|street|roadmap|jswarning|\+n|sign\s*in|login|register|privacy|terms|search|home|about|contact|help|faq|blog|news|settings|account|profile|dashboard|menu|close|open|back|next|previous|submit|cancel|ok|yes|no|loading|error|warning|success)$/i.test(n)) return true;
+  if (/^(road|aerial|hybrid|satellite|terrain|street|roadmap|jswarning|\+n|sign\s*in|login|register|privacy|terms|search|home|about|contact|help|faq|blog|news|settings|account|profile|dashboard|menu|close|open|back|next|previous|submit|cancel|ok|yes|no|loading|error|warning|success|3d|2d|4k|hd|ai|vr|ar|ui|ux|saas|erp|crm|seo|api|sdk|faq|pdf|csv|xls)$/i.test(n)) return true;
+
+  // Nome muito curto (1-2 chars) — nunca é negócio
+  if (n.length <= 2) return true;
+
+  // Nome começa com número — resíduo de UI
+  if (/^\d/.test(n)) return true;
+
+  // Programas corporativos conhecidos (não são negócios locais)
+  if (/^(microsoft|google|amazon|apple|meta|netflix|uber|airbnb)\s/i.test(n)) return true;
 
   // Padrões de página de listagem/diretório
   const junkPatterns = [
