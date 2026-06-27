@@ -7,6 +7,11 @@ const BLOG_SLUGS = [
   'crm-para-pequenas-empresas',
   'marketing-digital-para-corretores',
   'enriquecimento-de-leads',
+  'extracao-automatica-leads',
+  'whatsapp-marketing-automacao',
+  'lead-generation-b2b-estrategias',
+  'analise-concorrencia-google-maps',
+  'vender-mais-whatsapp-business',
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -15,6 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages = [
     { url: baseUrl, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 1.0 },
     { url: `${baseUrl}/pricing`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.8 },
+    { url: `${baseUrl}/calculadora-leads`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.7 },
     { url: `${baseUrl}/blog`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.6 },
     { url: `${baseUrl}/privacy`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.4 },
     { url: `${baseUrl}/terms`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.4 },

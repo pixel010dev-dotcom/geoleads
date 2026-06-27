@@ -1,0 +1,30 @@
+name: Auto Blog Post Generator
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate blog post
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: deepseek/deepseek-v4-flash-free
+        run: |
+          python scripts/generate-blog-post.py
+
+      - name: Commit
+        run: |
+          git config user.name "geo-bot"
+          git config user.email "bot@geoleads.ai"
+          git add -A
+          git diff --quiet || git commit -m "auto: new blog post"
+          git push
