@@ -114,7 +114,8 @@ export async function POST(request: Request) {
       },
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Erro ao gerar PIX.' }, { status: 500 });
+    console.error('[AUTOVENDAS PAYMENT] Error:', err?.message || err);
+    return NextResponse.json({ error: 'Erro ao gerar PIX. Tente novamente.' }, { status: 500 });
   }
 }
 

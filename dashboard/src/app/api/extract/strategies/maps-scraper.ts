@@ -23,7 +23,6 @@ const PHONE_SELECTORS = [
   'a[aria-label*="telefone"]',
   'button[data-value][data-tooltip*="telefone"]',
   'button[data-value][data-tooltip*="phone"]',
-  'a[href^="tel:"]',
   'a[href*="wa.me"]',
   'a[href*="whatsapp.com"]',
   '[itemprop="telephone"]',

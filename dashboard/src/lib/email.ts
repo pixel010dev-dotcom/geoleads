@@ -29,7 +29,7 @@ export async function sendReferralBonusEmail(toEmail: string, tokens: number, us
           <p style="font-size: 24px; font-weight: bold; color: #f59e0b;">Voce ganhou <strong>${tokens} tokens</strong>!</p>
           <p>Continue compartilhando seu link para ganhar ainda mais tokens:</p>
           <p style="text-align: center; margin: 20px 0;">
-            <a href="${APP_URL}/login?ref=${userId || 'SEU_ID'}" 
+            <a href="${APP_URL}${userId ? `/login?ref=${userId}` : '/login'}"
                style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
               Compartilhar Link
             </a>
