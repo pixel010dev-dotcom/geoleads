@@ -10,9 +10,15 @@ export function normalizePhone(raw: string): string {
   if (digits.length === 0) return raw;
   if (/(\d)\1{5,}/.test(digits)) return 'Não informado';
   if (digits.startsWith('55') && digits.length >= 12) {
+    if (digits.length === 12) {
+      return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
+    }
     return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
   }
   if (digits.length >= 13 && !digits.startsWith('55')) {
+    if (digits.length === 13) {
+      return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
+    }
     return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
   }
   if (digits.length >= 10 && digits.length <= 11) {
@@ -23,6 +29,9 @@ export function normalizePhone(raw: string): string {
       (ddd >= 71 && ddd <= 79) || (ddd >= 81 && ddd <= 89) ||
       (ddd >= 91 && ddd <= 99);
     if (isValidBR) {
+      if (digits.length === 10) {
+        return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+      }
       return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
     }
     return `+${digits.slice(0, 2)} ${digits.slice(2)}`;

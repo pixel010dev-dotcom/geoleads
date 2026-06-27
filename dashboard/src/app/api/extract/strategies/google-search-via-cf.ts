@@ -274,7 +274,7 @@ export async function extractFromGoogleSearch(
               await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
               if (signal?.aborted) break;
               
-              const pageUrl = `https://www.google.${tld}/search?q=${encoded}&tbm=lcl&hl=pt-BR&gl=br&num=20&start=0`;
+              const pageUrl = `https://www.google.${tld}/search?q=${encoded}&tbm=lcl&hl=pt-BR&gl=br&num=20&start=${Math.min(20, targetLimit)}`;
               const { html: page2Html } = await fetchFn(pageUrl);
               if (page2Html) {
                 const page2Leads = parseLdJson(page2Html);

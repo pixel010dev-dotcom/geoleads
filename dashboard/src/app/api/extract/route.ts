@@ -161,32 +161,6 @@ export async function POST(request: Request) {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
-        // Deduz tokens ANTES de marcar como entregue (usa admin client para bypass RLS)
-        if (gastos > 0) {
-          try {
-            const adminSupabase = createAdminSupabaseClient();
-            const { error: deductError } = await adminSupabase.rpc('deduct_tokens', {
-              p_user_id: authedUser.user.id, p_amount: gastos
-            });
-            if (deductError) console.error('[EXTRACT] RPC deduct_tokens failed:', deductError);
-          } catch (e: any) {
-            console.error('[EXTRACT] token deduct failed:', e);
-          }
-        }
-
-        // Salva histórico (via admin pra evitar RLS)
-        try {
-          const adminSupabase = createAdminSupabaseClient();
-          await adminSupabase.from('extraction_history').insert({
-            user_id: authedUser.user.id, keyword, location,
-            filter_rule: filterRule || '',
-            leads_found: result.leads.length,
-            leads_requested: targetLimit,
-            tokens_spent: gastos,
-            search_time_seconds: totalTimeSec,
-          });
-        } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
-
         // ENRIQUECE ANTES DE MARCAR COMO ENTREGUE
         // Timeout de 8s por lead, 30s total — dados enriquecidos chegam junto com os leads
         const enrichedLeads = await Promise.race([
@@ -246,17 +220,46 @@ export async function POST(request: Request) {
           console.warn('[EXTRACT] WhatsApp check error (non-critical):', e?.message || e);
         }
 
+        // Deduz tokens ANTES de marcar como entregue
+        // Se falhar, NÃO entrega os leads — evita free leads
+        let deductFailed = false;
+        if (gastos > 0) {
+          try {
+            const adminSupabase = createAdminSupabaseClient();
+            const { error: deductError } = await adminSupabase.rpc('deduct_tokens', {
+              p_user_id: authedUser.user.id, p_amount: gastos
+            });
+            if (deductError) { console.error('[EXTRACT] RPC deduct_tokens failed:', deductError); deductFailed = true; }
+          } catch (e: any) {
+            console.error('[EXTRACT] token deduct failed:', e);
+            deductFailed = true;
+          }
+        }
+
+        // Salva histórico (via admin pra evitar RLS)
+        try {
+          const adminSupabase = createAdminSupabaseClient();
+          await adminSupabase.from('extraction_history').insert({
+            user_id: authedUser.user.id, keyword, location,
+            filter_rule: filterRule || '',
+            leads_found: result.leads.length,
+            leads_requested: targetLimit,
+            tokens_spent: gastos,
+            search_time_seconds: totalTimeSec,
+          });
+        } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
+
         const jobUpdate = {
-          status: result.error ? 'failed' : 'completed',
-          error: result.error || undefined,
+          status: deductFailed ? 'payment_failed' : (result.error ? 'failed' : 'completed'),
+          error: deductFailed ? 'Falha ao debitar tokens. Tente novamente ou contate o suporte.' : (result.error || undefined),
           leads: enrichedLeads,
           leads_count: enrichedLeads.length,
           scanned: result.scanned,
           cities_scanned: result.citiesDone,
-          message: result.error || `Extração concluída: ${enrichedLeads.length} leads em ${totalTimeSec}s`,
+          message: deductFailed ? 'Pagamento não confirmado.' : (result.error || `Extração concluída: ${enrichedLeads.length} leads em ${totalTimeSec}s`),
           search_time_seconds: totalTimeSec,
           completed_at: new Date().toISOString(),
-          delivered: true,
+          delivered: !deductFailed,
         };
 
         const doFinalUpdate = async (retries = 3) => {
