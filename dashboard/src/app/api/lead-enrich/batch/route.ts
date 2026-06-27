@@ -318,7 +318,7 @@ async function enrichSingleLead(lead: BatchLead, supabase: ReturnType<typeof cre
           site: discoveredSite || lead.site || '',
           email: enriched.email || '', instagram: enriched.instagram || '',
           facebook: enriched.facebook || '', tiktok: enriched.tiktok || '',
-          cnpj: enriched.cnpj || '',
+          cnpj: enriched.cnpj || '', telefone: enriched.telefone || '',
           enriched_at: new Date().toISOString(),
         }, { onConflict: 'company_name,city' });
       } catch (e) { console.warn('[ENRICH] step:', e); }

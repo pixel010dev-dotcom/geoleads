@@ -567,7 +567,6 @@ const startBotSession = async (session: BotSession) => {
         let replyText: string;
         let matchedRuleId: string | null = null;
 
-        AIProvider.resetProviders();
         const aiResponse = await aiRespond(session.userId, jid, senderName, text, session.config);
 
         if (aiResponse) {

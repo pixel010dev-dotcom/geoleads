@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(process.env.SMTP_PORT) || 587,
@@ -10,7 +12,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export async function sendReferralBonusEmail(toEmail: string, tokens: number) {
+export async function sendReferralBonusEmail(toEmail: string, tokens: number, userId?: string) {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn('[EMAIL] SMTP nao configurado. Pule email de bonus de indicacao.');
     return;
@@ -27,7 +29,7 @@ export async function sendReferralBonusEmail(toEmail: string, tokens: number) {
           <p style="font-size: 24px; font-weight: bold; color: #f59e0b;">Voce ganhou <strong>${tokens} tokens</strong>!</p>
           <p>Continue compartilhando seu link para ganhar ainda mais tokens:</p>
           <p style="text-align: center; margin: 20px 0;">
-            <a href="https://geoleads-production.up.railway.app/login?ref=SEU_ID" 
+            <a href="${APP_URL}/login?ref=${userId || 'SEU_ID'}" 
                style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
               Compartilhar Link
             </a>
@@ -65,7 +67,7 @@ export async function sendWelcomeEmail(toEmail: string, name: string) {
             <li>Disparar mensagens no WhatsApp</li>
           </ul>
           <p style="text-align: center; margin: 20px 0;">
-            <a href="https://geoleads-production.up.railway.app/app/dashboard"
+            <a href="${APP_URL}/app/dashboard"
                style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
               Comecar a Extrair Leads
             </a>
@@ -99,7 +101,7 @@ export async function sendPaymentConfirmationEmail(toEmail: string, planName: st
           <p style="font-size: 24px; font-weight: bold; color: #22c55e;">${tokens} tokens adicionados a sua conta!</p>
           <p>Indique amigos e ganhe 100 tokens para cada um que comprar um plano.</p>
           <p style="text-align: center; margin: 20px 0;">
-            <a href="https://geoleads-production.up.railway.app/app/dashboard"
+            <a href="${APP_URL}/app/dashboard"
                style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
               Ir para o Dashboard
             </a>
@@ -163,7 +165,7 @@ const DRIP_TEMPLATES: Record<number, { subject: string; html: (name: string) => 
           <li><strong>Clique em "Extrair"</strong> — em segundos os leads aparecem na tela</li>
         </ol>
         <p style="text-align: center; margin: 30px 0;">
-          <a href="https://geoleads-production.up.railway.app/app/dashboard" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+          <a href="${APP_URL}/app/dashboard" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
             Ir para o painel
           </a>
         </p>
@@ -187,7 +189,7 @@ const DRIP_TEMPLATES: Record<number, { subject: string; html: (name: string) => 
         </ul>
         <p>Quanto mais dados voce tem, mais canais de abordagem — e mais chances de fechar venda.</p>
         <p style="text-align: center; margin: 30px 0;">
-          <a href="https://geoleads-production.up.railway.app/pricing" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+          <a href="${APP_URL}/pricing" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
             Ver planos com enriquecimento
           </a>
         </p>
@@ -208,7 +210,7 @@ const DRIP_TEMPLATES: Record<number, { subject: string; html: (name: string) => 
         </ol>
         <p>Enquanto voce dorme, o GeoLeads esta prospectando para voce.</p>
         <p style="text-align: center; margin: 30px 0;">
-          <a href="https://geoleads-production.up.railway.app/pricing" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+          <a href="${APP_URL}/pricing" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
             Ativar AutoVendas
           </a>
         </p>
@@ -231,7 +233,7 @@ const DRIP_TEMPLATES: Record<number, { subject: string; html: (name: string) => 
         </ul>
         <p style="font-size: 20px; font-weight: bold; color: #f59e0b;">So R$ 24,90/mes — menos de R$ 0,025 por lead!</p>
         <p style="text-align: center; margin: 30px 0;">
-          <a href="https://geoleads-production.up.railway.app/pricing?plan=pro" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+          <a href="${APP_URL}/pricing?plan=pro" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold;">
             Assinar Profissional
           </a>
         </p>

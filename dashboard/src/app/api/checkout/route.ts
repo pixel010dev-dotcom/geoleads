@@ -47,7 +47,7 @@ export async function POST(request: Request) {
           success: true,
           method: 'checkout',
           plan: { id: plan.id, tokens: plan.tokens, price: plan.price },
-          url: `https://geoleads-production.up.railway.app/?checkout=simulated&plan=${plan.id}`,
+          url: `${getWebhookUrl(request).replace('/api/mercado-pago/webhook', '')}/?checkout=simulated&plan=${plan.id}`,
           sandboxUrl: null,
           currentPlan: currentPlanId,
           currentTokens: profileTokens

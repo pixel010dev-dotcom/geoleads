@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS lead_enrichment_cache (
   facebook TEXT NOT NULL DEFAULT '',
   tiktok TEXT NOT NULL DEFAULT '',
   cnpj TEXT NOT NULL DEFAULT '',
+  telefone TEXT NOT NULL DEFAULT '',
   enriched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(company_name, city)

@@ -55,7 +55,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (error) {
+    console.error('[AUTOVENDAS WEBHOOK] Error:', error);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

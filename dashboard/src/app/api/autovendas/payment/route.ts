@@ -7,8 +7,10 @@ export const dynamic = 'force-dynamic';
 
 const cancellablePaymentStatuses = new Set(['cancelled', 'canceled', 'rejected', 'refunded', 'charged_back']);
 
+const AUTOVENDAS_PRICE_PER_LEAD = Number(process.env.AUTOVENDAS_PRICE_PER_LEAD) || 0.5;
+
 function getAutoVendasPrice(leadsAlvo?: number | null) {
-  return (leadsAlvo || 50) * 0.5;
+  return (leadsAlvo || 50) * AUTOVENDAS_PRICE_PER_LEAD;
 }
 
 function getWebhookUrl(request: Request) {
