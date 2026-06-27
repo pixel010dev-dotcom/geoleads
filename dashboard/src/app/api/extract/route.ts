@@ -161,10 +161,11 @@ export async function POST(request: Request) {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
-        // Deduz tokens ANTES de marcar como entregue
+        // Deduz tokens ANTES de marcar como entregue (usa admin client para bypass RLS)
         if (gastos > 0) {
           try {
-            const { error: deductError } = await requestSupabase.rpc('deduct_tokens', {
+            const adminSupabase = createAdminSupabaseClient();
+            const { error: deductError } = await adminSupabase.rpc('deduct_tokens', {
               p_user_id: authedUser.user.id, p_amount: gastos
             });
             if (deductError) console.error('[EXTRACT] RPC deduct_tokens failed:', deductError);

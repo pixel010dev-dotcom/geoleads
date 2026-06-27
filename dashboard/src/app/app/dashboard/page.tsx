@@ -124,6 +124,17 @@ export default function Home() {
 
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentJobIdRef = useRef<string | null>(null);
+  const pollCountRef = useRef(0);
+  const pollStartTimeRef = useRef(0);
+  const mountedRef = useRef(true);
+  const batchPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isAddingAllToCRM = useRef(false);
+  const crmLeadsRef = useRef<CrmLead[]>([]);
+  const keywordRef = useRef('');
+  const locationRef = useRef('');
+
   const dispatchableWaLeads = useMemo(
     () => crmLeads.filter(l => l.telefone && l.telefone !== 'Não informado'),
     [crmLeads]
@@ -583,6 +594,18 @@ export default function Home() {
   useEffect(() => { setCrmPage(0); }, [crmSearch, crmFilterStage]);
 
   useEffect(() => {
+    crmLeadsRef.current = crmLeads;
+  }, [crmLeads]);
+
+  useEffect(() => {
+    keywordRef.current = keyword;
+  }, [keyword]);
+
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
+
+  useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
@@ -796,8 +819,12 @@ export default function Home() {
       const data = await res.json();
       if (data.success && data.enriched) {
         const leadKey = getLeadKey(lead);
-        const updated = crmLeads.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
-        saveCrm(updated);
+        setCrmLeads(prev => {
+          const updated = prev.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
+          try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
+          syncCrmToCloud(updated);
+          return updated;
+        });
       }
     } catch (e) { console.warn('[ENRICH] handleReEnrichSingle:', e); }
     finally { setEnrichLoading(false); }
@@ -1095,14 +1122,6 @@ export default function Home() {
     const updated = crmLeads.map(l => l.nome === nome && (!telefone || l.telefone === telefone) && (!cidade || l.cidade === cidade) ? { ...l, [field]: field === 'tags' ? value.split(',').filter(Boolean) : value } : l);
     saveCrm(updated);
   };
-
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const currentJobIdRef = useRef<string | null>(null);
-  const pollCountRef = useRef(0);
-  const pollStartTimeRef = useRef(0);
-  const mountedRef = useRef(true);
-  const batchPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isAddingAllToCRM = useRef(false);
 
   const startPolling = (jobId: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -1567,13 +1586,16 @@ export default function Home() {
             waSentMessages={waSentMessages}
             batchEnrichProgress={batchEnrichProgress}
             onImportLeads={async (importedLeads) => {
-              const existingKeys = new Set(crmLeads.map(getLeadKey));
+              const currentCrmLeads = crmLeadsRef.current;
+              const currentKeyword = keywordRef.current;
+              const currentLocation = locationRef.current;
+              const existingKeys = new Set(currentCrmLeads.map(getLeadKey));
               const newLeads = importedLeads.filter((l: CrmLead) => !existingKeys.has(getLeadKey(l)));
               const formatted: CrmLead[] = newLeads.map(l => ({
                 ...l, tags: [], stage: 'Novo', notes: '', savedAt: new Date().toISOString(),
-                nicho: l.nicho || keyword || 'Geral', cidade: l.cidade || location || 'Geral',
+                nicho: l.nicho || currentKeyword || 'Geral', cidade: l.cidade || currentLocation || 'Geral',
               }));
-              const updated = [...formatted, ...crmLeads];
+              const updated = [...formatted, ...currentCrmLeads];
               saveCrm(updated);
               setSelectedWaLeads(prev => {
                 const newKeys = formatted.filter((l: CrmLead) => l.telefone && l.telefone !== 'Não informado').map(getLeadKey);
@@ -1582,13 +1604,16 @@ export default function Home() {
               const skipped = importedLeads.length - newLeads.length;
               const msg = skipped > 0 ? `${newLeads.length} importados, ${skipped} duplicados ignorados` : `${formatted.length} leads importados!`;
               showToast(msg, 'success');
-              const updatedSnapshot = [...formatted, ...crmLeads];
               startBatchEnrichment(formatted, (enrichments) => {
-                const merged = updatedSnapshot.map((l: CrmLead) => {
-                  const key = getLeadKey(l);
-                  return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+                setCrmLeads(prev => {
+                  const merged = prev.map((l: CrmLead) => {
+                    const key = getLeadKey(l);
+                    return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+                  });
+                  try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
+                  syncCrmToCloud(merged);
+                  return merged;
                 });
-                saveCrm(merged);
               });
             }}
           />
