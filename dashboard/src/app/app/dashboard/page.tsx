@@ -551,14 +551,18 @@ export default function Home() {
                   });
                   if (Object.keys(newEnrichments).length > 0) {
                     setCrmLeads(prev => {
-                      const merged = prev.map(l => {
+                      return prev.map(l => {
                         const key = getLeadKey(l);
                         return newEnrichments[key] ? mergeEnrichmentIntoLead(l, newEnrichments[key]) : l;
                       });
-                      try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
-                      syncCrmToCloud(merged);
-                      return merged;
                     });
+                    const latestCrm = crmLeadsRef.current;
+                    const merged = latestCrm.map(l => {
+                      const key = getLeadKey(l);
+                      return newEnrichments[key] ? mergeEnrichmentIntoLead(l, newEnrichments[key]) : l;
+                    });
+                    try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
+                    syncCrmToCloud(merged);
                   }
                 }
                 if (pollData.status === 'completed' || pollData.status === 'failed') {
@@ -632,17 +636,23 @@ export default function Home() {
     if (needsEnrichment.length === 0) return;
     for (const l of needsEnrichment) enrichedLeadKeysRef.current.add(getLeadKey(l));
     isEnrichingRef.current = true;
+    const enrichUserId = user?.id;
     startBatchEnrichment(needsEnrichment, (enrichments) => {
       isEnrichingRef.current = false;
       setCrmLeads(prev => {
-        const merged = prev.map(l => {
+        return prev.map(l => {
           const key = getLeadKey(l);
           return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
         });
-        try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { }
-        syncCrmToCloud(merged);
-        return merged;
       });
+      // Usa crmLeadsRef pra ter o valor mais recente (evita stale closure)
+      const latestCrm = crmLeadsRef.current;
+      const merged = latestCrm.map(l => {
+        const key = getLeadKey(l);
+        return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+      });
+      try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { }
+      syncCrmToCloud(merged, enrichUserId);
     });
   }, [crmLeads]);
 
@@ -712,14 +722,18 @@ export default function Home() {
       showToast(`${addedCount} leads adicionados ao CRM! Enriquecendo...`, 'success');
       startBatchEnrichment(newlyAdded, (enrichments) => {
         setCrmLeads(prev => {
-          const merged = prev.map(l => {
+          return prev.map(l => {
             const key = getLeadKey(l);
             return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
           });
-          try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
-          syncCrmToCloud(merged);
-          return merged;
         });
+        const latestCrm = crmLeadsRef.current;
+        const merged = latestCrm.map(l => {
+          const key = getLeadKey(l);
+          return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+        });
+        try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
+        syncCrmToCloud(merged);
       });
     } else showToast('Todos esses leads já existem no CRM.', 'info');
   };
@@ -825,11 +839,12 @@ export default function Home() {
       if (data.success && data.enriched) {
         const leadKey = getLeadKey(lead);
         setCrmLeads(prev => {
-          const updated = prev.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
-          try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
-          syncCrmToCloud(updated);
-          return updated;
+          return prev.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
         });
+        const latestCrm = crmLeadsRef.current;
+        const updated = latestCrm.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
+        try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
+        syncCrmToCloud(updated);
       }
     } catch (e) { console.warn('[ENRICH] handleReEnrichSingle:', e); }
     finally { setEnrichLoading(false); }
@@ -868,14 +883,18 @@ export default function Home() {
               batchPollRef.current = null;
               if (pollData.results) {
                 setCrmLeads(prev => {
-                  const updated = prev.map(l => {
+                  return prev.map(l => {
                     const r = pollData.results.find((r: BatchResult) => (r.leadKey || r.nome) === getLeadKey(l));
                     return r?.enriched ? mergeEnrichmentIntoLead(l, r.enriched) : l;
                   });
-                  try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
-                  syncCrmToCloud(updated);
-                  return updated;
                 });
+                const latestCrm = crmLeadsRef.current;
+                const updated = latestCrm.map(l => {
+                  const r = pollData.results.find((r: BatchResult) => (r.leadKey || r.nome) === getLeadKey(l));
+                  return r?.enriched ? mergeEnrichmentIntoLead(l, r.enriched) : l;
+                });
+                try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
+                syncCrmToCloud(updated);
               }
               showToast(`${pollData.completed} leads enriquecidos!`, 'success');
               setEnrichLoading(false);
@@ -1615,14 +1634,18 @@ export default function Home() {
               showToast(msg, 'success');
               startBatchEnrichment(formatted, (enrichments) => {
                 setCrmLeads(prev => {
-                  const merged = prev.map((l: CrmLead) => {
+                  return prev.map((l: CrmLead) => {
                     const key = getLeadKey(l);
                     return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
                   });
-                  try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
-                  syncCrmToCloud(merged);
-                  return merged;
                 });
+                const latestCrm = crmLeadsRef.current;
+                const merged = latestCrm.map((l: CrmLead) => {
+                  const key = getLeadKey(l);
+                  return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
+                });
+                try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
+                syncCrmToCloud(merged);
               });
             }}
           />

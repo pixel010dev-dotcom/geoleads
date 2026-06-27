@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   const userId = auth.user.id;
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Ajusta para BRT (UTC-3) — Brasil não usa horário de verão
+  today.setHours(today.getHours() - 3, 0, 0, 0);
   const todayStr = today.toISOString();
 
   const weekAgo = new Date();
