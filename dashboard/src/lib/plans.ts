@@ -20,6 +20,7 @@ export type Plan = {
   shortNameKey: string;
   descKey: string;
   price: number;
+  annualPrice: number;
   tokens: number;
   ctaKey: string;
   badgeKey?: string | null;
@@ -27,6 +28,13 @@ export type Plan = {
   features: string[];
   featureKeys: FeatureKey[];
 };
+
+export const ANNUAL_DISCOUNT = 0.2; // 20% off
+
+export function getAnnualPrice(monthlyPrice: number): number {
+  if (monthlyPrice <= 0) return 0;
+  return Math.round(monthlyPrice * 12 * (1 - ANNUAL_DISCOUNT));
+}
 
 export const planOrder: PlanId[] = ['free', 'starter', 'pro', 'agency'];
 
@@ -37,6 +45,7 @@ export const plans: Record<PlanId, Plan> = {
     shortNameKey: 'pricing.planNames.free',
     descKey: 'pricing.planDescriptions.free',
     price: 0,
+    annualPrice: 0,
     tokens: 10,
     ctaKey: 'pricing.cta.free',
     features: [
@@ -53,6 +62,7 @@ export const plans: Record<PlanId, Plan> = {
     shortNameKey: 'pricing.planNames.starter',
     descKey: 'pricing.planDescriptions.starter',
     price: 9.9,
+    annualPrice: 95,
     tokens: 300,
     ctaKey: 'pricing.cta.starter',
     features: [
@@ -70,6 +80,7 @@ export const plans: Record<PlanId, Plan> = {
     shortNameKey: 'pricing.planNames.pro',
     descKey: 'pricing.planDescriptions.pro',
     price: 24.9,
+    annualPrice: 239,
     tokens: 1000,
     ctaKey: 'pricing.cta.pro',
     badgeKey: 'pricing.badge',
@@ -100,6 +111,7 @@ export const plans: Record<PlanId, Plan> = {
     shortNameKey: 'pricing.planNames.agency',
     descKey: 'pricing.planDescriptions.agency',
     price: 47,
+    annualPrice: 451,
     tokens: 2000,
     ctaKey: 'pricing.cta.agency',
     features: [

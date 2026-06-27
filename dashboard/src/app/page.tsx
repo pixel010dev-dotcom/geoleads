@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { IconPhone, IconBuilding, IconMail, IconCamera, IconWhatsApp, IconBot, IconChart, IconDownload } from '@/components/FeatureIcon';
 import SocialProofWidget from '@/components/dashboard/SocialProofWidget';
 import { socialProofMsgs } from '@/components/dashboard/dashboard-constants';
+import LeadCaptureModal from '@/components/LeadCaptureModal';
 
 export default function LandingPage() {
   const { t } = useTranslations();
@@ -350,6 +351,7 @@ export default function LandingPage() {
         </div>
       </footer>
       <SocialProofWidget proofIndex={proofIndex} proofVisible={proofVisible} />
+      <LeadCaptureModal />
     </div>
   );
 }

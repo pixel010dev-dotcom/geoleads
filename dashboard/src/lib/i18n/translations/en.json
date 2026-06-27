@@ -203,6 +203,8 @@
     "summaryTitle": "Plan summary",
     "leadsToUse": "{count} leads to use in the engine",
     "totalToday": "Total today",
+    "totalYear": "Total year",
+    "annualSavings": "save 20%",
     "generatingPix": "Generating PIX...",
     "payWithPix": "Pay with PIX (QR Code)",
     "enterToBuy": "Log in to purchase",

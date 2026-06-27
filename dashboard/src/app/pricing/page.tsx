@@ -40,6 +40,7 @@ export default function Pricing() {
   const [pixSession, setPixSession] = useState<PixSession | null>(null);
   const [pixStatus, setPixStatus] = useState<string>('pending');
   const [pixMessage, setPixMessage] = useState('');
+  const [annual, setAnnual] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function Pricing() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`
       },
-      body: JSON.stringify({ planId, method })
+      body: JSON.stringify({ planId, method, annual })
     });
 
     const data = await res.json();
@@ -311,6 +312,21 @@ export default function Pricing() {
           </div>
         </section>
 
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <span className={`text-sm font-medium ${!annual ? 'text-white' : 'text-gray-500'}`}>Mensal</span>
+          <button
+            type="button"
+            onClick={() => setAnnual(!annual)}
+            className={`relative w-14 h-7 rounded-full transition-colors cursor-pointer ${annual ? 'bg-blue-600' : 'bg-white/20'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${annual ? 'translate-x-7' : 'translate-x-0'}`} />
+          </button>
+          <span className={`text-sm font-medium ${annual ? 'text-white' : 'text-gray-500'}`}>
+            Anual
+            <span className="ml-1 text-[10px] text-green-400 font-bold">-20%</span>
+          </span>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-5 lg:gap-7 items-start max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {(['free', ...paidPlanIds] as PlanId[]).map((planId) => {
@@ -352,7 +368,9 @@ export default function Pricing() {
                   <p className="text-gray-400 text-sm mb-5 min-h-[3rem]">{t('pricing.planDescriptions.' + plan.id)}</p>
 
                   <div className="mb-1 text-4xl font-extrabold tracking-tight">
-                    {formatPlanPrice(plan.price)}
+                    {formatPlanPrice(annual && plan.annualPrice > 0 ? plan.annualPrice : plan.price)}
+                    {annual && plan.annualPrice > 0 && <span className="text-xs text-green-400 font-medium align-super ml-1">/ano</span>}
+                    {annual && plan.annualPrice > 0 && <span className="block text-xs text-gray-500 font-normal mt-1"><s>{formatPlanPrice(plan.price * 12)}</s> {t('pricing.annualSavings')}</span>}
                   </div>
                   <p className="text-xs text-green-400 mb-5">{getCostPerLeadLabel(plan, t)}</p>
 
@@ -387,8 +405,11 @@ export default function Pricing() {
             <div className="my-5 rounded-2xl bg-white/[0.04] border border-white/10 p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs text-gray-500">{t('pricing.totalToday')}</p>
-                  <p className="text-3xl font-extrabold">{formatPlanPrice(selectedPlan.price)}</p>
+                  <p className="text-xs text-gray-500">{annual ? t('pricing.totalYear') : t('pricing.totalToday')}</p>
+                  <p className="text-3xl font-extrabold">{formatPlanPrice(annual && selectedPlan.annualPrice > 0 ? selectedPlan.annualPrice : selectedPlan.price)}</p>
+                  {annual && selectedPlan.annualPrice > 0 && (
+                    <p className="text-[10px] text-gray-500 mt-1"><s>{formatPlanPrice(selectedPlan.price * 12)}</s> {t('pricing.annualSavings')}</p>
+                  )}
                 </div>
                 <p className="text-xs text-green-400 font-bold text-right">{getCostPerLeadLabel(selectedPlan, t)}</p>
               </div>

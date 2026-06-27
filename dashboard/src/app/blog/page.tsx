@@ -42,6 +42,41 @@ const posts = [
     date: '28/05/2026',
     readTime: '4 min',
   },
+  {
+    slug: 'extracao-automatica-leads',
+    title: 'Extracao Automatica de Leads: Como Economizar Horas por Semana',
+    excerpt: 'Automatize a extracao de leads do Google Maps e economize dezenas de horas por semana. Ferramentas, roteiros e melhores praticas.',
+    date: '20/06/2026',
+    readTime: '6 min',
+  },
+  {
+    slug: 'whatsapp-marketing-automacao',
+    title: 'WhatsApp Marketing Automacao: Dispare sem Ser Bloqueado',
+    excerpt: 'Aprenda a automatizar disparos no WhatsApp sem risco de bloqueio. Estrategias de aquecimento, limites diarios e templates inteligentes.',
+    date: '22/06/2026',
+    readTime: '7 min',
+  },
+  {
+    slug: 'lead-generation-b2b-estrategias',
+    title: 'Lead Generation B2B: Estrategias Avancadas para 2026',
+    excerpt: 'As melhores estrategias de lead generation B2B para 2026. Da extracao ao fechamento, um guia completo para vender mais.',
+    date: '24/06/2026',
+    readTime: '8 min',
+  },
+  {
+    slug: 'analise-concorrencia-google-maps',
+    title: 'Como Analisar a Concorrencia pelo Google Maps',
+    excerpt: 'Descubra como usar o Google Maps para espionar concorrentes, identificar lacunas no mercado e encontrar nichos lucrativos.',
+    date: '25/06/2026',
+    readTime: '5 min',
+  },
+  {
+    slug: 'vender-mais-whatsapp-business',
+    title: 'Como Vender Mais com WhatsApp Business: Guia Completo',
+    excerpt: 'Domine o WhatsApp Business para vendas. Catalogo, respostas rapidas, rotulos e integracao com CRM para fechar mais negocios.',
+    date: '26/06/2026',
+    readTime: '6 min',
+  },
 ];
 
 export default function BlogPage() {

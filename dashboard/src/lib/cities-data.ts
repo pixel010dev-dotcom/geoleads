@@ -94,3 +94,39 @@ export const NICHE_EXAMPLES = [
 export function getAllCitySlugs(): string[] {
   return CITIES.map(c => c.slug);
 }
+
+export interface NicheInfo {
+  name: string;
+  slug: string;
+}
+
+export function slugifyNiche(name: string): string {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+export const NICHES: NicheInfo[] = NICHE_EXAMPLES.map(n => ({
+  name: n.charAt(0).toUpperCase() + n.slice(1),
+  slug: slugifyNiche(n),
+}));
+
+export function getNicheBySlug(slug: string): NicheInfo | undefined {
+  return NICHES.find(n => n.slug === slug);
+}
+
+export function getAllNicheSlugs(): string[] {
+  return NICHES.map(n => n.slug);
+}
+
+export function getAllComboSlugs(): { nicho: string; cidade: string }[] {
+  const result: { nicho: string; cidade: string }[] = [];
+  for (const niche of NICHES) {
+    for (const city of CITIES) {
+      result.push({ nicho: niche.slug, cidade: city.slug });
+    }
+  }
+  return result;
+}
