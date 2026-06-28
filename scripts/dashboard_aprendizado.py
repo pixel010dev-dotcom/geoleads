@@ -39,13 +39,18 @@ def to_html(logs, pats):
         prs += "<tr><td>" + str(p.get("module","?")) + "</td><td>" + str(p.get("times_fixed",0)) + "x</td><td>" + str(p.get("last_fixed","?")[:10]) + "</td></tr>"
     if not prs: prs = "<tr><td colspan=3>Sem padroes</td></tr>"
 
+    # Build chart data
+    dates = [e.get("date","?")[:10] for e in logs[-30:]]
+    chart_issues = [e.get("results",{}).get("issues_found",0) for e in logs[-30:]]
+    chart_fixes = [e.get("results",{}).get("fixes_applied",0) for e in logs[-30:]]
+
     # HTML template (simple replace, no f-string conflicts)
     html = open(PRJ / 'scripts' / 'dashboard_template.html').read() if (PRJ / 'scripts' / 'dashboard_template.html').exists() else ''
     if not html:
         html = """<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GeoLeads - Dashboard</title><style>
+<title>GeoLeads - Dashboard</title><script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script><style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f172a;color:#e2e8f0;padding:2rem;font-size:14px}
 .container{max-width:1200px;margin:0 auto}
@@ -77,16 +82,16 @@ tr:hover{background:#1e293b}
 <h2>📋 Historico</h2>
 <table><thead><tr><th></th><th>Data</th><th>Scripts</th><th>WFs</th><th>Issues</th><th>Fixes</th><th>IA</th><th>Aprendizados</th></tr></thead>
 <tbody>TBODY</tbody></table>
-<h2>📦 Padroes de Fix</h2>
+<h2>📈 Tendencias</h2><div id="chartData" style="display:none">{"dates":CHART_DATES,"issues":CHART_ISSUES,"fixes":CHART_FIXES}</div><canvas id="trendChart" height="80"></canvas><h2>📦 Padroes de Fix</h2>
 <table><thead><tr><th>Modulo</th><th>Vezes</th><th>Ultimo</th></tr></thead>
 <tbody>PBODY</tbody></table>
-<div class=ft>GeoLeads AI - Gerado em NOW</div>
+<div class=ft>GeoLeads AI - Gerado em NOW</div><script>const d=JSON.parse(document.getElementById("chartData").textContent);new Chart(document.getElementById("trendChart"),{type:"line",data:{labels:d.dates,datasets:[{label:"Issues",data:d.issues,borderColor:"#fbbf24",backgroundColor:"rgba(251,191,36,0.1)",tension:0.3},{label:"Fixes",data:d.fixes,borderColor:"#4ade80",backgroundColor:"rgba(74,222,128,0.1)",tension:0.3}]},options:{responsive:true,plugins:{legend:{labels:{color:"#94a3b8"}}},scales:{x:{ticks:{color:"#64748b"}},y:{ticks:{color:"#64748b"},beginAtZero:true}}} });</script>
 </div></body></html>"""
 
     # Simple replacement (no f-string conflicts)
     for k, v in {"CYCLES": str(cycles), "SCRIPTS": str(scripts), "ISSUES": str(issues),
         "FIXES": str(fixes), "PATS": str(len(pats)), "LAST": last,
-        "TBODY": trs, "PBODY": prs, "NOW": now}.items():
+        "TBODY": trs, "PBODY": prs, "NOW": now, "CHART_DATES": json.dumps(dates), "CHART_ISSUES": json.dumps(chart_issues), "CHART_FIXES": json.dumps(chart_fixes)}.items():
         html = html.replace(k, v)
 
     out = PRJ / "scripts" / "dashboard_aprendizado.html"

@@ -73,3 +73,22 @@ jobs:
     def test_report(self):
         self.s.self_improve()
         self.s.reporter.send_to_admin.assert_called_once()
+
+    def test_syntax_check(self):
+        r = self.s.self_improve()
+        # broken.py had syntax error, should be detected
+        assert r['issues_found'] >= 1
+
+    def test_secrets_missing(self):
+        self.s.vault.has.return_value = False
+        r = self.s.self_improve()
+        assert len(r['secrets_missing']) >= 1
+
+    def test_secrets_present(self):
+        self.s.vault.has.return_value = True
+        res = self.s.self_improve()
+        assert len(res['secrets_missing']) == 0
+
+    def test_ai_suggestions_flag(self):
+        res = self.s.self_improve()
+        assert 'learnings' in res and len(res['learnings']) > 0
