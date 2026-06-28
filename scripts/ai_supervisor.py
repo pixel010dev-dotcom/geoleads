@@ -1666,7 +1666,6 @@ class AISupervisor:
                 print(f"[Supervisor] {len(missing)} secrets faltando: {missing[:5]}...")
         
         # 6. IA suggestions para melhoria de codigo (a cada 7 dias)
-        from datetime import timedelta
         lessons_file = PROJECT_DIR / "scripts" / ".self_improve_log.json"
         should_use_ai = True
         if lessons_file.exists():
