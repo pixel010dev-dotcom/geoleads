@@ -718,6 +718,54 @@ class Reporter:
             print(f"[Reporter] Erro: {e}")
             return False
     
+    def send_to_admin(self, text: str) -> bool:
+        """Envia APENAS pro admin (PV), nunca pro canal."""
+        token = self.vault.get("TELEGRAM_BOT_TOKEN")
+        admin_id = self.vault.get("TELEGRAM_ADMIN_ID")
+        if not token or not admin_id:
+            print("[Reporter] Admin Telegram nao configurado")
+            print(text[:500])
+            return False
+        try:
+            resp = requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": admin_id, "text": text, "parse_mode": "HTML"},
+                timeout=15
+            )
+            return resp.status_code == 200
+        except Exception as e:
+            print(f"[Reporter] Erro: {e}")
+            return False
+    
+    def get_last_message(self) -> Optional[str]:
+        """Polla getUpdates e retorna a ultima mensagem de texto do admin."""
+        token = self.vault.get("TELEGRAM_BOT_TOKEN")
+        admin_id = self.vault.get("TELEGRAM_ADMIN_ID")
+        if not token or not admin_id:
+            return None
+        
+        try:
+            resp = requests.get(
+                f"https://api.telegram.org/bot{token}/getUpdates",
+                params={"offset": -1, "limit": 1},
+                timeout=10
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            if not data.get("ok") or not data.get("result"):
+                return None
+            
+            for update in data["result"]:
+                msg = update.get("message", {})
+                if msg.get("chat", {}).get("id") == int(admin_id):
+                    text = msg.get("text", "").strip().lower()
+                    if text:
+                        return text
+        except Exception as e:
+            print(f"[Reporter] Poll error: {e}")
+        return None
+    
     def cycle_report(self, cycle: int, scan: dict, diagnostics: list, fixes: list) -> str:
         """Gera relatorio do ciclo."""
         lines = [
@@ -767,6 +815,248 @@ class Reporter:
 
 
 # ============================================================
+# 5b. AUTO FIXER - Correcao automatica com reversao via Telegram
+# ============================================================
+
+FIX_HISTORY_FILE = PROJECT_DIR / "fix_history.json"
+
+class AutoFixer:
+    """IA com poder total: gera script Python de correcao, executa, commita.
+    
+    Se mandar "reverte" no PV do Telegram, o supervisor reverte o ultimo fix.
+    """
+    
+    def __init__(self, vault, brain, reporter):
+        self.vault = vault
+        self.brain = brain
+        self.reporter = reporter
+    
+    def auto_fix(self, source_key: str, error_log: str) -> bool:
+        """Gera script de correcao via IA, executa, commita."""
+        source_type, source_name = source_key.split(":", 1) if ":" in source_key else ("unknown", source_key)
+        
+        print(f"[AutoFix] IA gerando correcao para {source_name}...")
+        script = self._generate_fix_script(source_name, error_log)
+        if not script:
+            return False
+        
+        script_path = str(PROJECT_DIR / "scripts" / ".fix_runner.py")
+        try:
+            with open(script_path, "w", encoding="utf-8") as f:
+                f.write(script)
+        except Exception as e:
+            print(f"[AutoFix] Erro salvando script: {e}")
+            return False
+        
+        print(f"[AutoFix] Executando script de correcao...")
+        try:
+            result = subprocess.run(
+                ["python", script_path],
+                cwd=PROJECT_DIR, capture_output=True, text=True, timeout=120
+            )
+            print(result.stdout[-500:] if result.stdout else "")
+            if result.stderr:
+                print(f"[AutoFix] stderr: {result.stderr[-300:]}")
+        except subprocess.TimeoutExpired:
+            print(f"[AutoFix] Script excedeu 120s timeout")
+            os.remove(script_path)
+            return False
+        except Exception as e:
+            print(f"[AutoFix] Erro exec: {e}")
+            os.remove(script_path)
+            return False
+        finally:
+            if os.path.exists(script_path):
+                os.remove(script_path)
+        
+        if result.returncode != 0:
+            print(f"[AutoFix] Script falhou (exit {result.returncode})")
+            print(f"stderr: {result.stderr[:500]}")
+            return False
+        
+        # Verifica se algo foi alterado
+        diff = subprocess.run(
+            ["git", "diff", "--stat"], cwd=PROJECT_DIR, capture_output=True, text=True, timeout=10
+        )
+        if not diff.stdout.strip():
+            print(f"[AutoFix] Nenhuma alteracao detectada")
+            return False
+        
+        # Commit
+        commit_hash = self._git_commit(source_name)
+        if not commit_hash:
+            return False
+        
+        changes = diff.stdout.strip()
+        self._save_history({
+            "timestamp": datetime.now().isoformat(),
+            "bot": source_name,
+            "commit": commit_hash,
+            "changes": changes,
+        })
+        
+        self.reporter.send_to_admin(
+            f"🔧 <b>Auto-fix: {source_name}</b>\n"
+            f"<code>{commit_hash[:12]}</code>\n"
+            f"{changes}\n\n"
+            f"<i>Mande \"reverte\" no PV pra desfazer</i>"
+        )
+        return True
+    
+    def check_revert_command(self) -> bool:
+        """Verifica se admin pediu revert. Se sim, reverte ultimo fix."""
+        msg = self.reporter.get_last_message()
+        if not msg:
+            return False
+        
+        keywords = ["reverte", "reverter", "desfazer", "volta", "revert"]
+        if not any(k in msg for k in keywords):
+            return False
+        
+        history = self._load_history()
+        if not history:
+            self.reporter.send_to_admin("⚠️ Nenhum fix anterior para reverter.")
+            return False
+        
+        last = history[-1]
+        commit = last.get("commit", "")
+        if not commit:
+            return False
+        
+        print(f"[AutoFix] Revertendo commit {commit[:12]}...")
+        success = self._git_revert(commit)
+        
+        if success:
+            history.pop()
+            self._save_history(history, overwrite=True)
+            self.reporter.send_to_admin(
+                f"↩️ <b>Revertido!</b>\n"
+                f"Commit <code>{commit[:12]}</code> desfeito.\n"
+                f"Bot: {last.get('bot', '?')}"
+            )
+        else:
+            self.reporter.send_to_admin(
+                f"❌ Falha ao reverter commit <code>{commit[:12]}</code>"
+            )
+        
+        return success
+    
+    def _generate_fix_script(self, bot_name: str, error_log: str) -> Optional[str]:
+        """IA gera script Python arbitratrio pra corrigir o erro."""
+        result = self.brain.think(
+            system_prompt="""You are an AI with FULL filesystem access to the GeoLeads project.
+Given an error log, generate a Python script that fixes the bug.
+
+The script runs in the project root (CWD = /geoleads).
+You can:
+- Read/edit/create/delete ANY file (os, shutil, pathlib)
+- Run shell commands (subprocess)
+- Use requests, json, re, sys, etc.
+- Print every action for logging
+
+Rules:
+- MINIMAL changes. Fix ONLY what's broken.
+- Print every file you modify.
+- Handle errors with try/except, print the error.
+- Use relative paths (scripts/..., .github/workflows/...)
+- NEVER exfiltrate secrets, tokens, or keys.
+- NEVER delete files unless it's the root cause.
+- If no fix is possible, print "NO_FIX_NEEDED" and exit(0).
+
+Return ONLY the Python code in a ```python block. No explanation.""",
+            user_prompt=f"## BOT: {bot_name}\n\n## ERROR LOG:\n{error_log[:3000]}\n\n## PROJECT STRUCTURE:\nscripts/ (Python bots), .github/workflows/ (YAML)"
+        )
+        
+        if not result:
+            return None
+        
+        code = re.search(r'```python\n(.*?)```', result, re.DOTALL)
+        if code:
+            return code.group(1).strip()
+        
+        # Fallback: se nao achou bloco, tenta extrair codigo
+        code = re.search(r'```\n(.*?)```', result, re.DOTALL)
+        if code:
+            return code.group(1).strip()
+        
+        return None
+    
+    def _git_commit(self, bot_name: str) -> Optional[str]:
+        try:
+            subprocess.run(
+                ["git", "config", "user.name", "AI Supervisor"],
+                cwd=PROJECT_DIR, capture_output=True, timeout=15
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "ai-supervisor@geoleads"],
+                cwd=PROJECT_DIR, capture_output=True, timeout=15
+            )
+            
+            # Adiciona tudo que foi alterado
+            subprocess.run(
+                ["git", "add", "-A"],
+                cwd=PROJECT_DIR, capture_output=True, timeout=15
+            )
+            
+            result = subprocess.run(
+                ["git", "commit", "-m", f"fix: {bot_name} - correcao automatica via IA"],
+                cwd=PROJECT_DIR, capture_output=True, text=True, timeout=30
+            )
+            if result.returncode != 0:
+                print(f"[AutoFix] Commit: {result.stderr[:200]}")
+                return None
+            
+            push = subprocess.run(
+                ["git", "push"], cwd=PROJECT_DIR, capture_output=True, text=True, timeout=60
+            )
+            if push.returncode != 0:
+                print(f"[AutoFix] Push: {push.stderr[:200]}")
+            
+            log = subprocess.run(
+                ["git", "log", "--oneline", "-1"], cwd=PROJECT_DIR,
+                capture_output=True, text=True, timeout=10
+            )
+            return log.stdout.strip().split()[0] if log.returncode == 0 else "unknown"
+        except Exception as e:
+            print(f"[AutoFix] Git error: {e}")
+            return None
+    
+    def _git_revert(self, commit: str) -> bool:
+        try:
+            r = subprocess.run(
+                ["git", "revert", "--no-edit", commit],
+                cwd=PROJECT_DIR, capture_output=True, text=True, timeout=30
+            )
+            if r.returncode != 0:
+                print(f"[AutoFix] Revert: {r.stderr[:200]}")
+                return False
+            r = subprocess.run(
+                ["git", "push"], cwd=PROJECT_DIR, capture_output=True, text=True, timeout=60
+            )
+            return r.returncode == 0
+        except Exception as e:
+            print(f"[AutoFix] Revert error: {e}")
+            return False
+    
+    def _save_history(self, entry_or_list, overwrite=False):
+        data = entry_or_list if overwrite else (self._load_history() + [entry_or_list])
+        try:
+            with open(FIX_HISTORY_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+        except:
+            pass
+    
+    def _load_history(self) -> list:
+        try:
+            if FIX_HISTORY_FILE.exists():
+                with open(FIX_HISTORY_FILE) as f:
+                    return json.load(f)
+        except:
+            pass
+        return []
+
+
+# ============================================================
 # 6. SUPERVISOR - Orquestrador principal
 # ============================================================
 
@@ -798,6 +1088,7 @@ class AISupervisor:
         self.scanner = Scanner()
         self.healer = Healer()
         self.reporter = Reporter()
+        self.fixer = AutoFixer(self.vault, self.brain, self.reporter)
         self.cycle_count = 0
         self.all_fixes = []
         self.mode = SUPERVISOR_MODE
@@ -873,13 +1164,35 @@ class AISupervisor:
                 "source": "frontend",
             })
         
-        # 3. CURA
+        # 3. AUTO-FIX VIA IA (apenas modo deep)
+        auto_fixes = []
+        if use_ai:
+            for diag in diagnostics:
+                if diag.get("auto_fixable") and diag.get("severity", 0) >= 3:
+                    source = diag.get("source", "")
+                    logs = ""
+                    # Busca logs do bot correspondente
+                    for bot in scan.get("bots", []):
+                        if f"bot:{bot['name']}" == source:
+                            logs = bot.get("logs", "")
+                            break
+                    if logs:
+                        ok = self.fixer.auto_fix(source, logs)
+                        auto_fixes.append({"bot": source, "applied": ok})
+        
+        # 4. VERIFICA COMANDO DE REVERT (sempre, em ambos modos)
+        revertido = self.fixer.check_revert_command()
+        
+        # 5. CURA (Healer)
         fixes = self.healer.heal(diagnostics)
         self.all_fixes.extend(fixes)
+        self.all_fixes.extend(auto_fixes)
         
-        # 4. REPORT
+        # 6. REPORT
         report = self._build_report(scan, diagnostics, fixes, use_ai)
         self.reporter.send(report)
+        if revertido:
+            self.reporter.send("↩️ Reversao concluida neste ciclo.")
         print(f"[Supervisor] Ciclo {self.cycle_count} completo!")
         return {"scan": scan, "diagnostics": diagnostics, "fixes": fixes}
     
