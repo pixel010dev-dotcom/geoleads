@@ -11,7 +11,6 @@ Funcionalidades:
 
 import requests
 import os
-import json
 import random
 import hashlib
 from datetime import datetime

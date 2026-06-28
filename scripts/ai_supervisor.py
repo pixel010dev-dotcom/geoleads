@@ -1054,7 +1054,6 @@ class AutoFixer:
     
     def _generate_fix_script(self, bot_name: str, error_log: str) -> Optional[str]:
         """IA gera script Python arbitratrio pra corrigir o erro."""
-        contexto = self._load_context()
         result = self.brain.think(
             system_prompt="""You are an AI with FULL filesystem access to the GeoLeads project.
 Given an error log, generate a Python script that fixes the bug.
