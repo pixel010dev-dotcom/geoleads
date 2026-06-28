@@ -1,9 +1,8 @@
-.git
-.next
 node_modules
-dashboard/.next
-dashboard/node_modules
-dashboard/.env.local
-npm-debug.log
-Dockerfile
-README.md
+.next
+.git
+*.md
+.env*
+!.env.example
+scripts
+.github
