@@ -82,8 +82,7 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/auth/callback?next=' + encodeURIComponent(getRedirectPath()),
-        flowType: 'pkce',
+        redirectTo: window.location.origin + getRedirectPath(),
       },
     });
     if (error) {
