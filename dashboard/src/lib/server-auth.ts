@@ -1,25 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { getPlanIdFromTokens, getPlanLevel, hasFeature, type FeatureKey, type PlanId } from '@/lib/plans';
 
-function getSupabaseUrl() {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('[SERVER-AUTH] NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY são obrigatórios');
 }
 
-function getSupabaseAnonKey() {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
-}
-
-function getSupabaseServiceKey() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-}
-
-let supabaseClient: ReturnType<typeof createClient> | null = null;
-function getSupabase() {
-  if (!supabaseClient) {
-    supabaseClient = createClient(getSupabaseUrl(), getSupabaseAnonKey());
-  }
-  return supabaseClient;
-}
+const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
 
 export type AuthResult = {
   user: { id: string; email?: string };
@@ -33,7 +23,7 @@ export function getBearerToken(request: Request) {
 }
 
 export function createAuthedSupabaseClient(token: string) {
-  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+  return createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       headers: {
         Authorization: `Bearer ${token}`
@@ -44,11 +34,11 @@ export function createAuthedSupabaseClient(token: string) {
 
 export function createRequestSupabaseClient(request: Request) {
   const token = getBearerToken(request);
-  return token ? createAuthedSupabaseClient(token) : getSupabase();
+  return token ? createAuthedSupabaseClient(token) : supabase;
 }
 
 export function createAdminSupabaseClient() {
-  return createClient(getSupabaseUrl(), getSupabaseServiceKey() || getSupabaseAnonKey(), {
+  return createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false
@@ -57,14 +47,14 @@ export function createAdminSupabaseClient() {
 }
 
 export function hasSupabaseServiceRole() {
-  return Boolean(getSupabaseServiceKey());
+  return Boolean(supabaseServiceKey);
 }
 
 export async function getAuthUser(request: Request): Promise<AuthResult | null> {
   const token = getBearerToken(request);
   if (!token) return null;
 
-  const { data, error } = await getSupabase().auth.getUser(token);
+  const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) return null;
 
   const profileSupabase = hasSupabaseServiceRole()
