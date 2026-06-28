@@ -56,3 +56,7 @@ next-env.d.ts
 *.jpeg
 __pycache__/
 scripts/__pycache__/
+# Stray files from shell expansion
+Mantenha-o
+Toda
+Arquivo
