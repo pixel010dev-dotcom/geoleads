@@ -5,12 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 3000",
+    "start": "next start -H 0.0.0.0",
     "lint": "eslint"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
+    "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.21",
     "@whiskeysockets/baileys": "^7.0.0-rc12",
     "jimp": "^1.6.1",
@@ -20,15 +21,15 @@
     "next": "16.2.6",
     "nodemailer": "^8.0.7",
     "pino": "^10.3.1",
-    "playwright": "^1.60.0",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-is": "^19.2.4",
     "recharts": "^3.8.1",
+    "tailwindcss": "^4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
     "@types/qrcode": "^1.5.6",
@@ -36,7 +37,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }
