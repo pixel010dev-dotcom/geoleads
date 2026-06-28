@@ -1,0 +1,57 @@
+name: Self-Improve 12:00
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # Todo dia ao meio-dia
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modo de execucao'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - dry-run
+
+jobs:
+  self-improve:
+    name: Auto-Aprimoramento 12:00
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests pyflakes
+
+      - name: Run Self-Improve (12:00 - 13:00)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          python scripts/ai_supervisor.py --self-improve
+
+      - name: Fix and Commit
+        if: github.event.inputs.mode != 'dry-run'
+        run: |
+          git config user.name "AI Supervisor"
+          git config user.email "supervisor@geoleads.ai"
+          git add -A
+          git diff --cached --quiet || git commit -m "fix: auto-aprimoramento 12:00"
+          git push

@@ -857,6 +857,7 @@ class AutoFixer:
         self.vault = vault
         self.brain = brain
         self.reporter = reporter
+        self.fix_history = []  # historico de fix para aprendizado
     
     def _load_context(self) -> str:
         """Le o CONTEXTO.md do repo."""
@@ -992,8 +993,6 @@ class AutoFixer:
             "changes": changes,
         })
         
-        self._learn_from_fix(error_log, script, True)
-        
         self.reporter.send_to_admin(
             f"🔧 <b>Auto-fix: {source_name}</b>\n"
             f"<code>{commit_hash[:12]}</code>\n"
@@ -1088,8 +1087,20 @@ class AutoFixer:
     
     def _generate_fix_script(self, bot_name: str, error_log: str) -> Optional[str]:
         """IA gera script Python arbitratrio pra corrigir o erro."""
+        contexto = self._load_context()
+        patterns = "Nenhum fix anterior registrado."
+        try:
+            patterns_file = PROJECT_DIR / "scripts" / ".fix_patterns.json"
+            if patterns_file.exists():
+                with open(patterns_file, encoding="utf-8") as pf:
+                    data = json.load(pf)
+                if data:
+                    patterns = "\n".join(f"- {p.get("module", "?")}: {p.get("fix", "")[:200]}" for p in data[-5:])
+        except Exception:
+            pass
+
         result = self.brain.think(
-            system_prompt="""You are an AI with FULL filesystem access to the GeoLeads project.
+            system_prompt=f"""You are an AI with FULL filesystem access to the GeoLeads project.
 Given an error log, generate a Python script that fixes the bug.
 
 The script runs in the project root (CWD = /geoleads).
@@ -1129,6 +1140,9 @@ Rules:
 
 6. SyntaxError:
    -> Fix the Python syntax directly in the file
+
+## FIX PATTERNS FROM HISTORY:
+{patterns}
 
 ## CONTEXTO DO PROJETO:
 {contexto[:3000]}
@@ -1225,9 +1239,28 @@ Return ONLY the Python code in a ```python block. No explanation.""",
                         imp_path = os.path.join(PROJECT_DIR, "scripts", f"{imp}.py")
                         if not os.path.exists(imp_path):
                             return f"Import {imp} not found (in {fname})"
+            # Syntax check em todos os scripts/ para prevenir regressoes
+            regression_err = self._syntax_check_all()
+            if regression_err:
+                return regression_err
         except Exception as e:
             return f"Smoke test error: {e}"
         return ""
+    
+    def _syntax_check_all(self) -> Optional[str]:
+        """Syntax check em TODOS os scripts/. Previne regressoes."""
+        scripts_dir = PROJECT_DIR / "scripts"
+        if not scripts_dir.exists():
+            return None
+        for fname in sorted(scripts_dir.glob("*.py")):
+            r = subprocess.run(
+                ["python", "-m", "py_compile", str(fname)],
+                capture_output=True, text=True, timeout=15
+            )
+            if r.returncode != 0:
+                err = r.stderr[:300]
+                return f"Regression syntax error em {fname.name}: {err}"
+        return None
     
     def _learn_from_fix(self, error_log: str, fix_script: str, success: bool):
         """Salva padrao de erro + solucao pra aprendizado futuro."""
@@ -1252,7 +1285,7 @@ Return ONLY the Python code in a ```python block. No explanation.""",
                     })
                     with open(patterns_file, "w") as f:
                         json.dump(patterns, f, indent=2)
-        except:
+        except Exception:
             pass
     
     def _save_history(self, entry_or_list, overwrite=False):
@@ -1260,7 +1293,7 @@ Return ONLY the Python code in a ```python block. No explanation.""",
         try:
             with open(FIX_HISTORY_FILE, "w") as f:
                 json.dump(data, f, indent=2)
-        except:
+        except Exception:
             pass
     
     def _load_history(self) -> list:
@@ -1420,6 +1453,14 @@ class AISupervisor:
         # Se algum bot ainda falhar apos fix, reverte automaticamente
         self.fixer.check_revert_command(diagnostics)
         
+        # 4b. APRENDE COM FIX BEM SUCEDIDO (so depois de confirmar que nao foi revertido)
+        for fix in auto_fixes:
+            if fix.get("applied"):
+                self.fixer.fix_history.append(fix)
+                # Registra padrao de aprendizado se disponivel
+                if "logs" in fix and "script" in fix:
+                    self.fixer._learn_from_fix(fix.get("logs", ""), fix.get("script", ""), True)
+        
         # 5. CURA (Healer)
         fixes = self.healer.heal(diagnostics)
         self.all_fixes.extend(fixes)
@@ -1517,6 +1558,111 @@ class AISupervisor:
 # MAIN
 # ============================================================
 
+    def self_improve(self):
+        """Ciclo de auto-aprimoramento: escaneia, diagnostica, corrige e evolui.
+        Roda 12:00-13:00 todos os dias via workflow."""
+        print("[Supervisor] === AUTO-APRIMORAMENTO 12:00 ===")
+        results = {"scripts_checked": 0, "issues_found": 0, "fixes_applied": 0, "learnings": []}
+        
+        # 1. Escaneia TODOS os scripts .py
+        scripts_dir = PROJECT_DIR / "scripts"
+        if not scripts_dir.exists():
+            print("[Supervisor] Nenhum script encontrado")
+            return results
+        
+        py_files = sorted(scripts_dir.glob("*.py"))
+        results["scripts_checked"] = len(py_files)
+        print(f"[Supervisor] Escaneando {len(py_files)} scripts...")
+        
+        for py_file in py_files:
+            fname = py_file.name
+            
+            # 2. Syntax check
+            r = subprocess.run(
+                ["python", "-m", "py_compile", str(py_file)],
+                capture_output=True, text=True, timeout=15
+            )
+            if r.returncode != 0:
+                err = r.stderr[:300]
+                print(f"[Supervisor] Syntax error em {fname}: {err[:100]}")
+                results["issues_found"] += 1
+                # Tenta auto-fix via IA para syntax error
+                result = self.fixer.auto_fix(f"script:{fname}", err)
+                if result:
+                    results["fixes_applied"] += 1
+                    results["learnings"].append(f"Syntax fixed: {fname}")
+                continue
+            
+            # 3. Lint check via pyflakes ou regex simples
+            try:
+                with open(py_file, "r", encoding="utf-8") as f:
+                    source = f.read()
+                # Procura bare except:
+                bare_excepts = source.count("\n    except:\n") + source.count("\n        except:\n")
+                if bare_excepts > 0:
+                    print(f"[Supervisor] {fname}: {bare_excepts}x bare except encontrado")
+                    results["issues_found"] += 1
+                    # Tenta corrigir
+                    fixed = source.replace("\n        except:\n", "\n        except Exception:\n")
+                    if fixed != source:
+                        with open(py_file, "w", encoding="utf-8") as f:
+                            f.write(fixed)
+                        results["fixes_applied"] += 1
+                        results["learnings"].append(f"Fixed bare except in {fname}")
+            except Exception:
+                pass
+        
+        # 4. Verifica se todos os workflows estao ativos
+        workflows_dir = PROJECT_DIR / ".github" / "workflows"
+        if workflows_dir.exists():
+            for yml_file in workflows_dir.glob("*.yml"):
+                with open(yml_file, "r") as f:
+                    yml_content = f.read()
+                if "name:" not in yml_content:
+                    results["issues_found"] += 1
+                    print(f"[Supervisor] Workflow {yml_file.name} pode estar corrompido")
+        
+        # 5. Salva aprendizado
+        try:
+            lessons_file = PROJECT_DIR / "scripts" / ".self_improve_log.json"
+            lessons = []
+            if lessons_file.exists():
+                with open(lessons_file) as f:
+                    lessons = json.load(f)
+            lessons.append({
+                "date": datetime.now().isoformat(),
+                "results": results,
+            })
+            # Mantem ultimos 30 dias
+            if len(lessons) > 30:
+                lessons = lessons[-30:]
+            with open(lessons_file, "w") as f:
+                json.dump(lessons, f, indent=2)
+        except Exception:
+            pass
+        
+        # 6. Report via Telegram
+        msg = (
+            f"\\U0001f9e0 <b>Auto-Aprimoramento 12:00</b>\\n"
+            f"Scripts: {results['scripts_checked']}\\n"
+            f"Issues: {results['issues_found']}\\n"
+            f"Fixes: {results['fixes_applied']}\\n"
+        )
+        if results["learnings"]:
+            msg += "\\n<b>Correcoes:</b>\\n" + "\\n".join(f"\\u2022 {l}" for l in results["learnings"][-5:])
+        try:
+            self.reporter.send_to_admin(msg)
+        except Exception:
+            pass
+        
+        print(f"[Supervisor] Auto-aprimoramento concluido: {results}")
+        return results
+
 if __name__ == "__main__":
     supervisor = AISupervisor()
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-improve":
+        print("[Supervisor] === INICIANDO AUTO-APRIMORAMENTO 12:00 ===")
+        result = supervisor.self_improve()
+        print(f"[Supervisor] Resultado: {result}")
+        sys.exit(0)
     supervisor.run()
