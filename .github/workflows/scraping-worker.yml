@@ -1,0 +1,42 @@
+name: Scraping Worker
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # A cada 10 minutos
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modo de execucao'
+        required: true
+        default: 'once'
+        type: choice
+        options:
+          - once
+          - dry-run
+
+jobs:
+  scrape:
+    name: Process Pending Jobs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Scraping Worker
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          python scripts/scraping_worker.py ${{ github.event.inputs.mode == 'dry-run' && '--dry-run' || '--once' }}

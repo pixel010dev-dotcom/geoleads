@@ -1,6 +1,8 @@
 """
 auto_lead_pipeline.py — Pipeline automático de geração de leads
 
+NOTA: Os jobs sao criados aqui mas processados pelo scraping_worker.py
+
 Configura nichos + cidades, roda extração via API, enriquece leads,
 salva no CRM, e manda resumo no Telegram.
 

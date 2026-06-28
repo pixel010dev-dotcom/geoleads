@@ -35,6 +35,7 @@ Deploy: https://geoleads-production.up.railway.app
 | `youtube-shorts-bot.py` | Cria + upload Shorts (imagem + música via FFmpeg) | 3x/semana | GOOGLE_CLIENT_*, GOOGLE_REFRESH_TOKEN |
 | `generate-blog-post.py` | Gera post de blog via IA e publica na API | 1x/semana (segunda) | OPENROUTER_API_KEY |
 | `telegram_monitor.py` | Monitora extrações e envia stats no PV do admin | 5/5min | TELEGRAM_BOT_TOKEN, SUPABASE_* |
+| `scraping_worker.py` | Worker que processa jobs pendentes de extracao via API | 10/10min | SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, APP_URL, CRON_SECRET |
 | `ai_supervisor.py` | Supervisor autônomo: scan IA -> diagnostico -> auto-fix -> report | 15/15min | OPENROUTER_API_KEY, GH_TOKEN, TELEGRAM_*, múltiplas |
 | `auto_lead_pipeline.py` | Pipeline automático de lead gen | — | (várias) |
 
@@ -81,6 +82,7 @@ Fluxo completo:
 | `telegram-monitor.yml` | */5 * * * * | Roda telegram_monitor.py |
 | `drip-cron.yml` | 0 * * * * (1h) | Chama /api/drip/process |
 | `auto-pipeline.yml` | 0 7 * * 1 | Roda auto_lead_pipeline.py |
+| `scraping-worker.yml` | */10 * * * * | Roda scraping_worker.py |
 | `ai-supervisor.yml` | */15 * * * * | Roda ai_supervisor.py (modo deep 2x/dia auto-detectado) |
 
 ### Permissões
