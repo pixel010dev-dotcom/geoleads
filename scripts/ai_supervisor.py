@@ -46,7 +46,7 @@ AI_PROVIDERS = [
         "name": "openrouter",
         "base_url": "https://openrouter.ai/api/v1/chat/completions",
         "api_key_env": "OPENROUTER_API_KEY",
-        "model": "openrouter/free",
+        "model": "deepseek/deepseek-v4-flash:free",
         "headers": {
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/pixel010dev-dotcom/geoleads",

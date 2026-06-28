@@ -49,7 +49,7 @@ def generate_ai_tweet():
                 "Content-Type": "application/json"
             },
             json={
-                "model": "openrouter/free",
+                "model": "deepseek/deepseek-v4-flash:free",
                 "messages": [
                     {"role": "system", "content": "Gere UM tweet curto (<260 chars) em portugues brasileiro sobre extracao de leads do Google Maps. Inclua o link https://geoleads-production.up.railway.app/login naturalmente. Sem hashtags. Responda apenas o texto do tweet."},
                     {"role": "user", "content": "Gere um tweet dica de prospeccao B2B usando Google Maps."}

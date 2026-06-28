@@ -23,7 +23,7 @@ from pathlib import Path
 # ──────────── CONFIG ────────────
 
 OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/free")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash:free")
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 APP_URL = os.environ.get("APP_URL", "https://geoleads-production.up.railway.app")
 

@@ -17,7 +17,7 @@ jobs:
       - name: Generate blog post
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_MODEL: deepseek/deepseek-v4-flash-free
+          OPENROUTER_MODEL: deepseek/deepseek-v4-flash:free
         run: |
           python scripts/generate-blog-post.py
 
