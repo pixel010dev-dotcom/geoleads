@@ -42,17 +42,7 @@ export async function POST(request: Request) {
       })
       .eq('id', lead.id);
 
-    const { data: camp, error: campError } = await supabase
-      .from('autovendas_campaigns')
-      .select('total_responses')
-      .eq('id', campaignId)
-      .maybeSingle();
-    if (!campError && camp) {
-      await supabase
-        .from('autovendas_campaigns')
-        .update({ total_responses: (camp.total_responses || 0) + 1 })
-        .eq('id', campaignId);
-    }
+    await supabase.rpc('increment_campaign_responses', { p_campaign_id: campaignId });
 
     return NextResponse.json({ success: true });
   } catch (error) {

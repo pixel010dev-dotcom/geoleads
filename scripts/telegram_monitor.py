@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 # ──────────── CONFIG ────────────
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8755188266:AAE0U4gaMc7dKByW_wFeoOEvpm00_E-va-w")
-TELEGRAM_ADMIN_ID = os.environ.get("TELEGRAM_ADMIN_ID", "")  # ID do admin pra DM
+TELEGRAM_ADMIN_ID = os.environ.get("TELEGRAM_ADMIN_ID", "8955181160")  # ID do admin pra DM
 TELEGRAM_CHANNEL = os.environ.get("TELEGRAM_CHANNEL_ID", "-1003870508744")  # Fallback pro grupo
 SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "https://mwnpwrzwgwrqqlomqhux.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13bnB3cnp3Z3dycXFsb21xaHV4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzODgyNCwiZXhwIjoyMDk0ODE0ODI0fQ.YVZQ3cPMJaPjBnggkEV4SxNeh4Y-PVisP2ST5YF0rl8")

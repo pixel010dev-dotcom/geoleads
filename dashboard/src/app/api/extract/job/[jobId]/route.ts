@@ -97,7 +97,7 @@ export async function PATCH(
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminSupabase
       .from('extraction_jobs')
       .update({
         status: body.status,

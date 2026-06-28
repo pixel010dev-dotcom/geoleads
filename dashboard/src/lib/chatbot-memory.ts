@@ -85,7 +85,7 @@ export class ChatbotMemory {
     const { error } = await this.adminClient
       .from('chatbot_memory')
       .update({
-        conversation_history: trimmed.map(h => JSON.stringify(h)),
+        conversation_history: trimmed,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
@@ -143,10 +143,12 @@ export class ChatbotMemory {
   }
 
   private static rowToMemory(row: Record<string, unknown>): ContactMemory {
-    const rawHistory = (row.conversation_history as string[]) || [];
+    const rawHistory = (row.conversation_history as unknown[]) || [];
     const parsedHistory: MemoryEntry[] = rawHistory
-      .map((h: string) => {
-        try { return JSON.parse(h); } catch { return null; }
+      .map((h: unknown) => {
+        if (typeof h === 'string') { try { return JSON.parse(h); } catch { return null; } }
+        if (typeof h === 'object' && h !== null) return h as MemoryEntry;
+        return null;
       })
       .filter((h): h is MemoryEntry => h !== null);
 

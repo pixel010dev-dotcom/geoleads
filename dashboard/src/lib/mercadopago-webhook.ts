@@ -71,10 +71,7 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
 
     const { error: updateError } = await supabase
       .from('autovendas_campaigns')
-      .update({
-        payment_status: 'paid',
-        status: 'paid'
-      })
+      .update({ payment_status: 'paid' })
       .eq('id', campaignId)
       .eq('user_id', userId)
       .eq('payment_id', String(paymentId));

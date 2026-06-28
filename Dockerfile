@@ -22,6 +22,9 @@ ENV GOOGLE_CSE_API_KEY
 ENV GOOGLE_CSE_ID
 ENV CF_WORKER_URL
 
+# Install Playwright system dependencies and Chromium
+RUN npx playwright install chromium --with-deps
+
 RUN npm run build
 
 EXPOSE 3000

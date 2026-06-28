@@ -161,10 +161,7 @@ export async function GET(request: Request) {
     if (normalizedStatus === 'approved') {
       const { data } = await supabase
         .from('autovendas_campaigns')
-        .update({
-          payment_status: 'paid',
-          status: 'paid',
-        })
+        .update({ payment_status: 'paid' })
         .eq('id', campaign.id)
         .eq('user_id', auth.user.id)
         .select()

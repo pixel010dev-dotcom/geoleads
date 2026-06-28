@@ -207,7 +207,7 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
           data.cidade = d.municipio || '';
           data.uf = d.uf || '';
           data.cep = d.cep || '';
-          data.atividade = d.descricao_atividade_principal?.[0]?.text || '';
+          data.atividade = d.cnae_fiscal_descricao || (d.descricao_atividade_principal?.[0]?.text) || '';
           data.situacao_cadastral = d.situacao_cadastral || '';
         }
       }
@@ -295,7 +295,8 @@ export async function POST(request: Request) {
               if (d.municipio) enriched.cidade_encontrada = d.municipio;
               if (d.uf) enriched.uf = d.uf;
               if (d.cep) enriched.cep = d.cep;
-              if (d.descricao_atividade_principal?.[0]?.text) enriched.atividade = d.descricao_atividade_principal[0].text;
+              if (d.cnae_fiscal_descricao) enriched.atividade = d.cnae_fiscal_descricao;
+              else if (d.descricao_atividade_principal?.[0]?.text) enriched.atividade = d.descricao_atividade_principal[0].text;
               if (d.situacao_cadastral) enriched.situacao_cadastral = d.situacao_cadastral;
             }
           } catch (e) { console.warn('[ENRICH] step:', e); }

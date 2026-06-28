@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createRequestSupabaseClient, getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
+import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +13,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'jobId é obrigatório' }, { status: 400 });
     }
 
-    const supabase = createRequestSupabaseClient(request);
     const adminSupabase = createAdminSupabaseClient();
 
     // Verifica se o job pertence ao usuario e esta running (usa admin pra evitar RLS issues)
@@ -47,8 +46,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Marca job como cancelado
-    const { data: updatedJob, error: updateError } = await supabase
+    // Marca job como cancelado (usa admin pra bypassar RLS)
+    const { data: updatedJob, error: updateError } = await adminSupabase
       .from('extraction_jobs')
       .update({
         status: 'cancelled',

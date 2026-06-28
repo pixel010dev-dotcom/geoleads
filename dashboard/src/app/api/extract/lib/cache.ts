@@ -51,5 +51,14 @@ export function setEnrichCache(domain: string, data: EnrichmentData) {
   enrichCache.set(domain, { ...data, timestamp: Date.now() });
 }
 
-// Auto-cleanup expired entries every 10 minutes
-setInterval(clearExpiredCache, 10 * 60 * 1000);
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+function startCleanupTimer() {
+  if (typeof globalThis !== 'undefined' && !(globalThis as any).__geoleadsCacheCleanupSet) {
+    (globalThis as any).__geoleadsCacheCleanupSet = true;
+    cleanupTimer = setInterval(clearExpiredCache, CLEANUP_INTERVAL_MS);
+  }
+}
+
+startCleanupTimer();

@@ -187,6 +187,7 @@ export async function POST(request: Request) {
         ]);
 
         // VERIFICA WHATSAPP (se bot session ativa do usuario)
+        let whatsappChecked = false;
         try {
           const waSessions = (globalThis as any).__geoleadsChatbotSessions as Map<string, any> | undefined;
           const waSession = waSessions?.get(authedUser.user.id);
@@ -205,19 +206,25 @@ export async function POST(request: Request) {
               }
               const totalWa = enrichedLeads.filter(l => l.hasWhatsApp).length;
               console.log(`[EXTRACT] WhatsApp OK: ${totalWa}/${phones.length} leads com WhatsApp`);
-              if (totalWa > 0) {
-                const before = enrichedLeads.length;
-                const filtrados = enrichedLeads.filter(l => !l.telefone || l.telefone === 'Não informado' || l.hasWhatsApp);
-                enrichedLeads.splice(0, enrichedLeads.length, ...filtrados);
-                const removidos = before - enrichedLeads.length;
-                if (removidos > 0) console.log(`[EXTRACT] ${removidos} leads sem WhatsApp removidos`);
-              }
+              whatsappChecked = true;
             }
           } else {
             console.log('[EXTRACT] WhatsApp check skipped: no active bot session');
           }
         } catch (e: any) {
           console.warn('[EXTRACT] WhatsApp check error (non-critical):', e?.message || e);
+        }
+
+        // Filtra leads sem WhatsApp apenas se a verificacao rodou
+        if (whatsappChecked) {
+          const totalWa = enrichedLeads.filter(l => l.hasWhatsApp).length;
+          if (totalWa > 0) {
+            const before = enrichedLeads.length;
+            const filtrados = enrichedLeads.filter(l => !l.telefone || l.telefone === 'Não informado' || l.hasWhatsApp);
+            enrichedLeads.splice(0, enrichedLeads.length, ...filtrados);
+            const removidos = before - enrichedLeads.length;
+            if (removidos > 0) console.log(`[EXTRACT] ${removidos} leads sem WhatsApp removidos`);
+          }
         }
 
         // Deduz tokens ANTES de marcar como entregue
