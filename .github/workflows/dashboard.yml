@@ -1,0 +1,37 @@
+name: Dashboard Aprendizado
+
+on:
+  schedule:
+    - cron: '30 15 * * *'  # 12:30 BRT (30min apos self_improve)
+  workflow_run:
+    workflows: ["Self-Improve 12:00 BRT"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  generate:
+    name: Gerar Dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate Dashboard HTML
+        run: |
+          python scripts/dashboard_aprendizado.py
+
+      - name: Commit Dashboard
+        run: |
+          git config user.name "AI Supervisor"
+          git config user.email "supervisor@geoleads.ai"
+          git add scripts/dashboard_aprendizado.html
+          git diff --cached --quiet || git commit -m "chore: dashboard atualizado [skip ci]"
+          git push
