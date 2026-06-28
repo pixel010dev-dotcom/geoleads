@@ -14,6 +14,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install deps
+        run: pip install requests
+
       - name: Create pin
         env:
           PINTEREST_TOKEN: ${{ secrets.PINTEREST_TOKEN }}
