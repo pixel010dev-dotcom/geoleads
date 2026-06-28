@@ -820,10 +820,12 @@ class Reporter:
 
 FIX_HISTORY_FILE = PROJECT_DIR / "fix_history.json"
 
+CONTEXTO_PATH = PROJECT_DIR / "scripts" / "CONTEXTO.md"
+
 class AutoFixer:
     """IA com poder total: gera script Python de correcao, executa, commita.
-    
-    Se mandar "reverte" no PV do Telegram, o supervisor reverte o ultimo fix.
+    Le CONTEXTO.md pra ter contexto do projeto.
+    Se mandar "reverte" no PV do Telegram, reverte o ultimo fix.
     """
     
     def __init__(self, vault, brain, reporter):
@@ -831,50 +833,99 @@ class AutoFixer:
         self.brain = brain
         self.reporter = reporter
     
+    def _load_context(self) -> str:
+        """Le o CONTEXTO.md do repo."""
+        try:
+            if CONTEXTO_PATH.exists():
+                with open(CONTEXTO_PATH, "r", encoding="utf-8") as f:
+                    return f.read()
+        except:
+            pass
+        return "Contexto nao disponivel."
+    
+    def _syntax_check(self) -> Optional[str]:
+        """Roda python -m py_compile em scripts alterados.
+        Retorna erro se houver, None se ok."""
+        try:
+            diff = subprocess.run(
+                ["git", "diff", "--name-only"], cwd=PROJECT_DIR,
+                capture_output=True, text=True, timeout=10
+            )
+            for f in diff.stdout.strip().split("\n"):
+                f = f.strip()
+                if f.endswith(".py"):
+                    full = PROJECT_DIR / f
+                    if full.exists():
+                        r = subprocess.run(
+                            ["python", "-m", "py_compile", str(full)],
+                            capture_output=True, text=True, timeout=15
+                        )
+                        if r.returncode != 0:
+                            return f"Syntax error em {f}: {r.stderr[:200]}"
+        except:
+            pass
+        return None
+    
     def auto_fix(self, source_key: str, error_log: str) -> bool:
-        """Gera script de correcao via IA, executa, commita."""
+        """Gera script de correcao via IA, executa, valida, commita.
+        Se syntax check falhar, tenta de novo 1x."""
         source_type, source_name = source_key.split(":", 1) if ":" in source_key else ("unknown", source_key)
         
-        print(f"[AutoFix] IA gerando correcao para {source_name}...")
-        script = self._generate_fix_script(source_name, error_log)
-        if not script:
-            return False
+        for attempt in range(2):  # max 1 retry
+            print(f"[AutoFix] IA gerando correcao para {source_name} (tentativa {attempt+1})...")
+            script = self._generate_fix_script(source_name, error_log)
+            if not script:
+                return False
+            
+            script_path = str(PROJECT_DIR / "scripts" / ".fix_runner.py")
+            try:
+                with open(script_path, "w", encoding="utf-8") as f:
+                    f.write(script)
+            except Exception as e:
+                print(f"[AutoFix] Erro salvando: {e}")
+                return False
+            
+            print(f"[AutoFix] Executando script...")
+            try:
+                result = subprocess.run(
+                    ["python", script_path],
+                    cwd=PROJECT_DIR, capture_output=True, text=True, timeout=300
+                )
+                print(result.stdout[-500:] if result.stdout else "")
+                if result.stderr:
+                    print(f"[AutoFix] stderr: {result.stderr[-300:]}")
+            except subprocess.TimeoutExpired:
+                print(f"[AutoFix] Script excedeu 300s timeout")
+                return False
+            except Exception as e:
+                print(f"[AutoFix] Erro exec: {e}")
+                return False
+            finally:
+                if os.path.exists(script_path):
+                    os.remove(script_path)
+            
+            if result.returncode != 0:
+                print(f"[AutoFix] Script falhou (exit {result.returncode})")
+                if attempt == 0:
+                    error_log += f"\n\n[Fix attempt 1 failed: {result.stderr[:500]}]"
+                    continue
+                return False
+            
+            # Syntax check
+            syntax_err = self._syntax_check()
+            if syntax_err:
+                print(f"[AutoFix] Syntax check falhou: {syntax_err}")
+                if attempt == 0:
+                    error_log += f"\n\n[Fix attempt 1 syntax error: {syntax_err}]"
+                    # Reverte mudancas do script
+                    subprocess.run(["git", "checkout", "--", "."],
+                        cwd=PROJECT_DIR, capture_output=True, timeout=15)
+                    continue
+                return False
+            
+            break  # sucesso, sai do loop
         
-        script_path = str(PROJECT_DIR / "scripts" / ".fix_runner.py")
-        try:
-            with open(script_path, "w", encoding="utf-8") as f:
-                f.write(script)
-        except Exception as e:
-            print(f"[AutoFix] Erro salvando script: {e}")
-            return False
-        
-        print(f"[AutoFix] Executando script de correcao...")
-        try:
-            result = subprocess.run(
-                ["python", script_path],
-                cwd=PROJECT_DIR, capture_output=True, text=True, timeout=120
-            )
-            print(result.stdout[-500:] if result.stdout else "")
-            if result.stderr:
-                print(f"[AutoFix] stderr: {result.stderr[-300:]}")
-        except subprocess.TimeoutExpired:
-            print(f"[AutoFix] Script excedeu 120s timeout")
-            os.remove(script_path)
-            return False
-        except Exception as e:
-            print(f"[AutoFix] Erro exec: {e}")
-            os.remove(script_path)
-            return False
-        finally:
-            if os.path.exists(script_path):
-                os.remove(script_path)
-        
-        if result.returncode != 0:
-            print(f"[AutoFix] Script falhou (exit {result.returncode})")
-            print(f"stderr: {result.stderr[:500]}")
-            return False
-        
-        # Verifica se algo foi alterado
+        # Verifica alteracoes
         diff = subprocess.run(
             ["git", "diff", "--stat"], cwd=PROJECT_DIR, capture_output=True, text=True, timeout=10
         )
@@ -882,7 +933,6 @@ class AutoFixer:
             print(f"[AutoFix] Nenhuma alteracao detectada")
             return False
         
-        # Commit
         commit_hash = self._git_commit(source_name)
         if not commit_hash:
             return False
@@ -943,8 +993,9 @@ class AutoFixer:
     
     def _generate_fix_script(self, bot_name: str, error_log: str) -> Optional[str]:
         """IA gera script Python arbitratrio pra corrigir o erro."""
+        contexto = self._load_context()
         result = self.brain.think(
-            system_prompt="""You are an AI with FULL filesystem access to the GeoLeads project.
+            system_prompt=f"""You are an AI with FULL filesystem access to the GeoLeads project.
 Given an error log, generate a Python script that fixes the bug.
 
 The script runs in the project root (CWD = /geoleads).
@@ -953,6 +1004,8 @@ You can:
 - Run shell commands (subprocess)
 - Use requests, json, re, sys, etc.
 - Print every action for logging
+- Install packages with `subprocess.run(["pip", "install", "pacote"])` if missing
+- Do web searches with `requests.get()` + `re`/`BeautifulSoup` if you need external info
 
 Rules:
 - MINIMAL changes. Fix ONLY what's broken.
@@ -963,8 +1016,11 @@ Rules:
 - NEVER delete files unless it's the root cause.
 - If no fix is possible, print "NO_FIX_NEEDED" and exit(0).
 
+## CONTEXTO DO PROJETO:
+{contexto[:3000]}
+
 Return ONLY the Python code in a ```python block. No explanation.""",
-            user_prompt=f"## BOT: {bot_name}\n\n## ERROR LOG:\n{error_log[:3000]}\n\n## PROJECT STRUCTURE:\nscripts/ (Python bots), .github/workflows/ (YAML)"
+            user_prompt=f"## BOT: {bot_name}\n\n## ERROR LOG:\n{error_log[:3000]}"
         )
         
         if not result:
