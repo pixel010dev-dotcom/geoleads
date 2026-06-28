@@ -11,8 +11,6 @@ Uso:
 """
 
 import os
-import sys
-import json
 import time
 import requests
 from datetime import datetime
@@ -217,7 +215,7 @@ def run_pipeline(city_filter=None, dry_run=False):
 
     # Manda resumo no Telegram
     if not dry_run and (total_extracted > 0 or results):
-        text = f"🚀 <b>Pipeline Auto Concluído</b>\n\n"
+        text = "🚀 <b>Pipeline Auto Concluído</b>\n\n"
         text += f"📊 <b>Total:</b> {total_extracted} leads extraídos, {total_saved} salvos\n\n"
         for r in results:
             text += f"• <b>{r['niche']}</b> em {r['city']}: {r['extracted']} → {r['saved']} CRM\n"

@@ -81,7 +81,7 @@ def generate_image_via_gemini(prompt):
             if "inlineData" in part:
                 import base64
                 return base64.b64decode(part["inlineData"]["data"])
-        print(f"[bot_utils] Gemini empty response: no inlineData")
+        print("[bot_utils] Gemini empty response: no inlineData")
     except Exception as e:
         print(f"[bot_utils] generate_image_via_gemini error: {e}")
     return None
@@ -144,7 +144,7 @@ def generate_post_image(topic, style="professional marketing digital"):
         print(f"[bot_utils] Image via Cloudflare SD: {topic[:40]}")
         return img
     
-    print(f"[bot_utils] No image generated (all free APIs failed)")
+    print("[bot_utils] No image generated (all free APIs failed)")
     return None
 
 # ──────────── CONTEÚDO ESTRATÉGICO ────────────
@@ -277,7 +277,7 @@ def download_music(query="upbeat corporate background music"):
                             path = save_image_to_file(r.content, "music", ".mp4")
                             print(f"[bot_utils] Music video: {hit.get('tags', 'unknown')}")
                             return path
-        print(f"[bot_utils] No music found")
+        print("[bot_utils] No music found")
     except Exception as e:
         print(f"[bot_utils] download_music error: {e}")
     return None
