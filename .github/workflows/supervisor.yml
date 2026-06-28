@@ -2,8 +2,12 @@ name: Supervisor - Auto Recovery
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
 
 jobs:
   supervise:

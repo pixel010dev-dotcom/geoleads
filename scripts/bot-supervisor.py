@@ -62,6 +62,20 @@ def gh(url):
         return r.json() if r.ok else None
     except: return None
 
+def gh_put(url, data):
+    if not TOKEN: return None
+    try:
+        r = requests.put(f"{API}{url}", headers=HEADERS, json=data, timeout=15)
+        return r.json() if r.ok else None
+    except: return None
+
+def gh_post(url, data):
+    if not TOKEN: return None
+    try:
+        r = requests.post(f"{API}{url}", headers=HEADERS, json=data, timeout=15)
+        return r.json() if r.ok else None
+    except: return None
+
 def check_workflows():
     log("Verificando workflows...")
     results = []
