@@ -1,0 +1,42 @@
+name: Run All - Diario
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # 11:00 BRT (UTC-3)
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/*.py'
+      - '.github/workflows/*.yml'
+
+jobs:
+  run-all:
+    name: Orquestrador Run All
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pyflakes
+
+      - name: Run Orquestrador
+        run: |
+          bash scripts/run_all.sh
+
+      - name: Commit Dashboard
+        run: |
+          git config user.name "AI Supervisor"
+          git config user.email "supervisor@geoleads.ai"
+          git add scripts/dashboard_aprendizado.html
+          git diff --cached --quiet || git commit -m "chore: run-all dashboard [skip ci]"
+          git push
