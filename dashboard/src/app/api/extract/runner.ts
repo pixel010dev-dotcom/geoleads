@@ -5,8 +5,9 @@ import { extractFromOpenStreetMap } from './strategies/alternative-sources';
 import { extractFromDuckDuckGo } from './strategies/duckduckgo';
 import { extractFromBingMaps } from './strategies/bing-maps';
 import { extractFromGoogleMapsMobile } from './strategies/google-maps-mobile';
-import { extractFromPlaywrightMaps } from './strategies/maps-scraper';
+import { extractFromPlaywrightMaps, extractMapsPlaceDetails } from './strategies/maps-scraper';
 import { getCachedQuery, setCachedQuery, generateQueryCacheKey } from './lib/cache';
+import { MAJOR_CITIES } from './lib/normalizers';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -40,8 +41,6 @@ function postFilter(lead: SearchLead, filterRule: string): boolean {
   return rules.every(rule => {
     if (rule === 'phone') return lead.telefone && lead.telefone !== 'Não informado';
     if (rule === 'site') return hasSite;
-    // Filtros de enriquecimento: se o lead tem site, tem potencial
-    // de ser enriquecido (email/redes/CNPJ via website scraping)
     if (rule === 'email') return !!lead.email || hasSite;
     if (rule === 'insta') return !!lead.instagram || hasSite;
     if (rule === 'face') return !!lead.facebook || hasSite;
@@ -70,6 +69,19 @@ function mergeLeadsData(existing: SearchLead, incoming: SearchLead): SearchLead 
     linkedin: existing.linkedin || incoming.linkedin,
     cnpj: existing.cnpj || incoming.cnpj,
   };
+}
+
+async function withPlaywrightBrowser<T>(fn: (browser: any) => Promise<T>): Promise<T> {
+  const { chromium } = require('playwright');
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
+  });
+  try {
+    return await fn(browser);
+  } finally {
+    await browser.close();
+  }
 }
 
 export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]> {
@@ -225,43 +237,96 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       return finalize(getLeadsArray());
     }
 
-    console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit}`);
+    console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit} broad=${isBroadRegion}`);
 
-    // ROUND 1: all HTTP strategies in parallel
-    notify(`Buscando ${targetLimit} leads em multiplas fontes...`);
-    await runAllStrategies();
-    notify(`${leadsByName.size}/${targetLimit} leads (HTTP)`);
+    if (isBroadRegion) {
+      notify(`Buscando "${keyword}" em todo o Brasil (${MAJOR_CITIES.length} cidades)...`);
 
-    // ROUND 2: if target not met, try again (some strategies may have different cached results)
-    if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
-      console.log(`[EXTRACT] Round 2: target ${targetLimit} not met (${leadsByName.size}), retrying strategies...`);
-      notify(`Rodada 2: refinando busca...`);
+      // Step 1: HTTP strategies once (rápido, pode pegar algo)
       await runAllStrategies();
-      notify(`${leadsByName.size}/${targetLimit} leads (apos 2 rodadas)`);
-    }
+      notify(`${leadsByName.size}/${targetLimit} leads (fontes HTTP)`);
 
-    // PHASE 2: Playwright — only if target still not met (falha silenciosamente sem Chromium)
-    if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
-      console.log(`[EXTRACT] Playwright: target ${targetLimit} not met (${leadsByName.size}), starting browser...`);
-      notify(`Abrindo navegador para coletar mais leads (${leadsByName.size}/${targetLimit})...`);
-      try {
-        const { chromium } = require('playwright');
-        const browser = await chromium.launch({
-          headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
+      // Step 2: Playwright varrendo cidades em lotes paralelos de 5
+      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+        notify(`Iniciando varredura por cidade com navegador...`);
+        await withPlaywrightBrowser(async (browser) => {
+          const BATCH_SIZE = 5;
+          const targetPerCity = Math.max(10, Math.ceil((targetLimit - leadsByName.size) / MAJOR_CITIES.length));
+
+          for (let i = 0; i < MAJOR_CITIES.length && leadsByName.size < targetLimit && Date.now() < hardDeadline; i += BATCH_SIZE) {
+            if (await cancelled()) break;
+
+            const batch = MAJOR_CITIES.slice(i, i + BATCH_SIZE);
+            const remainingTarget = Math.max(10, Math.ceil((targetLimit - leadsByName.size) / ((MAJOR_CITIES.length - i) / BATCH_SIZE)));
+
+            notify(`${leadsByName.size}/${targetLimit} leads — varrendo cidades ${i + 1}-${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)} de ${MAJOR_CITIES.length}...`);
+
+            const results = await Promise.allSettled(
+              batch.map(city =>
+                extractFromPlaywrightMaps(
+                  browser, keyword, city,
+                  Math.min(remainingTarget, targetLimit - leadsByName.size),
+                  new Set(Array.from(scrapedNames)),
+                  15 // scrolls reduzidos por cidade para ser rápido
+                )
+              )
+            );
+
+            for (let j = 0; j < results.length; j++) {
+              const r = results[j];
+              if (r.status === 'fulfilled' && r.value.leads.length > 0) {
+                const added = processResults(r.value.leads, `PW:${batch[j].split(',')[0]}`);
+                if (added > 0) citiesDone++;
+              }
+            }
+
+            notify(`${leadsByName.size}/${targetLimit} leads (${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length} cidades)`);
+          }
         });
-        const pwResult = await extractFromPlaywrightMaps(browser, keyword, location, targetLimit, existingLeadKeys ? new Set(existingLeadKeys) : new Set());
-        await browser.close();
-        const pwAdded = processResults(pwResult.leads, 'Playwright');
-        console.log(`[EXTRACT] Playwright: ${pwResult.leads.length} leads (+${pwAdded} new), total ${leadsByName.size}/${targetLimit}`);
-        notify(`${leadsByName.size}/${targetLimit} leads (Playwright)`);
-      } catch (e: any) {
-        console.warn(`[EXTRACT] Playwright failed (non-critical):`, e?.message || e);
-        notify(`Playwright indisponivel, continuando com ${leadsByName.size} leads...`);
+      }
+    } else {
+      // CIDADE ÚNICA: HTTP + Playwright em sequência rápida
+      notify(`Buscando ${targetLimit} leads em ${location}...`);
+
+      // HTTP strategies (rápidas, 15-45s)
+      await runAllStrategies();
+      notify(`${leadsByName.size}/${targetLimit} leads (fontes HTTP)`);
+
+      // Playwright como reforço se não atingiu o alvo
+      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+        notify(`Reforçando com navegador...`);
+        try {
+          await withPlaywrightBrowser(async (browser) => {
+            const existingSet = new Set<string>(Array.from(scrapedNames));
+            // Tenta o formato original primeiro
+            let pwResult = await extractFromPlaywrightMaps(browser, keyword, location, targetLimit, existingSet, 50);
+
+            if (pwResult.leads.length === 0 || pwResult.blocked) {
+              // Tenta extrair só o nome da cidade (sem estado) se foi bloqueado
+              const justCity = location.split(',')[0].trim();
+              if (justCity && justCity !== location) {
+                pwResult = await extractFromPlaywrightMaps(browser, keyword, justCity, targetLimit, existingSet, 50);
+              }
+            }
+
+            const pwAdded = processResults(pwResult.leads, 'Playwright');
+            if (pwAdded > 0) citiesDone++;
+            notify(`${leadsByName.size}/${targetLimit} leads (Playwright)`);
+          });
+        } catch (e: any) {
+          console.warn(`[EXTRACT] Playwright failed (non-critical):`, e?.message || e);
+        }
+      }
+
+      // Round 2 HTTP como último recurso
+      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+        notify(`Rodada 2: refinando busca...`);
+        await runAllStrategies();
+        notify(`${leadsByName.size}/${targetLimit} leads (após rodada final)`);
       }
     }
 
-    // Salva cache (apenas leads filtrados, sem trash)
+    // Salva cache
     const finalCount = leadsByName.size;
     if (finalCount >= Math.max(3, Math.min(targetLimit, 5))) {
       const leadsToCache = getLeadsArray().filter(l => scoreLeadQuality(l).tier !== 'trash');

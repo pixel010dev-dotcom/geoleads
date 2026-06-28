@@ -365,6 +365,41 @@ export async function extractFromPlaywrightMaps(
       wasBlocked = true;
     }
   } catch (e) { console.error(e); }
+
+  // Segunda passagem: abre place pages para preencher telefone/site faltantes
+  if (allLeads.length > 0) {
+    const needsDetails = allLeads
+      .map((l, idx) => ({ lead: l, idx }))
+      .filter(({ lead }) => !lead.telefone || lead.telefone === 'Não informado' || !lead.site || lead.site === 'Sem site')
+      .slice(0, 10);
+
+    if (needsDetails.length > 0 && !(signal?.aborted)) {
+      try {
+        const tab = await context.newPage();
+        tab.setDefaultTimeout(12000);
+        for (const { lead, idx } of needsDetails) {
+          if (signal?.aborted) break;
+          if (lead.placeUrl) {
+            const extra = await extractMapsPlaceDetails(tab, lead.placeUrl);
+            if (extra.telefone && (!lead.telefone || lead.telefone === 'Não informado')) {
+              lead.telefone = extra.telefone;
+              scrapedPhones.add(lead.telefone);
+            }
+            if (extra.site && (!lead.site || lead.site === 'Sem site')) lead.site = extra.site;
+            if (extra.instagram && !lead.instagram) lead.instagram = extra.instagram;
+            if (extra.facebook && !lead.facebook) lead.facebook = extra.facebook;
+            if (extra.tiktok && !lead.tiktok) lead.tiktok = extra.tiktok;
+            if (extra.endereco && !lead.endereco) lead.endereco = extra.endereco;
+          }
+        }
+        await tab.close().catch(() => {});
+        console.log(`[PW] Second pass: enriched ${needsDetails.length} leads from place pages`);
+      } catch (e: any) {
+        console.warn('[PW] Second pass failed (non-critical):', e?.message || e);
+      }
+    }
+  }
+
   await context.close();
   return { leads: allLeads, blocked: wasBlocked };
 }
