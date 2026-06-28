@@ -152,6 +152,98 @@ def fix_scripts():
                 ok = False
     if ok: log("  Todos OK!")
 
+# ──────────── AUTO-FIX: WORKFLOW YAML ────────────
+
+def detect_missing_pip(log_text):
+    m = re.search(r"ModuleNotFoundError: No module named ['\"](.+?)['\"]", log_text)
+    return m.group(1) if m else None
+
+def fetch_workflow_file(file_name):
+    url = f"/repos/{REPO}/contents/.github/workflows/{file_name}"
+    data = gh(url)
+    if data and "content" in data:
+        import base64
+        return base64.b64decode(data["content"]).decode("utf-8"), data["sha"]
+    return None, None
+
+def commit_workflow(file_name, new_content, sha, message):
+    import base64
+    encoded = base64.b64encode(new_content.encode("utf-8")).decode("utf-8")
+    data = {
+        "message": message,
+        "content": encoded,
+        "sha": sha,
+        "branch": "main",
+    }
+    result = gh_put(f"/repos/{REPO}/contents/.github/workflows/{file_name}", data)
+    if result and "content" in result:
+        log(f"  Commit realizado: {message}")
+        return "fixed"
+    log(f"  Falha ao commitar: {result}", "ERROR")
+    return None
+
+def fix_workflow_missing_pip(file_name, module_name):
+    content, sha = fetch_workflow_file(file_name)
+    if not content:
+        log(f"  Nao conseguiu ler {file_name}", "ERROR")
+        return None
+
+    pip_step = f"run: pip install {module_name}"
+    if pip_step in content:
+        log(f"  {file_name} ja tem pip install {module_name}")
+        return "already_fixed"
+
+    lines = content.split("\n")
+    insert_at = None
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if s.startswith("run: python ") or s.startswith("run: python3 "):
+            insert_at = i
+            break
+
+    if insert_at is None:
+        log(f"  Nao encontrou step python em {file_name}", "ERROR")
+        return None
+
+    indent = line[:len(line) - len(line.lstrip())] if insert_at else "          "
+    parent_indent = indent[:4] if len(indent) >= 4 else "    "
+    new_lines = [
+        "",
+        f"{parent_indent}- name: Install dependencies",
+        f"{parent_indent}  run: pip install {module_name}",
+    ]
+    for nl in reversed(new_lines):
+        lines.insert(insert_at, nl)
+
+    return commit_workflow(file_name, "\n".join(lines), sha,
+        f"auto-fix: add pip install {module_name} to {file_name}")
+
+def auto_fix_workflows(results):
+    fixes = []
+    for wf in results:
+        if not wf["runs"]:
+            continue
+        last = wf["runs"][0]
+        if last.get("conclusion") != "failure":
+            continue
+
+        log(f"  Analisando {wf['name']} para auto-fix...")
+        errs = analyze_logs(last["id"])
+        for e in errs:
+            for sample in e.get("samples", []):
+                module = detect_missing_pip(sample)
+                if module:
+                    log(f"  Detectado: ModuleNotFoundError: {module}")
+                    result = fix_workflow_missing_pip(wf["file"], module)
+                    if result == "fixed":
+                        fixes.append(f"{wf['name']}: pip install {module} adicionado")
+                        tg(f"🔧 <b>Auto-fix: {wf['name']}</b>\n"
+                           f"Adicionado 'pip install {module}' ao workflow\n"
+                           f"Commit automatico enviado.")
+                    elif result is None:
+                        fixes.append(f"{wf['name']}: tentou corrigir {module} mas falhou")
+    return fixes
+
 def run():
     log("=" * 45)
     log("GeoLeads Supervisor v1.0")
@@ -185,9 +277,16 @@ def run():
                 actions = self_heal(e["types"])
                 log(f'  CORRECAO: {actions[0]}')
 
+    # Auto-fix: tenta corrigir workflows quebrados
+    auto_fixes = auto_fix_workflows(results) if not DRY_RUN else []
+
     msg.append(f'\n{len(results)-failed}/{len(results)} bots OK')
-    if failed:
-        msg.append(f'\n🔧 {failed} bots com falha - autodiagnostico aplicado')
+    if auto_fixes:
+        msg.append(f'\n🔧 Auto-fixes aplicados:')
+        for f in auto_fixes:
+            msg.append(f'  ✅ {f}')
+    elif failed:
+        msg.append(f'\n❌ {failed} bots com falha - sem auto-fix disponivel')
 
     if not DRY_RUN:
         tg("\n".join(msg))
