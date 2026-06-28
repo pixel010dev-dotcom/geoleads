@@ -1560,16 +1560,19 @@ class AISupervisor:
 
     def self_improve(self):
         """Ciclo de auto-aprimoramento: escaneia, diagnostica, corrige e evolui.
-        Roda 12:00-13:00 todos os dias via workflow."""
-        print("[Supervisor] === AUTO-APRIMORAMENTO 12:00 ===")
-        results = {"scripts_checked": 0, "issues_found": 0, "fixes_applied": 0, "learnings": []}
+        Roda 12:00 BRT (15:00 UTC) todos os dias via workflow.
+        Inclui auto_lead_pipeline.py e scraping_worker.py no scan.
+        Verifica workflows YAML, secrets faltando, usa IA para melhorias."""
+        print("[Supervisor] === AUTO-APRIMORAMENTO 12:00 BRT ===")
+        results = {"scripts_checked": 0, "issues_found": 0, "fixes_applied": 0, "learnings": [],
+                    "workflows_checked": 0, "secrets_missing": []}
         
-        # 1. Escaneia TODOS os scripts .py
         scripts_dir = PROJECT_DIR / "scripts"
         if not scripts_dir.exists():
             print("[Supervisor] Nenhum script encontrado")
             return results
         
+        # 1. Escaneia TODOS os scripts .py (incluindo auto_lead_pipeline + scraping_worker)
         py_files = sorted(scripts_dir.glob("*.py"))
         results["scripts_checked"] = len(py_files)
         print(f"[Supervisor] Escaneando {len(py_files)} scripts...")
@@ -1586,45 +1589,124 @@ class AISupervisor:
                 err = r.stderr[:300]
                 print(f"[Supervisor] Syntax error em {fname}: {err[:100]}")
                 results["issues_found"] += 1
-                # Tenta auto-fix via IA para syntax error
                 result = self.fixer.auto_fix(f"script:{fname}", err)
                 if result:
                     results["fixes_applied"] += 1
                     results["learnings"].append(f"Syntax fixed: {fname}")
                 continue
             
-            # 3. Lint check via pyflakes ou regex simples
+            # 3. Lint check + code quality
             try:
                 with open(py_file, "r", encoding="utf-8") as f:
                     source = f.read()
-                # Procura bare except:
+                
+                # 3a. Corrige bare except:
                 bare_excepts = source.count("\n    except:\n") + source.count("\n        except:\n")
                 if bare_excepts > 0:
-                    print(f"[Supervisor] {fname}: {bare_excepts}x bare except encontrado")
+                    print(f"[Supervisor] {fname}: {bare_excepts}x bare except")
                     results["issues_found"] += 1
-                    # Tenta corrigir
                     fixed = source.replace("\n        except:\n", "\n        except Exception:\n")
+                    fixed = fixed.replace("\n    except:\n", "\n    except Exception:\n")
                     if fixed != source:
                         with open(py_file, "w", encoding="utf-8") as f:
                             f.write(fixed)
                         results["fixes_applied"] += 1
                         results["learnings"].append(f"Fixed bare except in {fname}")
+                
+                # 3b. Verifica imports quebrados
+                local_imports = re.findall(r"from scripts\.(\w+) import", source)
+                for imp in local_imports:
+                    imp_path = scripts_dir / f"{imp}.py"
+                    if not imp_path.exists():
+                        results["issues_found"] += 1
+                        results["learnings"].append(f"Broken import: {imp} in {fname}")
+                
             except Exception:
                 pass
         
-        # 4. Verifica se todos os workflows estao ativos
+        # 4. Verifica YAML dos workflows
         workflows_dir = PROJECT_DIR / ".github" / "workflows"
         if workflows_dir.exists():
-            for yml_file in workflows_dir.glob("*.yml"):
-                with open(yml_file, "r") as f:
+            yml_files = sorted(workflows_dir.glob("*.yml"))
+            results["workflows_checked"] = len(yml_files)
+            for yml_file in yml_files:
+                with open(yml_file, "r", encoding="utf-8") as f:
                     yml_content = f.read()
+                issues = []
                 if "name:" not in yml_content:
+                    issues.append("sem name")
+                if "jobs:" not in yml_content:
+                    issues.append("sem jobs")
+                if "on:" not in yml_content:
+                    issues.append("sem trigger")
+                if "runs-on:" not in yml_content:
+                    issues.append("sem runs-on")
+                if issues:
                     results["issues_found"] += 1
-                    print(f"[Supervisor] Workflow {yml_file.name} pode estar corrompido")
+                    results["learnings"].append(f"Workflow {yml_file.name}: {', '.join(issues)}")
+                    print(f"[Supervisor] Workflow {yml_file.name} issues: {issues}")
         
-        # 5. Salva aprendizado
+        # 5. Verifica secrets faltando (vs .env.example)
+        env_example = PROJECT_DIR / ".env.example"
+        if env_example.exists():
+            with open(env_example, "r", encoding="utf-8") as f:
+                env_content = f.read()
+            # Extrai nomes das variaveis
+            env_vars = re.findall(r"^([A-Z_]+)=", env_content, re.MULTILINE)
+            missing = []
+            for var in env_vars:
+                if var in ("", "SEU_", "seu_"):
+                    continue
+                # Checa se existe no ambiente OU no Vault
+                if not os.environ.get(var) and not self.vault.has(var):
+                    missing.append(var)
+            if missing:
+                results["secrets_missing"] = missing
+                results["learnings"].append(f"Secrets faltando: {len(missing)}")
+                print(f"[Supervisor] {len(missing)} secrets faltando: {missing[:5]}...")
+        
+        # 6. IA suggestions para melhoria de codigo (a cada 7 dias)
+        from datetime import timedelta
+        lessons_file = PROJECT_DIR / "scripts" / ".self_improve_log.json"
+        should_use_ai = True
+        if lessons_file.exists():
+            try:
+                with open(lessons_file) as f:
+                    lessons = json.load(f)
+                if lessons:
+                    last_ai = lessons[-1].get("results", {}).get("ai_suggestions", False)
+                    should_use_ai = not last_ai
+            except:
+                pass
+        
+        if should_use_ai and self.brain:
+            try:
+                ai_prompt = f"""Analise estes scripts Python e sugira MELHORIAS de codigo.
+Scripts encontrados: {len(py_files)}
+Issues encontradas: {results['issues_found']}
+Fixes aplicados: {results['fixes_applied']}
+
+Sugira apenas melhorias especificas com:
+1. Arquivo
+2. Linha aproximada
+3. O que mudar
+4. Por que
+
+Mantenha simples e pratico. No maximo 3 sugestoes."""
+                suggestion = self.brain.think(
+                    system_prompt="Voce e um code reviewer senior. Sugira melhorias especificas e acionaveis.",
+                    user_prompt=ai_prompt,
+                    max_tokens=1000
+                )
+                if suggestion and len(suggestion) > 50:
+                    results["learnings"].append(f"IA suggestion: {suggestion[:200]}...")
+                    results["ai_suggestions"] = True
+                    print(f"[Supervisor] IA suggestion received ({len(suggestion)} chars)")
+            except Exception:
+                results["ai_suggestions"] = False
+        
+        # 7. Salva aprendizado
         try:
-            lessons_file = PROJECT_DIR / "scripts" / ".self_improve_log.json"
             lessons = []
             if lessons_file.exists():
                 with open(lessons_file) as f:
@@ -1633,7 +1715,6 @@ class AISupervisor:
                 "date": datetime.now().isoformat(),
                 "results": results,
             })
-            # Mantem ultimos 30 dias
             if len(lessons) > 30:
                 lessons = lessons[-30:]
             with open(lessons_file, "w") as f:
@@ -1641,13 +1722,16 @@ class AISupervisor:
         except Exception:
             pass
         
-        # 6. Report via Telegram
+        # 8. Report via Telegram
         msg = (
-            f"\\U0001f9e0 <b>Auto-Aprimoramento 12:00</b>\\n"
+            f"\\U0001f9e0 <b>Auto-Aprimoramento 12:00 BRT</b>\\n"
             f"Scripts: {results['scripts_checked']}\\n"
+            f"Workflows: {results['workflows_checked']}\\n"
             f"Issues: {results['issues_found']}\\n"
             f"Fixes: {results['fixes_applied']}\\n"
         )
+        if results.get("secrets_missing"):
+            msg += f"Secrets faltando: {len(results['secrets_missing'])}\\n"
         if results["learnings"]:
             msg += "\\n<b>Correcoes:</b>\\n" + "\\n".join(f"\\u2022 {l}" for l in results["learnings"][-5:])
         try:

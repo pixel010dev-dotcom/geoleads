@@ -184,3 +184,31 @@ Scan → diagnóstico IA → auto-fix (script gerado + exec + commit) → revert
 | `Invalid OAuth 2.0 credentials` | Google refresh token expirou | Rodar `get-youtube-token.py` manualmente |
 | `name 'image_path' is not defined` | Variável usada antes de definida | Verificar escopo no script |
 | `429 Too Many Requests` | Rate limit | Adicionar `time.sleep(random.uniform(1,3))` |
+
+## 10. Auto-Aprimoramento (self_improve)
+
+Roda todo dia as **12:00 BRT (15:00 UTC)** via GitHub Actions.
+1 hora (60min timeout) para escanear, diagnosticar e corrigir todos os scripts.
+
+**O que faz:**
+- Escaneia TODOS os .py em scripts/
+- Syntax check em cada um
+- Corrige bare except: → except Exception:
+- Verifica YAML dos workflows
+- Checa secrets faltando
+- Chama IA (DeepSeek) para sugestoes de melhoria via _generate_fix_script
+- Inclui auto_lead_pipeline.py e scraping_worker.py no scan
+- Salva log em .self_improve_log.json (ultimos 30 dias)
+- Reporta resultado no Telegram PV
+
+**Workflow:** `.github/workflows/self-improve.yml`
+**Entry point:** `python scripts/ai_supervisor.py --self-improve`
+
+## 11. Scraping Worker
+
+**Script:** `scripts/scraping_worker.py`
+**Workflow:** `.github/workflows/scraping-worker.yml` (a cada 10min)
+
+Worker que processa jobs pendentes de extracao do Supabase.
+Chama a API de extracao do dashboard e salva resultados.
+Usa SUPABASE_SERVICE_ROLE_KEY para autenticacao.

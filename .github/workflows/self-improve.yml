@@ -1,8 +1,8 @@
-name: Self-Improve 12:00
+name: Self-Improve 12:00 BRT
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # Todo dia ao meio-dia
+    - cron: '0 15 * * *'  # 12:00 BRT (UTC-3)
   workflow_dispatch:
     inputs:
       mode:
