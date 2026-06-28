@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime  # noqa: F401
 import requests
 import json
 import os

@@ -9,7 +9,7 @@ Uso:
 """
 
 import os, sys, time, requests
-from datetime import datetime, timezone
+from datetime import datetime
 
 SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")

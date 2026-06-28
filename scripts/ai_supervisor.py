@@ -1250,6 +1250,7 @@ class AISupervisor:
                 ("ModuleNotFoundError: No module named 'yt_dlp'", "no_module_ytdlp"),
                 ("ModuleNotFoundError: No module named 'beautifulsoup4'", "no_module_bs4"),
                 ("ModuleNotFoundError: No module named 'bs4'", "no_module_bs4"),
+                ("ModuleNotFoundError: No module named 'requests'", "no_module_requests"),
             ]
             for error_pattern, fix_key in auto_fix_patterns:
                 if error_pattern in logs:
