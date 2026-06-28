@@ -2,7 +2,7 @@ name: Pinterest Bot
 
 on:
   schedule:
-    - cron: '0 10,18 * * *'  # 2x/day: 10am, 6pm
+    - cron: '0 13,23 * * *'  # 2x/day: 10h, 20h BRT
   workflow_dispatch:
 
 jobs:

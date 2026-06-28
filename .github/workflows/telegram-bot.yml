@@ -1,7 +1,7 @@
 name: Telegram Bot
 on:
   schedule:
-    - cron: '0 9,13,17,21 * * *'
+    - cron: '0 11,15,21 * * *'  # 3x/day: 8h, 12h, 18h BRT
   workflow_dispatch:
 jobs:
   send:
