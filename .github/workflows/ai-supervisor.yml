@@ -31,6 +31,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENCODE_ZEN_KEY: ${{ secrets.OPENCODE_ZEN_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}

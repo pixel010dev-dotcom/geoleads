@@ -21,7 +21,7 @@ except ImportError:
 REPO = os.environ.get("GITHUB_REPOSITORY", "pixel010dev-dotcom/geoleads")
 TOKEN = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
 TG_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TG_CHAT = os.environ.get("TELEGRAM_CHANNEL_ID", "")
+TG_CHAT = os.environ.get("TELEGRAM_ADMIN_ID") or os.environ.get("TELEGRAM_CHANNEL_ID", "")
 DRY_RUN = os.environ.get("SUPERVISOR_DRY_RUN", "false").lower() == "true"
 
 API = "https://api.github.com"
