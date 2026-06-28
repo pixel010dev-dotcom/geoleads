@@ -132,7 +132,9 @@ def run_extraction(niche, city, limit, dry_run=False):
                 print(f"  Job concluído: {len(leads)} leads em {job.get('search_time_seconds', 0)}s")
                 return leads
 
-    print("  Timeout: job não concluído em 5 min")
+    print("  Timeout: extração não concluiu em 5 min (sem worker de scraping ativo)")
+    print("  Dica: Configure um worker de scraping separado ou use extração manual")
+    send_telegram(f"⚠️ Pipeline: extração de {niche} em {city} não concluiu (timeout)")
     return []
 
 def save_leads_to_crm(leads, niche, city, user_id="00000000-0000-0000-0000-000000000000"):

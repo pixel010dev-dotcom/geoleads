@@ -5,7 +5,7 @@ Projeto: geoleads-youtube (OWNER: pixel010dev)
 Test user ja configurado - pode rodar sem bloqueio
 """
 
-import os, json, pickle
+import os, pickle
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]

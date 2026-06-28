@@ -13,12 +13,8 @@ import requests
 import os
 import json
 import random
-import io
 import hashlib
-import time
-import re
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
 # ──────────── CONFIG ────────────
 

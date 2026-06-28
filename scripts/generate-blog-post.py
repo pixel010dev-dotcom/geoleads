@@ -1,3 +1,4 @@
+from datetime import datetime
 import requests
 import json
 import os
@@ -37,7 +38,7 @@ if not SLUG:
 
 slug_clean = SLUG.replace("-", " ")
 
-prompt = f"""Escreva um post de blog em portugues brasileiro sobre: {slug_clean}.
+prompt = """Escreva um post de blog em portugues brasileiro sobre: {slug_clean}.
 
 Requisitos:
 - Titulo SEO amigavel (max 60 chars)
@@ -60,7 +61,7 @@ resp = requests.post(
         "Content-Type": "application/json"
     },
     json={
-        "model": "openai/gpt-4o-mini",
+        "model": "deepseek/deepseek-v4-flash:free",
         "messages": [
             {"role": "system", "content": "Voce e um especialista em lead generation. Responda apenas com JSON valido."},
             {"role": "user", "content": prompt}
@@ -87,7 +88,7 @@ description = post["description"]
 content = post["content"]
 
 # Save blog post files
-post_dir = f"dashboard/src/app/blog/[{SLUG}]"
+post_dir = "dashboard/src/app/blog/[slug]"
 os.makedirs(post_dir, exist_ok=True)
 
 # Save the listing page update
@@ -97,7 +98,7 @@ with open(listing_file, "r", encoding="utf-8") as f:
     listing = f.read()
 
 # Find the last post entry and add new one
-new_entry = f"""  {{
+new_entry = """  {{
     slug: '{SLUG}',
     title: '{title}',
     excerpt: '{description}',
@@ -117,7 +118,7 @@ post_content_file = "dashboard/src/app/blog/[slug]/page.tsx"
 with open(post_content_file, "r", encoding="utf-8") as f:
     post_content_data = f.read()
 
-new_post_entry = f"""  '{SLUG}': {{
+new_post_entry = """  '{SLUG}': {{
     title: '{title}',
     description: '{description}',
     date: '{datetime.now().strftime("%d/%m/%Y")}',

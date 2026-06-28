@@ -375,7 +375,7 @@ class Scanner:
             endpoints.append(("Cloudflare Worker", f"https://{cf_url}"))
         
         for name, url in endpoints:
-            if not url or url in ("https://", f"https:///rest/v1/"):
+            if not url or url in ("https://", "https:///rest/v1/"):
                 results.append({"name": name, "status": "skipped", "detail": "URL nao configurada"})
                 continue
             
@@ -504,11 +504,20 @@ class Healer:
             return {"type": "syntax", "status": "reported", 
                     "detail": diag.get("fix_suggestion", "Correcao manual necessaria")[:200]}
         
-        # 5. Qualquer outro erro auto-fixable -> executa sugestao da IA
+        # 5. Erros de rate_limit ou api_error -> espera e tenta denovo
+        if "rate_limit" in error_type or "429" in error_type:
+            print("[Healer] Rate limit detectado, aguardando 10s...")
+            time.sleep(10)
+            return {"type": "rate_limit", "status": "waited", "detail": "Aguardou 10s"}
+
+        # 6. ffmpeg not found -> tenta instalar
+        if "ffmpeg" in error_type or error_type == "ffmpeg":
+            return self._install_ffmpeg()
+
+        # 7. Qualquer outro erro auto-fixable -> executa sugestao da IA
         fix_suggestion = diag.get("fix_suggestion", "")
         if fix_suggestion:
             return self._execute_ai_suggestion(error_type, fix_suggestion)
-        
         return None
     
     def _cleanup_tmp(self) -> dict:
@@ -590,6 +599,10 @@ class Healer:
         # Verificar se o fix ja existe
         fix_map = {
             "no_module_requests": ("requests", "pip install requests"),
+            "no_module_google": ("google-auth google-auth-httplib2 google-api-python-client", "pip install google-auth google-auth-httplib2 google-api-python-client"),
+            "no_module_pillow": ("Pillow", "pip install Pillow"),
+            "no_module_ytdlp": ("yt-dlp", "pip install yt-dlp"),
+            "no_module_bs4": ("beautifulsoup4", "pip install beautifulsoup4"),
         }
         fix_info = fix_map.get(error_type)
         if not fix_info:
@@ -639,6 +652,36 @@ class Healer:
                     "detail": pip_cmd}
         print(f"[Healer] Falha no commit: {commit.status_code}")
         return None
+
+    def _install_ffmpeg(self) -> dict:
+        """Tenta instalar ffmpeg no sistema."""
+        print("[Healer] Tentando instalar ffmpeg...")
+        try:
+            import platform
+            system = platform.system().lower()
+            if system == "linux":
+                # Try sudo first, fallback without sudo (Docker/root)
+                for prefix in [["sudo"], []]:
+                    result = subprocess.run(
+                        prefix + ["apt-get", "install", "-y", "-qq", "ffmpeg"],
+                        capture_output=True, text=True, timeout=60
+                    )
+                    if result.returncode == 0:
+                        break
+                status = "success" if result.returncode == 0 else "failed"
+                print(f"[Healer] ffmpeg install: {status}")
+                return {"type": "install_ffmpeg", "status": status,
+                "detail": result.stderr[:200] if status == "failed" else "ffmpeg instalado"}
+            elif system == "darwin":
+                result = subprocess.run(["brew", "install", "ffmpeg"],
+                capture_output=True, text=True, timeout=120)
+                status = "success" if result.returncode == 0 else "failed"
+                return {"type": "install_ffmpeg", "status": status}
+            else:
+                return {"type": "install_ffmpeg", "status": "skipped",
+                "detail": "SO nao suportado para instalacao automatica"}
+        except Exception as e:
+            return {"type": "install_ffmpeg", "status": "error", "detail": str(e)[:100]}
 
     def _execute_ai_suggestion(self, error_type: str, suggestion: str) -> dict:
         """Tenta executar a sugestao de correcao da IA."""
@@ -697,27 +740,9 @@ class Reporter:
         self.vault = CredentialVault()
     
     def send(self, text: str) -> bool:
-        token = self.vault.get("TELEGRAM_BOT_TOKEN")
-        admin_id = self.vault.get("TELEGRAM_ADMIN_ID")
-        channel_id = self.vault.get("TELEGRAM_CHANNEL_ID")
-        chat_id = admin_id if admin_id else channel_id
-        
-        if not token or not chat_id:
-            print("[Reporter] Telegram nao configurado")
-            print(text[:500])
-            return False
-        
-        try:
-            resp = requests.post(
-                f"https://api.telegram.org/bot{token}/sendMessage",
-                json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
-                timeout=15
-            )
-            return resp.status_code == 200
-        except Exception as e:
-            print(f"[Reporter] Erro: {e}")
-            return False
-    
+        """Envia SEMPRE para o admin PV (privado). Nunca para o canal publico."""
+        return self.send_to_admin(text)
+
     def send_to_admin(self, text: str) -> bool:
         """Envia APENAS pro admin (PV), nunca pro canal."""
         token = self.vault.get("TELEGRAM_BOT_TOKEN")
@@ -848,7 +873,7 @@ class AutoFixer:
         Retorna erro se houver, None se ok."""
         try:
             diff = subprocess.run(
-                ["git", "diff", "--name-only"], cwd=PROJECT_DIR,
+                ["git", "dif", "--name-only"], cwd=PROJECT_DIR,
                 capture_output=True, text=True, timeout=10
             )
             for f in diff.stdout.strip().split("\n"):
@@ -885,7 +910,7 @@ class AutoFixer:
                 print(f"[AutoFix] Erro salvando: {e}")
                 return False
             
-            print(f"[AutoFix] Executando script...")
+            print("[AutoFix] Executando script...")
             try:
                 result = subprocess.run(
                     ["python", script_path],
@@ -895,7 +920,7 @@ class AutoFixer:
                 if result.stderr:
                     print(f"[AutoFix] stderr: {result.stderr[-300:]}")
             except subprocess.TimeoutExpired:
-                print(f"[AutoFix] Script excedeu 300s timeout")
+                print("[AutoFix] Script excedeu 300s timeout")
                 return False
             except Exception as e:
                 print(f"[AutoFix] Erro exec: {e}")
@@ -927,10 +952,10 @@ class AutoFixer:
         
         # Verifica alteracoes
         diff = subprocess.run(
-            ["git", "diff", "--stat"], cwd=PROJECT_DIR, capture_output=True, text=True, timeout=10
+            ["git", "dif", "--stat"], cwd=PROJECT_DIR, capture_output=True, text=True, timeout=10
         )
         if not diff.stdout.strip():
-            print(f"[AutoFix] Nenhuma alteracao detectada")
+            print("[AutoFix] Nenhuma alteracao detectada")
             return False
         
         commit_hash = self._git_commit(source_name)
@@ -945,7 +970,7 @@ class AutoFixer:
         if struct:
             contexto_warn = "\n\n⚠️ <b>CONTEXTO.md desatualizado!</b>\n" + "\n".join(struct)
             self.reporter.send_to_admin(
-                f"⚠️ <b>CONTEXTO.md precisa de update</b>\n"
+                "⚠️ <b>CONTEXTO.md precisa de update</b>\n"
                 f"Fix em {source_name} fez mudancas estruturais:\n"
                 + "\n".join(f"• {r}" for r in struct)
             )
@@ -961,7 +986,7 @@ class AutoFixer:
             f"🔧 <b>Auto-fix: {source_name}</b>\n"
             f"<code>{commit_hash[:12]}</code>\n"
             f"{changes}{contexto_warn}\n\n"
-            f"<i>Mande \"reverte\" no PV pra desfazer</i>"
+            "<i>Mande \"reverte\" no PV pra desfazer</i>"
         )
         return True
     
@@ -992,7 +1017,7 @@ class AutoFixer:
             history.pop()
             self._save_history(history, overwrite=True)
             self.reporter.send_to_admin(
-                f"↩️ <b>Revertido!</b>\n"
+                "↩️ <b>Revertido!</b>\n"
                 f"Commit <code>{commit[:12]}</code> desfeito.\n"
                 f"Bot: {last.get('bot', '?')}"
             )
@@ -1008,7 +1033,7 @@ class AutoFixer:
         reasons = []
         try:
             diff = subprocess.run(
-                ["git", "diff", "--name-status"], cwd=PROJECT_DIR,
+                ["git", "dif", "--name-status"], cwd=PROJECT_DIR,
                 capture_output=True, text=True, timeout=10
             )
             for line in diff.stdout.strip().split("\n"):
@@ -1031,7 +1056,7 @@ class AutoFixer:
         """IA gera script Python arbitratrio pra corrigir o erro."""
         contexto = self._load_context()
         result = self.brain.think(
-            system_prompt=f"""You are an AI with FULL filesystem access to the GeoLeads project.
+            system_prompt="""You are an AI with FULL filesystem access to the GeoLeads project.
 Given an error log, generate a Python script that fixes the bug.
 
 The script runs in the project root (CWD = /geoleads).
@@ -1191,7 +1216,7 @@ class AISupervisor:
         self.mode = SUPERVISOR_MODE
         
         print(f"\n{'#'*60}")
-        print(f"#  AI SYSTEM SUPERVISOR")
+        print("#  AI SYSTEM SUPERVISOR")
         print(f"#  {datetime.now().strftime('%d/%m/%Y %H:%M')}")
         print(f"#  Workspace: {PROJECT_DIR}")
         print(f"#  Modo: {self.mode.upper()}")
@@ -1218,18 +1243,26 @@ class AISupervisor:
 
             logs = bot.get("logs", "")
             
-            # Auto-fix SEM IA: ModuleNotFoundError
-            if "ModuleNotFoundError: No module named 'requests'" in logs:
-                wf_file = bot["name"] + (".yml" if ".yml" not in bot["name"] else "")
-                fix = self.healer._fix_workflow_yaml(wf_file, "no_module_requests")
-                if fix:
-                    print(f"[Supervisor] Auto-fix aplicado em {wf_file}!")
-                    self.reporter.send(
-                        f"🔧 <b>Auto-fix: {bot['name']}</b>\n"
-                        f"Adicionado 'pip install requests' ao workflow\n"
-                        f"Commit automatico enviado."
-                    )
-            
+            # Auto-fix SEM IA: ModuleNotFoundError + erros comuns
+            auto_fix_patterns = [
+                ("ModuleNotFoundError: No module named 'requests'", "no_module_requests"),
+                ("ModuleNotFoundError: No module named 'google'", "no_module_google"),
+                ("ModuleNotFoundError: No module named 'PIL'", "no_module_pillow"),
+                ("ModuleNotFoundError: No module named 'yt_dlp'", "no_module_ytdlp"),
+                ("ModuleNotFoundError: No module named 'beautifulsoup4'", "no_module_bs4"),
+                ("ModuleNotFoundError: No module named 'bs4'", "no_module_bs4"),
+            ]
+            for error_pattern, fix_key in auto_fix_patterns:
+                if error_pattern in logs:
+                    wf_file = bot["name"] + (".yml" if ".yml" not in bot["name"] else "")
+                    fix = self.healer._fix_workflow_yaml(wf_file, fix_key)
+                    if fix:
+                        print(f"[Supervisor] Auto-fix aplicado em {wf_file}!")
+                        self.reporter.send(
+                            f"🔧 <b>Auto-fix: {bot['name']}</b>\n",
+                            f"Corrigido: {error_pattern}\n",
+                            "Commit automatico enviado."
+                        )
             # Diagnostico COM IA (apenas modo deep)
             if use_ai and logs:
                 print(f"[Supervisor] Diagnosticando falha em {bot['name']}...")
@@ -1265,7 +1298,17 @@ class AISupervisor:
         auto_fixes = []
         if use_ai:
             for diag in diagnostics:
-                if diag.get("auto_fixable") and diag.get("severity", 0) >= 3:
+                # Auto-fix mais agressivo: severidade >= 2
+                # Se IA disse que nao e auto-fixavel, tenta patterns conhecidos
+                is_auto_fixable = diag.get("auto_fixable", False)
+                if not is_auto_fixable:
+                    err_type = diag.get("error_type", "")
+                    source = diag.get("source", "")
+                    # Erros conhecidos que podem ser auto-corrigidos
+                    if err_type in ("timeout", "rate_limit", "empty_content", "api_error"):
+                        print(f"[Supervisor] Auto-fix forcado para {err_type} em {source}")
+                        is_auto_fixable = True
+                if is_auto_fixable and diag.get("severity", 0) >= 2:
                     source = diag.get("source", "")
                     logs = ""
                     # Busca logs do bot correspondente
@@ -1356,11 +1399,11 @@ class AISupervisor:
                 time.sleep(60)
         
         summary = (
-            f"<b>AI Supervisor finalizado</b>\n"
+            "<b>AI Supervisor finalizado</b>\n"
             f"<code>{datetime.now().strftime('%d/%m/%Y %H:%M')}</code>\n\n"
             f"Ciclos: {self.cycle_count}\n"
             f"Correcoes: {len(self.all_fixes)}\n"
-            f"Proximo: amanha as 08h/20h BRT"
+            "Proximo: amanha as 08h/20h BRT"
         )
         self.reporter.send(summary)
         print(f"\nResumo: {self.cycle_count} ciclos, {len(self.all_fixes)} correcoes")

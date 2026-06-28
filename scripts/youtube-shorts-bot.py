@@ -1,5 +1,4 @@
-import os, sys, json, subprocess, tempfile
-from google.oauth2.credentials import Credentials
+import os, sys, subprocess, tempfile
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -11,13 +10,12 @@ OUTPUT = os.path.join(tempfile.gettempdir(), "geoleads_short.mp4")
 
 def upload_to_youtube(video_path, title, description, tags):
     try:
-        creds = Credentials(
-            None,
-            refresh_token=os.environ.get("GOOGLE_REFRESH_TOKEN", ""),
-            client_id=os.environ.get("GOOGLE_CLIENT_ID", ""),
-            client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
-            token_uri="https://oauth2.googleapis.com/token"
-        )
+        from google.oauth2.credentials import Credentials
+        creds = Credentials.from_authorized_user_info({
+            "refresh_token": os.environ.get("GOOGLE_REFRESH_TOKEN", ""),
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+        })
         youtube = build("youtube", "v3", credentials=creds, cache_discovery=False)
         body = {
             "snippet": {

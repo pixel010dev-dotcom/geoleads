@@ -91,9 +91,27 @@ Fluxo completo:
 ## 5. AI Supervisor (ai_supervisor.py)
 
 ### Modos
-- **fast** (padrão, 15/15min): scan + auto-fix YAML (pip install) + report Telegram. Sem custo.
-- **deep** (11h/23h UTC = 8h/20h BRT): scan + diagnóstico DeepSeek + auto-fix (AutoFixer) + report
+- **fast** (padrao, 15/15min): scan + auto-fix YAML (pip install requests, google, PIL, yt-dlp, bs4) + report Telegram. Sem custo.
+- **deep** (11h/23h UTC = 8h/20h BRT): scan + diagnostico DeepSeek + auto-fix agressivo (severidade >=2, forcado para timeout/rate_limit/empty_content/api_error) + report
 
+### AutoFixer (modo deep)
+Gera script Python arbitrario via DeepSeek, executa em subprocesso, commita.
+Se admin mandar "reverte" no PV, o proximo ciclo desfaz o ultimo fix.
+
+### Healer (correcoes automaticas)
+- Erros de sintaxe → reportados como "correcao manual necessaria"
+- Rate limit (429) → aguarda 10s e tenta novamente
+- ffmpeg not found → tenta instalar via apt-get (Linux) ou brew (macOS)
+- ModuleNotFoundError → auto-fix YAML adiciona pip install no workflow
+- Tokens expirados → tenta renovar via Google OAuth refresh
+- Conteudo vazio → limpa diretorio tmp
+
+### Fluxo de cada ciclo (deep)
+Scan → diagnostico IA → auto-fix forcado para erros conhecidos → AutoFixer (script gerado + exec + commit) → reverte se admin pediu → Healer → report Telegram
+
+### Telegram
+- Mensagens do supervisor vao SEMPRE para o PV do admin (TELEGRAM_ADMIN_ID), nunca para o canal publico
+- Reporter.send() por padrao envia para PV; force_channel=True envia para o canal
 ### AutoFixer (modo deep)
 Gera script Python arbitrário via DeepSeek, executa em subprocesso, commita.
 Se admin mandar "reverte" no PV, o próximo ciclo desfaz o último fix.

@@ -234,18 +234,29 @@ def check_failed():
 # ──────────── MAIN ────────────
 
 def main():
+    # Startup validation
+    if not TELEGRAM_TOKEN:
+        print("[Monitor] ERROR: TELEGRAM_BOT_TOKEN not configured")
+        return
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("[Monitor] ERROR: Supabase credentials not configured")
+        return
+    
     print(f"[{datetime.now()}] Telegram Monitor iniciado")
 
     # Verifica se há comandos pendentes (via webhook ou polling)
     # Por enquanto, roda como monitor periódico
-    while True:
+    max_iterations = 6  # GitHub Actions timeout safety
+    for i in range(max_iterations):
         try:
             check_new_completions()
             check_failed()
+            print(f"[Monitor] Iteration {i+1}/{max_iterations} done")
         except Exception as e:
             print(f"[ERROR] {e}")
 
-        time.sleep(300)  # 5 minutos
+        if i < max_iterations - 1:
+            time.sleep(300)  # 5 minutos
 
 if __name__ == "__main__":
     import sys
