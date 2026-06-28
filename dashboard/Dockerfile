@@ -10,7 +10,6 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3000
 
 # NEXT_PUBLIC_* são inlinados no bundle no build time
 # Railway as injeta via ambiente de build, mas precisamos de defaults
