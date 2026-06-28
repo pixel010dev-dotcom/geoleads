@@ -238,15 +238,19 @@ export async function extractFromPlaywrightMaps(
 
   const page = await context.newPage();
 
+  const scrapedNames = new Set<string>(Array.from(existingKeys).map(k => k.split('|')[0]).filter(Boolean));
+  const scrapedPhones = new Set<string>(Array.from(existingKeys).map(k => k.split('|')[1]).filter(Boolean));
+
+  // Tenta todos os formatos de query em paralelo (corrida)
   const queryFormats = [
-    `${keyword} em ${location}`,
     `${keyword} ${location}`,
+    `${keyword} em ${location}`,
     `${keyword}, ${location}`,
+    `${location}`,
   ];
 
   let foundResults = false;
-  const scrapedNames = new Set<string>(Array.from(existingKeys).map(k => k.split('|')[0]).filter(Boolean));
-  const scrapedPhones = new Set<string>(Array.from(existingKeys).map(k => k.split('|')[1]).filter(Boolean));
+  let formatIndex = 0;
 
   for (const queryFormat of queryFormats) {
     if (foundResults) break;
@@ -254,11 +258,12 @@ export async function extractFromPlaywrightMaps(
     if (allLeads.length >= targetLimit) break;
 
     const encodedQuery = encodeURIComponent(queryFormat);
+    const gotoTimeout = formatIndex === 0 ? 10000 : 6000;
 
     try {
       await page.goto(`https://www.google.com/maps/search/${encodedQuery}`, {
         waitUntil: 'domcontentloaded',
-        timeout: 15000,
+        timeout: gotoTimeout,
       });
 
       const pageUrl = page.url();
@@ -271,18 +276,15 @@ export async function extractFromPlaywrightMaps(
         return { leads: allLeads, blocked: wasBlocked };
       }
 
-      try {
-        await page.waitForSelector('div[role="feed"], div[role="main"]', { timeout: 10000 });
+      const feedEl = await page.waitForSelector('div[role="feed"]', { timeout: 6000 }).catch(() => null);
+      if (feedEl) {
         foundResults = true;
-      } catch {
-        try {
-          await page.waitForSelector('a[href*="/maps/place"]', { timeout: 5000 });
-          foundResults = true;
-        } catch {
-          continue;
-        }
+      } else {
+        const placeLinks = await page.waitForSelector('a[href*="/maps/place"]', { timeout: 3000 }).catch(() => null);
+        if (placeLinks) foundResults = true;
       }
     } catch { continue; }
+    formatIndex++;
   }
 
   if (!foundResults) {
@@ -290,13 +292,13 @@ export async function extractFromPlaywrightMaps(
     return { leads: allLeads, blocked: wasBlocked };
   }
 
-  await page.waitForTimeout(500 + Math.random() * 500);
-  try {
-    await page.waitForSelector('a[href*="/maps/place"]', { timeout: 5000 });
-  } catch (e) { console.error(e); }
+  await page.waitForTimeout(300 + Math.random() * 200);
+
+  const emitProgress = typeof (page as any).emitProgress === 'function';
 
   let scrollCount = 0;
   let emptyScrolls = 0;
+  const scrollSize = maxScrolls > 20 ? 1200 : 1500;
 
   while (allLeads.length < targetLimit && scrollCount < maxScrolls && !(signal?.aborted)) {
     const rawChunk = await extractCardsFromPage(page);
@@ -316,42 +318,40 @@ export async function extractFromPlaywrightMaps(
 
     if (newLeads.length === 0) {
       emptyScrolls++;
-      // Se não achar novos leads após vários scrolls, tenta um scroll mais agressivo
-      // e espera mais tempo para o carregamento
-      if (emptyScrolls >= 3 && emptyScrolls < 6) {
-        await page.evaluate(() => {
+      if (emptyScrolls >= 4) {
+        // Tenta scroll extra grande antes de desistir
+        await page.evaluate((px: number) => {
           const feed = document.querySelector('div[role="feed"]');
-          if (feed) feed.scrollBy(0, 2500);
-        });
-        await page.waitForTimeout(1200 + Math.random() * 800);
-      }
-      if (emptyScrolls >= 6) {
-        // Último scroll grande antes de desistir
-        await page.evaluate(() => {
-          const feed = document.querySelector('div[role="feed"]');
-          if (feed) feed.scrollBy(0, 5000);
-        });
-        await page.waitForTimeout(2000);
+          if (feed) feed.scrollBy(0, px);
+        }, 4000);
+        await page.waitForTimeout(1200 + Math.random() * 400);
         const finalCards = await extractCardsFromPage(page);
-        if (finalCards.length <= rawChunk.length) break;
-        emptyScrolls = 3;
-        continue;
+        const newFinal = finalCards.filter((l: SearchLead) => !scrapedNames.has(l.nome));
+        if (newFinal.length === 0) break;
+        if (newFinal.length > 0) {
+          emptyScrolls = 0;
+          for (const l of newFinal) {
+            if (allLeads.length >= targetLimit) break;
+            scrapedNames.add(l.nome);
+            if (l.telefone !== 'Não informado') scrapedPhones.add(l.telefone);
+            if (l.telefone && l.telefone !== 'Não informado') l.telefone = normalizePhone(l.telefone);
+            allLeads.push(l);
+          }
+          continue;
+        }
+        break;
       }
-      if (emptyScrolls >= 8) break;
     } else {
       emptyScrolls = 0;
     }
 
     if (allLeads.length < targetLimit) {
-      // Scroll suave com aceleração
-      const scrollAmount = 800 + Math.random() * 700;
       await page.evaluate((px: number) => {
         const feed = document.querySelector('div[role="feed"]');
         if (feed) feed.scrollBy(0, px);
-      }, scrollAmount);
-      
-      // Tempo de espera adaptativo
-      const waitTime = emptyScrolls > 0 ? 1000 + Math.random() * 500 : 500 + Math.random() * 400;
+      }, scrollSize + Math.random() * 400);
+
+      const waitTime = emptyScrolls > 0 ? 400 + Math.random() * 200 : 200 + Math.random() * 150;
       await page.waitForTimeout(waitTime);
     }
     scrollCount++;

@@ -753,13 +753,31 @@ export const MAJOR_CITIES = [
 export function getNicheVariations(keyword: string): string[] {
   const kwLower = keyword.toLowerCase();
   const variants: Record<string, string[]> = {
+    // Serviços profissionais / B2B
+    'agência': ['Agência de Marketing', 'Agência Digital', 'Marketing Digital', 'Consultoria de Marketing', 'Gestão de Tráfego', 'Social Media', 'Criação de Sites', 'Design Gráfico'],
+    'marketing': ['Marketing Digital', 'Agência de Marketing', 'Consultoria de Marketing', 'Gestão de Tráfego', 'Social Media', 'Mídias Sociais', 'Inbound Marketing'],
+    'consultoria': ['Consultoria Empresarial', 'Consultoria de Gestão', 'Consultoria Comercial', 'Consultoria em Vendas', 'Consultoria RH', 'Consultoria Financeira'],
+    'contabilidade': ['Contabilidade', 'Escritório de Contabilidade', 'Contador', 'Consultoria Contábil', 'Assessoria Contábil', 'Abertura de Empresa'],
+    'imobiliária': ['Imobiliária', 'Corretor de Imóveis', 'Imóveis', 'Consultoria Imobiliária', 'Administração de Imóveis', 'Corretagem'],
+    'seguro': ['Corretora de Seguros', 'Seguro Auto', 'Seguro Residencial', 'Seguro Empresarial', 'Consultoria de Seguros', 'Plano de Saúde'],
+    't.i': ['Consultoria de TI', 'Desenvolvimento de Software', 'Suporte de TI', 'Informática', 'Manutenção de Computadores', 'Provedor de Internet'],
+    'fotografia': ['Fotógrafo', 'Estúdio Fotográfico', 'Fotografia Publicitária', 'Filmagem', 'Cobertura de Eventos'],
+    'construção': ['Construtora', 'Construção Civil', 'Empreiteira', 'Reforma', 'Arquiteto', 'Engenheiro Civil'],
+    'gráfica': ['Gráfica', 'Impressão Digital', 'Impressão Offset', 'Placas', 'Adesivos', 'Cartão de Visita'],
     'academia': ['Personal Trainer', 'Crossfit', 'Centro de Treinamento', 'Musculação', 'Ginástica', 'Funcional', 'Pilates', 'Yoga'],
-    'restaurante': ['Restaurante', 'Bar', 'Lanchonete', 'Pizzaria', 'Hamburgueria', 'Churrascaria', 'Comida Japonesa'],
-    'dentista': ['Dentista', 'Odontologia', 'Implante Dentário', 'Clínica Odontológica', 'Ortodontia', 'Dentadura'],
-    'advogado': ['Advogado', 'Escritório de Advocacia', 'Consultoria Jurídica', 'Direito', 'Advocacia'],
-    'medico': ['Médico', 'Clínica', 'Consultório', 'Especialidade Médica', 'Clínica Médica'],
-    'estetica': ['Estética', 'Salão de Beleza', 'Depilação', 'Massagem', 'Spa', 'Dermatologia Estética'],
-    'petshop': ['Petshop', 'Veterinário', 'Banho e Tosa', 'Hotel para Cães', 'Rações', 'Pet'],
+    'restaurante': ['Restaurante', 'Bar', 'Lanchonete', 'Pizzaria', 'Hamburgueria', 'Churrascaria', 'Comida Japonesa', 'Comida Brasileira'],
+    'dentista': ['Dentista', 'Odontologia', 'Implante Dentário', 'Clínica Odontológica', 'Ortodontia', 'Dentadura', 'Clareamento Dental'],
+    'advogado': ['Advogado', 'Escritório de Advocacia', 'Consultoria Jurídica', 'Direito', 'Advocacia', 'Advocacia Trabalhista', 'Advocacia Cível'],
+    'medico': ['Médico', 'Clínica Médica', 'Consultório', 'Especialidade Médica', 'Clínica de Saúde', 'Atendimento Médico'],
+    'estetica': ['Estética', 'Salão de Beleza', 'Depilação', 'Massagem', 'Spa', 'Dermatologia Estética', 'Laser', 'Harmonização Facial'],
+    'petshop': ['Petshop', 'Veterinário', 'Banho e Tosa', 'Hotel para Cães', 'Rações', 'Pet', 'Clínica Veterinária'],
+    'cabelo': ['Salão de Beleza', 'Cabeleireiro', 'Barbearia', 'Manicure', 'Depilação', 'Salão Unissex'],
+    'oficina': ['Oficina Mecânica', 'Auto Mecânica', 'Troca de Óleo', 'Funilaria', 'Auto Elétrico', 'Revisão Veicular'],
+    'hote': ['Hotel', 'Pousada', 'Resort', 'Hospedagem', 'Flat', 'Motel', 'Pousada'],
+    'escola': ['Escola', 'Colégio', 'Centro Educacional', 'Ensino Infantil', 'Ensino Fundamental', 'Curso'],
+    'cursos': ['Curso', 'Escola de Cursos', 'Cursos Profissionalizantes', 'Cursos Técnicos', 'Curso de Idiomas', 'Curso Online'],
+    'transporte': ['Transportadora', 'Logística', 'Transporte de Cargas', 'Fretamento', 'Mudanças', 'Transporte Escolar'],
+    'eventos': ['Buffet', 'Salão de Festas', 'Organização de Eventos', 'Cerimonial', 'Decoração', 'Espaço para Eventos'],
   };
   for (const [base, vars] of Object.entries(variants)) {
     if (kwLower.includes(base)) return [keyword, ...vars];
