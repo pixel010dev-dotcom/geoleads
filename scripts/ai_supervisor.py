@@ -738,7 +738,7 @@ class Reporter:
             return False
     
     def get_last_message(self) -> Optional[str]:
-        """Polla getUpdates e retorna a ultima mensagem de texto do admin."""
+        """Busca as ultimas 10 mensagens e retorna a mais recente do admin."""
         token = self.vault.get("TELEGRAM_BOT_TOKEN")
         admin_id = self.vault.get("TELEGRAM_ADMIN_ID")
         if not token or not admin_id:
@@ -747,7 +747,6 @@ class Reporter:
         try:
             resp = requests.get(
                 f"https://api.telegram.org/bot{token}/getUpdates",
-                params={"offset": -1, "limit": 1},
                 timeout=10
             )
             if resp.status_code != 200:
@@ -756,7 +755,8 @@ class Reporter:
             if not data.get("ok") or not data.get("result"):
                 return None
             
-            for update in data["result"]:
+            # Percorre do fim pro inicio, pega a ultima msg de texto do admin
+            for update in reversed(data["result"]):
                 msg = update.get("message", {})
                 if msg.get("chat", {}).get("id") == int(admin_id):
                     text = msg.get("text", "").strip().lower()
@@ -1181,7 +1181,7 @@ class AISupervisor:
                         auto_fixes.append({"bot": source, "applied": ok})
         
         # 4. VERIFICA COMANDO DE REVERT (sempre, em ambos modos)
-        revertido = self.fixer.check_revert_command()
+        self.fixer.check_revert_command()
         
         # 5. CURA (Healer)
         fixes = self.healer.heal(diagnostics)
@@ -1191,8 +1191,6 @@ class AISupervisor:
         # 6. REPORT
         report = self._build_report(scan, diagnostics, fixes, use_ai)
         self.reporter.send(report)
-        if revertido:
-            self.reporter.send("↩️ Reversao concluida neste ciclo.")
         print(f"[Supervisor] Ciclo {self.cycle_count} completo!")
         return {"scan": scan, "diagnostics": diagnostics, "fixes": fixes}
     
