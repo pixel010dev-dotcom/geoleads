@@ -2,8 +2,12 @@ name: AI Supervisor
 
 on:
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '0 8,20 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
 
 jobs:
   supervise:

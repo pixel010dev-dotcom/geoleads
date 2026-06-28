@@ -563,6 +563,83 @@ class Healer:
         except Exception as e:
             return {"type": "connectivity", "status": "offline", "error": str(e)[:100]}
     
+    def _fix_workflow_yaml(self, file_name: str, error_type: str) -> Optional[dict]:
+        """Auto-corrige workflow YAML (ex: adicionar pip install requests)."""
+        token = self.vault.get("GH_TOKEN")
+        if not token:
+            print("[Healer] GH_TOKEN nao configurado, pulando auto-fix YAML")
+            return None
+
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+        repo = "pixel010dev-dotcom/geoleads"
+
+        # Ler arquivo
+        r = requests.get(
+            f"https://api.github.com/repos/{repo}/contents/.github/workflows/{file_name}",
+            headers=headers, timeout=15
+        )
+        if r.status_code != 200:
+            print(f"[Healer] Nao conseguiu ler {file_name}: {r.status_code}")
+            return None
+
+        import base64
+        data = r.json()
+        sha = data["sha"]
+        content = base64.b64decode(data["content"]).decode("utf-8")
+
+        # Verificar se o fix ja existe
+        fix_map = {
+            "no_module_requests": ("requests", "pip install requests"),
+        }
+        fix_info = fix_map.get(error_type)
+        if not fix_info:
+            return None
+
+        module, pip_cmd = fix_info
+        if pip_cmd in content:
+            return {"type": "yaml_fix", "file": file_name, "status": "already_fixed"}
+
+        lines = content.split("\n")
+        insert_at = None
+        for i, line in enumerate(lines):
+            s = line.strip()
+            if s.startswith("run: python ") or s.startswith("run: python3 "):
+                insert_at = i
+                break
+
+        if insert_at is None:
+            return None
+
+        indent = lines[insert_at][:len(lines[insert_at]) - len(lines[insert_at].lstrip())]
+        parent_indent = indent[:4] if len(indent) >= 4 else "    "
+        new_lines = [
+            "",
+            f"{parent_indent}- name: Install dependencies",
+            f"{parent_indent}  run: pip install {module}",
+        ]
+        for nl in reversed(new_lines):
+            lines.insert(insert_at, nl)
+
+        new_content = base64.b64encode("\n".join(lines).encode("utf-8")).decode("utf-8")
+        commit = requests.put(
+            f"https://api.github.com/repos/{repo}/contents/.github/workflows/{file_name}",
+            headers=headers,
+            json={
+                "message": f"auto-fix: add {pip_cmd} to {file_name}",
+                "content": new_content,
+                "sha": sha,
+                "branch": "main",
+            },
+            timeout=15
+        )
+
+        if commit.status_code in (200, 201):
+            print(f"[Healer] Auto-fix YAML: {file_name} - {pip_cmd}")
+            return {"type": "yaml_fix", "file": file_name, "status": "success",
+                    "detail": pip_cmd}
+        print(f"[Healer] Falha no commit: {commit.status_code}")
+        return None
+
     def _execute_ai_suggestion(self, error_type: str, suggestion: str) -> dict:
         """Tenta executar a sugestao de correcao da IA."""
         print(f"[Healer] Executando sugestao da IA para {error_type}...")
@@ -730,6 +807,21 @@ class AISupervisor:
                 diag = self.brain.analyze_logs(bot["logs"])
                 diag["source"] = f"bot:{bot['name']}"
                 diagnostics.append(diag)
+
+                # Auto-fix: ModuleNotFoundError
+                logs = bot.get("logs", "")
+                if "ModuleNotFoundError: No module named 'requests'" in logs:
+                    wf_file = bot.get("name", "") + ".yml"
+                    if not wf_file.startswith("."):
+                        wf_file = wf_file + ".yml" if ".yml" not in wf_file else wf_file
+                    fix = self.healer._fix_workflow_yaml(wf_file, "no_module_requests")
+                    if fix:
+                        print(f"[Supervisor] Auto-fix aplicado em {wf_file}!")
+                        self.reporter.send(
+                            f"🔧 <b>Auto-fix: {bot['name']}</b>\n"
+                            f"Adicionado 'pip install requests' ao workflow\n"
+                            f"Commit automatico enviado."
+                        )
         
         # Scripts com erro
         for script in scan.get("scripts", []):
