@@ -948,6 +948,16 @@ class AutoFixer:
                     continue
                 return False
             
+            # Smoke test apos syntax check
+            smoke_err = self._smoke_test()
+            if smoke_err:
+                print(f"[AutoFix] Smoke test: {smoke_err}")
+                if attempt == 0:
+                    subprocess.run(["git", "checkout", "--", "."],
+                        cwd=PROJECT_DIR, capture_output=True, timeout=15)
+                    continue
+                return False
+            
             break  # sucesso, sai do loop
         
         # Verifica alteracoes
@@ -982,6 +992,8 @@ class AutoFixer:
             "changes": changes,
         })
         
+        self._learn_from_fix(error_log, script, True)
+        
         self.reporter.send_to_admin(
             f"🔧 <b>Auto-fix: {source_name}</b>\n"
             f"<code>{commit_hash[:12]}</code>\n"
@@ -990,8 +1002,30 @@ class AutoFixer:
         )
         return True
     
-    def check_revert_command(self) -> bool:
-        """Verifica se admin pediu revert. Se sim, reverte ultimo fix."""
+    def check_revert_command(self, current_errors: list = None) -> bool:
+        """Verifica se admin pediu revert OU se erro persistiu. Reverte automaticamente."""
+        # Auto-revert if same bot still failing
+        if current_errors:
+            history = self._load_history()
+            if history:
+                last_bot = history[-1].get("bot", "").replace("bot:", "").replace("script:", "")
+                for err in current_errors:
+                    source = err.get("source", "")
+                    if last_bot and last_bot in source:
+                        print(f"[AutoFix] {last_bot} ainda falhando! Auto-revertendo...")
+                        commit = history[-1].get("commit", "")
+                        if commit:
+                            ok = self._git_revert(commit)
+                            if ok:
+                                history.pop()
+                                self._save_history(history, overwrite=True)
+                                self.reporter.send_to_admin(
+                                    f"\U0001f519 <b>Auto-revert: {last_bot}</b>\n"
+                                    f"Commit {commit[:12]} desfeito.\n"
+                                    "Motivo: erro persistiu apos fix."
+                                )
+                                return True
+        # Manual revert by admin
         msg = self.reporter.get_last_message()
         if not msg:
             return False
@@ -1064,22 +1098,37 @@ You can:
 - Run shell commands (subprocess)
 - Use requests, json, re, sys, etc.
 - Print every action for logging
-- Install packages with `subprocess.run(["pip", "install", "pacote"])` if missing
-- Do web searches with `requests.get()` + `re`/`BeautifulSoup` if you need external info
+- Install packages with subprocess.run(["pip", "install", "pacote"])
+- Do web searches with requests.get() if you need external info
 
 Rules:
 - MINIMAL changes. Fix ONLY what's broken.
 - Print every file you modify.
-- Handle errors with try/except, print the error.
+- Handle errors with try/except.
 - Use relative paths (scripts/..., .github/workflows/...)
 - NEVER exfiltrate secrets, tokens, or keys.
 - NEVER delete files unless it's the root cause.
 - If no fix is possible, print "NO_FIX_NEEDED" and exit(0).
 
-IMPORTANT - Auto-update CONTEXTO.md:
-If your fix creates NEW files, NEW workflows, or changes env vars, 
-you MUST also update `scripts/CONTEXTO.md` to reflect the change.
-Read it first, then append or edit the relevant section.
+## ERROR TYPES & HOW TO FIX:
+
+1. ModuleNotFoundError:
+   -> Add pip install to the .github/workflows/<bot>.yml
+
+2. Timeout / API Error:
+   -> Add try/except with retry + time.sleep(random.uniform(1,3))
+
+3. Empty content / No data:
+   -> Check API response validity, add fallback template
+
+4. ffmpeg not found:
+   -> Install via subprocess: sudo apt-get install -y ffmpeg
+
+5. Token expired / Auth error:
+   -> Check env vars, add fallback to refresh token flow
+
+6. SyntaxError:
+   -> Fix the Python syntax directly in the file
 
 ## CONTEXTO DO PROJETO:
 {contexto[:3000]}
@@ -1158,6 +1207,53 @@ Return ONLY the Python code in a ```python block. No explanation.""",
         except Exception as e:
             print(f"[AutoFix] Revert error: {e}")
             return False
+    
+    def _smoke_test(self) -> str:
+        """Smoke test: verifica se imports locais existem apos alteracoes."""
+        try:
+            diff = subprocess.run(
+                ["git", "diff", "--name-only"], cwd=PROJECT_DIR,
+                capture_output=True, text=True, timeout=10
+            )
+            for fname in diff.stdout.strip().split("\n"):
+                fname = fname.strip()
+                if fname.endswith(".py") and os.path.exists(os.path.join(PROJECT_DIR, fname)):
+                    with open(os.path.join(PROJECT_DIR, fname), "r", encoding="utf-8") as sf:
+                        source = sf.read()
+                    local_imports = re.findall(r"from scripts\.(\w+) import", source)
+                    for imp in local_imports:
+                        imp_path = os.path.join(PROJECT_DIR, "scripts", f"{imp}.py")
+                        if not os.path.exists(imp_path):
+                            return f"Import {imp} not found (in {fname})"
+        except Exception as e:
+            return f"Smoke test error: {e}"
+        return ""
+    
+    def _learn_from_fix(self, error_log: str, fix_script: str, success: bool):
+        """Salva padrao de erro + solucao pra aprendizado futuro."""
+        if not success:
+            return
+        try:
+            patterns_file = PROJECT_DIR / "scripts" / ".fix_patterns.json"
+            patterns = []
+            if patterns_file.exists():
+                with open(patterns_file) as f:
+                    patterns = json.load(f)
+            mod_match = re.search(r"ModuleNotFoundError: No module named '([^']+)'", error_log)
+            if mod_match:
+                module = mod_match.group(1)
+                existing = [p for p in patterns if p.get("module") == module]
+                if not existing:
+                    patterns.append({
+                        "module": module,
+                        "fix": fix_script[:500],
+                        "times_fixed": 1,
+                        "last_fixed": datetime.now().isoformat(),
+                    })
+                    with open(patterns_file, "w") as f:
+                        json.dump(patterns, f, indent=2)
+        except:
+            pass
     
     def _save_history(self, entry_or_list, overwrite=False):
         data = entry_or_list if overwrite else (self._load_history() + [entry_or_list])
@@ -1320,8 +1416,9 @@ class AISupervisor:
                         ok = self.fixer.auto_fix(source, logs)
                         auto_fixes.append({"bot": source, "applied": ok})
         
-        # 4. VERIFICA COMANDO DE REVERT (sempre, em ambos modos)
-        self.fixer.check_revert_command()
+        # 4. VERIFICA COMANDO DE REVERT + AUTO-REVERT (sempre, em ambos modos)
+        # Se algum bot ainda falhar apos fix, reverte automaticamente
+        self.fixer.check_revert_command(diagnostics)
         
         # 5. CURA (Healer)
         fixes = self.healer.heal(diagnostics)
