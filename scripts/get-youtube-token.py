@@ -13,8 +13,8 @@ TOKEN_FILE = "youtube_token.pickle"
 
 CLIENT_CONFIG = {
     "installed": {
-        "client_id": "45933989727-24rb40fetl49gsms3104rmukta5cagej",
-        "client_secret": "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",
+        "client_id": os.environ.get("GOOGLE_CLIENT_ID", "45933989727-24rb40fetl49gsms3104rmukta5cagej"),
+        "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", "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"),
         "redirect_uris": ["http://localhost"],
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
         "token_uri": "https://oauth2.googleapis.com/token"

@@ -47,6 +47,26 @@ Deploy: https://geoleads-production.up.railway.app
 ### Geracao de imagem (bot_utils.py)
 Fallback chain: **Gemini Imagen** (GEMINI_API_KEY) → **HuggingFace FLUX.1** (HF_API_TOKEN) → **Cloudflare SD** (CF_API_TOKEN) → placeholder
 
+### Seguranca
+- NENHUM script deve ter secrets hardcoded como fallback em `os.environ.get()`
+- Use apenas `os.environ.get("VAR")` sem segundo argumento — falha se nao estiver configurado
+- Excecao: `get-youtube-token.py` (dev tool) tem fallbacks para client_id/client_secret OAuth
+- `APP_URL` deve sempre vir de env var com fallback, nunca hardcoded direto
+
+### AutoFixer (modo deep)
+Gera script Python arbitrário via DeepSeek, executa em subprocesso, commita.
+Se admin mandar "reverte" no PV, o próximo ciclo desfaz o último fix.
+
+Fluxo completo:
+1. AI gera script de correcao (com contexto do CONTEXTO.md)
+2. Script executado com timeout 300s
+3. Pode instalar pacotes (pip install) e fazer web search
+4. Syntax check com py_compile em todos .py alterados
+5. Se syntax check falhar, tenta gerar novo fix (1 retry)
+6. Se houver mudancas estruturais, alerta admin se CONTEXTO.md nao foi atualizado
+7. git commit + push
+8. Notifica admin no PV
+
 ---
 
 ## 4. Workflows (./.github/workflows/)

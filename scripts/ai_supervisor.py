@@ -938,6 +938,18 @@ class AutoFixer:
             return False
         
         changes = diff.stdout.strip()
+        
+        # Verifica se CONTEXTO.md precisa ser atualizado
+        struct = self._check_structural_changes()
+        contexto_warn = ""
+        if struct:
+            contexto_warn = "\n\n⚠️ <b>CONTEXTO.md desatualizado!</b>\n" + "\n".join(struct)
+            self.reporter.send_to_admin(
+                f"⚠️ <b>CONTEXTO.md precisa de update</b>\n"
+                f"Fix em {source_name} fez mudancas estruturais:\n"
+                + "\n".join(f"• {r}" for r in struct)
+            )
+        
         self._save_history({
             "timestamp": datetime.now().isoformat(),
             "bot": source_name,
@@ -948,7 +960,7 @@ class AutoFixer:
         self.reporter.send_to_admin(
             f"🔧 <b>Auto-fix: {source_name}</b>\n"
             f"<code>{commit_hash[:12]}</code>\n"
-            f"{changes}\n\n"
+            f"{changes}{contexto_warn}\n\n"
             f"<i>Mande \"reverte\" no PV pra desfazer</i>"
         )
         return True
@@ -991,6 +1003,30 @@ class AutoFixer:
         
         return success
     
+    def _check_structural_changes(self) -> list:
+        """Detecta mudancas estruturais que exigem update do CONTEXTO.md."""
+        reasons = []
+        try:
+            diff = subprocess.run(
+                ["git", "diff", "--name-status"], cwd=PROJECT_DIR,
+                capture_output=True, text=True, timeout=10
+            )
+            for line in diff.stdout.strip().split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+                status, path = line.split(maxsplit=1)
+                if status == "A":
+                    if path.endswith(".yml"):
+                        reasons.append(f"Novo workflow: {path}")
+                    elif path.endswith(".py"):
+                        reasons.append(f"Novo script: {path}")
+                elif path == "scripts/CONTEXTO.md":
+                    return []
+        except:
+            pass
+        return reasons
+    
     def _generate_fix_script(self, bot_name: str, error_log: str) -> Optional[str]:
         """IA gera script Python arbitratrio pra corrigir o erro."""
         contexto = self._load_context()
@@ -1015,6 +1051,11 @@ Rules:
 - NEVER exfiltrate secrets, tokens, or keys.
 - NEVER delete files unless it's the root cause.
 - If no fix is possible, print "NO_FIX_NEEDED" and exit(0).
+
+IMPORTANT - Auto-update CONTEXTO.md:
+If your fix creates NEW files, NEW workflows, or changes env vars, 
+you MUST also update `scripts/CONTEXTO.md` to reflect the change.
+Read it first, then append or edit the relevant section.
 
 ## CONTEXTO DO PROJETO:
 {contexto[:3000]}
