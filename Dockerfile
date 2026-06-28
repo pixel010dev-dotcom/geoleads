@@ -10,6 +10,7 @@ COPY dashboard ./
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 ENV NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -25,4 +26,4 @@ RUN npm run build
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npm run start -- -H 0.0.0.0 -p ${PORT:-3000}"]
+CMD ["npm", "run", "start"]
