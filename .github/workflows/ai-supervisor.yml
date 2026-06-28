@@ -2,7 +2,7 @@ name: AI Supervisor
 
 on:
   schedule:
-    - cron: '0 8,20 * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   supervise:
-    name: AI System Supervisor
+    name: System Supervisor
     runs-on: ubuntu-latest
     timeout-minutes: 360
 

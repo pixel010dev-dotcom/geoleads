@@ -323,7 +323,7 @@ class Scanner:
         
         workflows = [
             "twitter-bot.yml", "pinterest-bot.yml", "telegram-bot.yml",
-            "youtube-shorts-bot.yml", "auto-blog.yml", "supervisor.yml",
+            "youtube-shorts-bot.yml", "auto-blog.yml",
         ]
         
         for wf in workflows:
@@ -770,8 +770,27 @@ class Reporter:
 # 6. SUPERVISOR - Orquestrador principal
 # ============================================================
 
+def _detect_mode() -> str:
+    """Auto-detecta modo baseado no horario UTC.
+    Deep: 11h e 23h UTC (8h e 20h BRT).
+    Fast: qualquer outro horario.
+    Pode ser sobreposto pela env var SUPERVISOR_MODE.
+    """
+    env_mode = os.environ.get("SUPERVISOR_MODE", "").lower()
+    if env_mode in ("fast", "deep"):
+        return env_mode
+    hour = datetime.now(timezone.utc).hour
+    return "deep" if hour in (11, 23) else "fast"
+
+SUPERVISOR_MODE = _detect_mode()
+
 class AISupervisor:
-    """Orquestrador: scan -> diagnostico -> cura -> report em loop."""
+    """Orquestrador: scan -> diagnostico -> cura -> report.
+    
+    Dois modos:
+      - fast: sem IA, roda scan + auto-fix basico (YAML), reporta.
+      - deep (padrao): com IA, diagnostico completo em loop.
+    """
     
     def __init__(self):
         self.vault = CredentialVault()
@@ -781,47 +800,54 @@ class AISupervisor:
         self.reporter = Reporter()
         self.cycle_count = 0
         self.all_fixes = []
+        self.mode = SUPERVISOR_MODE
         
         print(f"\n{'#'*60}")
         print(f"#  AI SYSTEM SUPERVISOR")
         print(f"#  {datetime.now().strftime('%d/%m/%Y %H:%M')}")
         print(f"#  Workspace: {PROJECT_DIR}")
-        print(f"#  Ciclos: {MAX_CYCLES}")
+        print(f"#  Modo: {self.mode.upper()}")
+        if self.mode == "deep":
+            print(f"#  Ciclos: {MAX_CYCLES}")
         print(f"{'#'*60}\n")
     
-    def run_cycle(self) -> dict:
+    def run_cycle(self, use_ai=True) -> dict:
         """Um ciclo: scan -> diagnostico -> cura -> report."""
         self.cycle_count += 1
+        mode_label = "DEEP" if use_ai else "FAST"
         print(f"\n{'='*50}")
-        print(f"  CICLO {self.cycle_count}/{MAX_CYCLES}")
+        print(f"  CICLO {self.cycle_count} [{mode_label}]")
         print(f"{'='*50}\n")
         
         # 1. SCAN
         scan = self.scanner.scan_all()
         
-        # 2. DIAGNOSTICO (IA) - apenas para bots com falha
+        # 2. DIAGNOSTICO
         diagnostics = []
         for bot in scan.get("bots", []):
-            if bot.get("status") == "failed" and bot.get("logs"):
+            if bot.get("status") != "failed":
+                continue
+
+            logs = bot.get("logs", "")
+            
+            # Auto-fix SEM IA: ModuleNotFoundError
+            if "ModuleNotFoundError: No module named 'requests'" in logs:
+                wf_file = bot["name"] + (".yml" if ".yml" not in bot["name"] else "")
+                fix = self.healer._fix_workflow_yaml(wf_file, "no_module_requests")
+                if fix:
+                    print(f"[Supervisor] Auto-fix aplicado em {wf_file}!")
+                    self.reporter.send(
+                        f"🔧 <b>Auto-fix: {bot['name']}</b>\n"
+                        f"Adicionado 'pip install requests' ao workflow\n"
+                        f"Commit automatico enviado."
+                    )
+            
+            # Diagnostico COM IA (apenas modo deep)
+            if use_ai and logs:
                 print(f"[Supervisor] Diagnosticando falha em {bot['name']}...")
-                diag = self.brain.analyze_logs(bot["logs"])
+                diag = self.brain.analyze_logs(logs)
                 diag["source"] = f"bot:{bot['name']}"
                 diagnostics.append(diag)
-
-                # Auto-fix: ModuleNotFoundError
-                logs = bot.get("logs", "")
-                if "ModuleNotFoundError: No module named 'requests'" in logs:
-                    wf_file = bot.get("name", "") + ".yml"
-                    if not wf_file.startswith("."):
-                        wf_file = wf_file + ".yml" if ".yml" not in wf_file else wf_file
-                    fix = self.healer._fix_workflow_yaml(wf_file, "no_module_requests")
-                    if fix:
-                        print(f"[Supervisor] Auto-fix aplicado em {wf_file}!")
-                        self.reporter.send(
-                            f"🔧 <b>Auto-fix: {bot['name']}</b>\n"
-                            f"Adicionado 'pip install requests' ao workflow\n"
-                            f"Commit automatico enviado."
-                        )
         
         # Scripts com erro
         for script in scan.get("scripts", []):
@@ -852,27 +878,66 @@ class AISupervisor:
         self.all_fixes.extend(fixes)
         
         # 4. REPORT
-        self.reporter.cycle_report(self.cycle_count, scan, diagnostics, fixes)
-        
+        report = self._build_report(scan, diagnostics, fixes, use_ai)
+        self.reporter.send(report)
         print(f"[Supervisor] Ciclo {self.cycle_count} completo!")
         return {"scan": scan, "diagnostics": diagnostics, "fixes": fixes}
     
-    def run(self):
-        """Loop principal."""
-        # Reporta inicio
+    def _build_report(self, scan, diagnostics, fixes, use_ai):
+        bots = scan.get("bots", [])
+        ok = sum(1 for b in bots if b.get("status") == "success")
+        fail = sum(1 for b in bots if b.get("status") == "failed")
+        apis = scan.get("apis", [])
+        api_ok = sum(1 for a in apis if a.get("status") == "ok")
+        api_err = sum(1 for a in apis if a.get("status") == "error")
+        scripts = scan.get("scripts", [])
+        s_ok = sum(1 for s in scripts if s.get("status") == "ok")
+        s_err = sum(1 for s in scripts if s.get("status") != "ok")
+        fe = scan.get("frontend", {})
+        
+        lines = [
+            f"<b>{'🤖 AI' if use_ai else '⚡'} Supervisor - {self.mode.upper()}</b>",
+            f"<code>{datetime.now().strftime('%d/%m/%Y %H:%M')}</code>",
+            "",
+            f"<b>Bots:</b> {ok} ok, {fail} falha(s)",
+            f"<b>APIs:</b> {api_ok} ok, {api_err} erro(s)",
+            f"<b>Scripts:</b> {s_ok} ok, {s_err} problema(s)",
+            f"<b>Frontend:</b> {fe.get('status', '?')}",
+        ]
+        if fixes:
+            lines.append(f"\n<b>Correcoes:</b> {len(fixes)}")
+            for f in fixes:
+                lines.append(f"  [{f.get('status','?')}] {f.get('type','?')}")
+        critical = [d for d in diagnostics if d.get("severity", 0) >= 4]
+        if critical:
+            lines.append(f"\n<b>Criticos:</b> {len(critical)}")
+            for c in critical[:3]:
+                lines.append(f"  {c.get('root_cause', '?')[:80]}")
+        if fail and not diagnostics and not fixes:
+            lines.append(f"\n❌ {fail} bots com falha - sem auto-fix disponivel")
+        lines.append(f"\n{ok}/{len(bots)} bots OK")
+        return "\n".join(lines)
+    
+    def run_fast(self):
+        """Modo rapido: 1 ciclo sem IA, usado a cada 15min pelo cron."""
+        print("[Supervisor] MODO RAPIDO - scan + auto-fix basico")
+        self.run_cycle(use_ai=False)
+        print("[Supervisor] Modo rapido concluido!")
+    
+    def run_deep(self):
+        """Modo profundo: loop com IA, usado 2x/dia."""
+        print("[Supervisor] MODO PROFUNDO - diagnostico com IA")
+        
         missing = self.vault.list_missing()
         if missing:
             msg = f"<b>AI Supervisor iniciado</b>\n<code>{datetime.now().strftime('%d/%m/%Y %H:%M')}</code>\n\n<b>Credenciais faltando:</b>\n" + "\n".join(f"  - {m}" for m in missing)
         else:
-            msg = f"<b>AI Supervisor iniciado</b>\n<code>{datetime.now().strftime('%d/%m/%Y %H:%M')}</code>\n\nCiclos: {MAX_CYCLES}\nMonitorando: bots, APIs, scripts, frontend, credenciais"
+            msg = f"<b>AI Supervisor iniciado</b>\n<code>{datetime.now().strftime('%d/%m/%Y %H:%M')}</code>\n\nModo: DEEP\nCiclos: {MAX_CYCLES}\nMonitorando: bots, APIs, scripts, frontend, credenciais"
         self.reporter.send(msg)
         
-        # Loop de ciclos
         for _ in range(MAX_CYCLES):
             try:
-                self.run_cycle()
-                
-                # Sleep entre ciclos (em incrementos de 30s)
+                self.run_cycle(use_ai=True)
                 if self.cycle_count < MAX_CYCLES:
                     print(f"[Supervisor] Dormindo {CYCLE_SLEEP_MINUTES}min...")
                     for _ in range(CYCLE_SLEEP_MINUTES * 2):
@@ -882,17 +947,22 @@ class AISupervisor:
                 self.reporter.send(f"<b>Erro no ciclo {self.cycle_count}:</b> {str(e)[:200]}")
                 time.sleep(60)
         
-        # Reporta fim
         summary = (
             f"<b>AI Supervisor finalizado</b>\n"
             f"<code>{datetime.now().strftime('%d/%m/%Y %H:%M')}</code>\n\n"
             f"Ciclos: {self.cycle_count}\n"
             f"Correcoes: {len(self.all_fixes)}\n"
-            f"Proximo: amanha as 08:00 UTC"
+            f"Proximo: amanha as 08h/20h BRT"
         )
         self.reporter.send(summary)
-        
         print(f"\nResumo: {self.cycle_count} ciclos, {len(self.all_fixes)} correcoes")
+    
+    def run(self):
+        """Roteia pro modo certo baseado na env var SUPERVISOR_MODE."""
+        if self.mode == "fast":
+            self.run_fast()
+        else:
+            self.run_deep()
 
 
 # ============================================================
