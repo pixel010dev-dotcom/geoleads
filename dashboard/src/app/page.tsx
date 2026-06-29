@@ -6,6 +6,7 @@ import Globe from '@/components/Globe';
 import DashboardPreview from '@/components/DashboardPreview';
 import AnimatedStats from '@/components/AnimatedStats';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { Button } from '@/components/Button';
 import { useTranslations } from '@/lib/i18n';
 import { useEffect, useState, useRef } from 'react';
 import { IconPhone, IconBuilding, IconMail, IconCamera, IconWhatsApp, IconBot, IconChart, IconDownload } from '@/components/FeatureIcon';
@@ -167,9 +168,9 @@ export default function LandingPage() {
             <Link href="/login" className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white transition-all font-medium">
               {t('nav.login')}
             </Link>
-            <Link href="/login" className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition-all shadow-[0_4px_15px_rgba(59,130,246,0.3)] hover:shadow-[0_8px_25px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 active:scale-95 text-xs sm:text-sm whitespace-nowrap">
+            <Button href="/login" size="sm" className="text-xs sm:text-sm">
               {t('nav.signup')}
-            </Link>
+            </Button>
           </div>
         </div>
       </nav>
@@ -183,10 +184,9 @@ export default function LandingPage() {
               <span className="text-4xl mb-3 block">⏳</span>
               <h2 className="text-xl font-bold mb-2">Espera! Nao va ainda.</h2>
               <p className="text-sm text-gray-400 mb-5">Teste o GeoLeads gratuitamente agora mesmo. Sao <b>10 tokens</b> para extrair seus primeiros leads sem pagar nada.</p>
-              <Link href="/login" onClick={() => { try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}
-                className="block w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black font-bold text-sm transition-all">
+              <Button href="/login" size="lg" className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none" onClick={() => { try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}>
                 Quero Testar Gratis
-              </Link>
+              </Button>
               <button onClick={() => { setExitVisible(false); try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}
                 className="mt-3 text-xs text-gray-500 hover:text-gray-400 cursor-pointer">Nao, obrigado</button>
             </div>
@@ -213,19 +213,12 @@ export default function LandingPage() {
                 {t('hero.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-                <Link
-                  href="/login"
-                  className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm sm:text-base transition-all shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95 text-center relative overflow-hidden group"
-                >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <Button href="/login" size="lg" className="w-full sm:w-auto shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)]">
                   {t('hero.cta')} — {t('hero.footnote')}
-                </Link>
-                <Link
-                  href="/pricing"
-                  className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-medium text-sm sm:text-base transition-all text-center"
-                >
+                </Button>
+                <Button href="/pricing" variant="secondary" size="lg" className="w-full sm:w-auto">
                   {t('hero.ctaSecondary')}
-                </Link>
+                </Button>
               </div>
               <div className="flex items-center justify-center gap-4 mt-5 text-xs text-gray-500">
                 <span className="flex items-center gap-1">✅ Sem cartao</span>
@@ -432,12 +425,9 @@ export default function LandingPage() {
                     🔒 Sem risco
                   </span>
                 </div>
-                <Link
-                  href="/login"
-                  className="inline-flex px-8 sm:px-10 py-3 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm sm:text-base transition-all shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95"
-                >
+                <Button href="/login" size="lg" className="shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)]">
                   {t('cta.button')}
-                </Link>
+                </Button>
                 <p className="text-xs text-gray-500 mt-4">
                   {t('cta.login').replace(t('nav.login'), '')}
                   <Link href="/login" className="text-blue-400 hover:text-blue-300">{t('nav.login')}</Link>

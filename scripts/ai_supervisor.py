@@ -133,7 +133,7 @@ class CredentialVault:
         
         # Railway URL tem fallback fixo
         if "RAILWAY_URL" not in self._values:
-            self._values["RAILWAY_URL"] = "https://geoleads-production.up.railway.app"
+            self._values["RAILWAY_URL"] = os.environ.get("RAILWAY_URL", "https://geoleads-production.up.railway.app")
         
         self._loaded = True
         configured = sum(1 for k in self.cred_map if k in self._values)
@@ -366,7 +366,7 @@ class Scanner:
         results = []
         
         endpoints = [
-            ("Railway", self.vault.get("RAILWAY_URL", "https://geoleads-production.up.railway.app")),
+            ("Railway", self.vault.get("RAILWAY_URL", os.environ.get("APP_URL", "https://geoleads-production.up.railway.app"))),
             ("Supabase", f"{self.vault.get('SUPABASE_URL', '')}/rest/v1/"),
         ]
         
@@ -439,7 +439,7 @@ class Scanner:
     
     def scan_frontend(self) -> dict:
         print("[Scanner] Escaneando frontend...")
-        url = self.vault.get("RAILWAY_URL", "https://geoleads-production.up.railway.app")
+        url = self.vault.get("RAILWAY_URL", os.environ.get("APP_URL", "https://geoleads-production.up.railway.app"))
         
         try:
             resp = requests.get(url, timeout=15, headers={"User-Agent": "AISupervisor/1.0"})

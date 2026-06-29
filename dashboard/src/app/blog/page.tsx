@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { Button } from '@/components/Button';
 
 export const metadata: Metadata = {
   title: 'Blog | GeoLeads - Dicas de Prospeccao e Lead Generation',
@@ -89,9 +90,9 @@ export default function BlogPage() {
               Geo<span className="text-blue-400">Leads</span>
             </span>
           </Link>
-          <Link href="/login?next=/app/dashboard" className="px-5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-sm font-bold transition-colors">
+          <Button href="/login?next=/app/dashboard" size="sm" className="bg-blue-500 hover:bg-blue-400 text-black shadow-none">
             Testar Gratis
-          </Link>
+          </Button>
         </div>
       </nav>
       <main className="max-w-4xl mx-auto px-4 py-12">

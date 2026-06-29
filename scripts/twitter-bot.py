@@ -14,21 +14,24 @@ ACCESS_TOKEN = os.environ.get("TWITTER_ACCESS_TOKEN", "")
 ACCESS_SECRET = os.environ.get("TWITTER_ACCESS_SECRET", "")
 OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
+APP_URL = os.environ.get("APP_URL", "https://geoleads-production.up.railway.app")
+LOGIN_URL = f"{APP_URL}/login"
+
 TWEET_TEMPLATES = [
-    "Extraia leads do Google Maps em 5 minutos e dispare no WhatsApp automaticamente. Teste gratis: https://geoleads-production.up.railway.app/login",
+    f"Extraia leads do Google Maps em 5 minutos e dispare no WhatsApp automaticamente. Teste gratis: {LOGIN_URL}",
     "Sabia que da pra extrair telefone, email, CNPJ e Instagram de qualquer negocio no Google Maps? O GeoLeads faz isso automaticamente.",
-    "Prospeccao manual ta te matando? 100 leads que levariam horas sao extraidos em 5 min com o GeoLeads. Teste gratis: https://geoleads-production.up.railway.app/login",
+    f"Prospeccao manual ta te matando? 100 leads que levariam horas sao extraidos em 5 min com o GeoLeads. Teste gratis: {LOGIN_URL}",
     "O segredo da prospeccao B2B em 2026: extraia dados do Google Maps, enriqueca com CNPJ e redes sociais, aborde no WhatsApp. Tudo automatizado.",
     "3 dados que todo lead precisa ter: telefone, email e CNPJ. O GeoLeads extrai os 3 automaticamente do Google Maps.",
     "Corretores: parem de catar lead manualmente. Extraia imobiliarias inteiras do Google Maps em minutos com o GeoLeads.",
     "Automatize sua prospeccao: o GeoLeads extrai, enriquece e aborda leads no WhatsApp enquanto voce dorme. AutoVendas ativo 24h.",
     "Nao compre lista de lead gelada. Extraia dados frescos do Google Maps com CNPJ validado e Instagram. Resultado real.",
     "O GeoLeads tem CRM integrado. Leads extraidos vao direto pro seu funil de vendas. Nunca mais perca um contato.",
-    "Quer testar a extracao de leads do Google Maps? Sao 10 tokens gratis sem cartao. https://geoleads-production.up.railway.app/login",
+    f"Quer testar a extracao de leads do Google Maps? Sao 10 tokens gratis sem cartao. {LOGIN_URL}",
     "Enriquecimento de leads: o que e e por que so telefone nao basta. Descubra no blog do GeoLeads. Link na bio.",
     "140 cidades brasileiras disponiveis. Escolha nicho + cidade e extraia centenas de leads em minutos. Gratis para testar.",
     "Sabia que 80% dos negocios no Google Maps tem site mas nao aparece na busca? O GeoLeads encontra eles pra voce.",
-    "O que voce faria com +200 leads quentes toda semana? O GeoLeads te da isso. Comece gratis: https://geoleads-production.up.railway.app/login",
+    f"O que voce faria com +200 leads quentes toda semana? O GeoLeads te da isso. Comece gratis: {LOGIN_URL}",
     "Dica de prospeccao: busque por nicho + cidade no GeoLeads. Ex: dentista + Sao Paulo = 300+ leads em 5 min.",
     "Instagram de leads: o GeoLeads enriquece cada lead com rede social. Mais dados = mais personalizacao = mais vendas.",
     "Chatbot WhatsApp que responde 80% das perguntas sozinho. Integrado com extracao de leads do Google Maps. Tudo num lugar.",
@@ -51,7 +54,7 @@ def generate_ai_tweet():
             json={
                 "model": "deepseek/deepseek-v4-flash:free",
                 "messages": [
-                    {"role": "system", "content": "Gere UM tweet curto (<260 chars) em portugues brasileiro sobre extracao de leads do Google Maps. Inclua o link https://geoleads-production.up.railway.app/login naturalmente. Sem hashtags. Responda apenas o texto do tweet."},
+                    {"role": "system", "content": f"Gere UM tweet curto (<260 chars) em portugues brasileiro sobre extracao de leads do Google Maps. Inclua o link {LOGIN_URL} naturalmente. Sem hashtags. Responda apenas o texto do tweet."},
                     {"role": "user", "content": "Gere um tweet dica de prospeccao B2B usando Google Maps."}
                 ]
             },

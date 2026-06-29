@@ -20,7 +20,8 @@ from datetime import datetime
 OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash:free")
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
-APP_URL = os.environ.get("APP_URL", "https://geoleads-production.up.railway.app")
+_fallback_app_url = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL") or "https://geoleads-production.up.railway.app"
+APP_URL = os.environ.get("APP_URL", _fallback_app_url)
 
 # ──────────── TIPOS DE CONTEÚDO ────────────
 

@@ -554,61 +554,67 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* ===== BUTTONS ===== */
 
-.btn-primary {
+.btn {
   position: relative;
   overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  transform: translateY(-0.5px);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
   color: white;
-  font-weight: 600;
-  border: none;
   border-radius: 0.75rem;
   padding: 0.75rem 1.5rem;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
 }
 
-.btn-primary:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.btn-primary:hover::before {
-  opacity: 1;
-}
-
 .btn-secondary {
-  position: relative;
-  overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(240, 240, 245, 0.8);
-  font-weight: 500;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.75rem;
   padding: 0.75rem 1.5rem;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
 }
 
-.btn-secondary:active {
-  transform: translateY(0) scale(0.98);
+/* Consistent button interactions */
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+button, .btn, [class*="btn-"] {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ===== INPUTS ===== */

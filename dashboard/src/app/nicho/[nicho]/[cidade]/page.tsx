@@ -1,10 +1,11 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { Button } from '@/components/Button';
 import { getNicheBySlug, getCityBySlug, getAllComboSlugs, CITIES, NICHES } from '@/lib/cities-data';
 
 export const dynamic = 'force-dynamic';
 
-const APP_URL = 'https://geoleads-production.up.railway.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
 
 export async function generateMetadata({ params }: { params: { nicho: string; cidade: string } }): Promise<Metadata> {
   const niche = getNicheBySlug(params.nicho);
@@ -62,7 +63,7 @@ export default function NicheCityPage({ params }: { params: { nicho: string; cid
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/blog" className="text-sm text-gray-400 hover:text-white transition-colors hidden sm:inline">Blog</Link>
-            <Link href="/login?next=/app/dashboard" className="px-5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-sm font-bold transition-colors">Testar Gratis</Link>
+            <Button href="/login?next=/app/dashboard" size="sm" className="bg-blue-500 hover:bg-blue-400 text-black shadow-none">Testar Gratis</Button>
           </div>
         </div>
       </nav>
@@ -83,9 +84,9 @@ export default function NicheCityPage({ params }: { params: { nicho: string; cid
           <p className="text-lg sm:text-xl text-gray-400 max-w-3xl mx-auto mb-8 leading-relaxed">
             Encontre {nicheName.toLowerCase()}s em {cityDisplay}. Extraia telefone, email, site, WhatsApp e redes sociais de negocios de {nicheName.toLowerCase()} no Google Maps em minutos. Dados enriquecidos com CNPJ e Instagram.
           </p>
-          <Link href={`/login?next=/app/dashboard`} className="inline-block px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black font-bold text-lg transition-all">
+          <Button href={`/login?next=/app/dashboard`} size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none">
             Extrair 10 Leads Gratis Agora
-          </Link>
+          </Button>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
@@ -216,7 +217,7 @@ export default function NicheCityPage({ params }: { params: { nicho: string; cid
         <section className="text-center bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/20 rounded-2xl p-8 lg:p-12">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">Comece agora - 10 leads gratis</h2>
           <p className="text-gray-400 mb-6 max-w-xl mx-auto">Extraia {nicheName.toLowerCase()}s em {city.name} agora mesmo. Sem cartao de credito.</p>
-          <Link href={`/login?next=/app/dashboard`} className="inline-block px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black font-bold text-lg transition-all">Testar Gratis</Link>
+          <Button href={`/login?next=/app/dashboard`} size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none">Testar Gratis</Button>
         </section>
 
         <footer className="mt-16 pt-8 border-t border-white/10 text-center text-sm text-gray-500">

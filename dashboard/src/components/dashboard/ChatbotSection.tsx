@@ -1,6 +1,7 @@
 'use client';
 
 import { defaultAiInstructions } from './dashboard-constants';
+import { Button } from '@/components/Button';
 import { useTranslations } from '@/lib/i18n';
 
 import type { ChatbotRule } from '@/types/crm';
@@ -185,10 +186,10 @@ export function ChatbotSection({
               </>
             ) : (
               <>
-                <button type="button" disabled={chatbotLoading || !user} onClick={handleConnectChatbot}
-                  className="w-full py-3 rounded-xl font-bold text-black bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 cursor-pointer disabled:opacity-60">
+                <Button onClick={handleConnectChatbot} disabled={chatbotLoading || !user}
+                  size="lg" className="w-full bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-black shadow-none">
                   {user ? t('chatbot.connectQr') : t('chatbot.loginToConnect')}
-                </button>
+                </Button>
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t border-white/10" />
@@ -201,10 +202,10 @@ export function ChatbotSection({
                   <input type="text" placeholder={t('chatbot.phonePlaceholder')}
                     value={chatbotPhoneNumber} onChange={(e) => setChatbotPhoneNumber(e.target.value)}
                     className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 font-mono" />
-                  <button type="button" disabled={chatbotLoading || !user} onClick={handlePairChatbot}
-                    className="px-4 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 cursor-pointer disabled:opacity-60 text-sm whitespace-nowrap">
+                  <Button onClick={handlePairChatbot} disabled={chatbotLoading || !user}
+                    variant="success" size="sm" className="whitespace-nowrap">
                     {user ? t('chatbot.pair') : '...'}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}

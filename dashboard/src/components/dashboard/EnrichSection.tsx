@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { CrmLead, BatchResult } from '@/types/crm';
+import { Button } from '@/components/Button';
 import { useTranslations } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 
@@ -140,10 +141,10 @@ export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleRe
             {enrichedLeads.length}/{crmLeads.length} {t('enrich.complete')}
           </div>
           {needsEnrichment.length > 0 && (
-            <button onClick={enrichAll} disabled={isBatchRunning}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-bold cursor-pointer disabled:opacity-50 transition-all shadow-lg shadow-purple-600/20">
+            <Button onClick={enrichAll} disabled={isBatchRunning} variant="primary" size="sm"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-lg shadow-purple-600/20">
               {isBatchRunning ? t('enrich.enriching') : `${t('enrich.enrichAll')} (${needsEnrichment.length})`}
-            </button>
+            </Button>
           )}
         </div>
       </div>

@@ -1,11 +1,12 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { Button } from '@/components/Button';
 import { getCityBySlug, getAllCitySlugs, CITIES, NICHE_EXAMPLES } from '@/lib/cities-data';
 
 export const dynamic = 'force-static';
 export const revalidate = 86400;
 
-const APP_URL = 'https://geoleads-production.up.railway.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
 
 const faqData = [
   { q: 'Como extrair leads do Google Maps?', a: 'Com o GeoLeads voce informa o nicho e a cidade, e o sistema navega automaticamente pelo Google Maps coletando nome, telefone, site, email e endereco de cada negocio. Em minutos voce tem uma lista pronta para usar.' },
@@ -105,9 +106,9 @@ export default function CityPage({ params }: { params: { slug: string } }) {
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/blog" className="text-sm text-gray-400 hover:text-white transition-colors hidden sm:inline">Blog</Link>
-            <Link href="/login?next=/app/dashboard" className="px-5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-sm font-bold transition-colors">
+            <Button href="/login?next=/app/dashboard" size="sm" className="bg-blue-500 hover:bg-blue-400 text-black shadow-none">
               Testar Gratis
-            </Link>
+            </Button>
           </div>
         </div>
       </nav>
@@ -128,12 +129,9 @@ export default function CityPage({ params }: { params: { slug: string } }) {
             Encontre telefone, email, site, WhatsApp e redes sociais de negocios em {city.name} automaticamente.
             Nossa ferramenta extrai leads do Google Maps em minutos. Ideal para quem quer prospectar clientes em {city.name} sem gastar horas navegando manualmente.
           </p>
-          <Link
-            href={`/login?next=/app/dashboard`}
-            className="inline-block px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black font-bold text-lg transition-all"
-          >
+          <Button href={`/login?next=/app/dashboard`} size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none">
             Extrair 10 Leads Gratis Agora
-          </Link>
+          </Button>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
@@ -305,12 +303,9 @@ export default function CityPage({ params }: { params: { slug: string } }) {
           <p className="text-gray-400 mb-6 max-w-xl mx-auto">
             Sem cartao de credito. 10 leads gratis para testar.
           </p>
-          <Link
-            href={`/login?next=/app/dashboard`}
-            className="inline-block px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black font-bold text-lg transition-all"
-          >
+          <Button href={`/login?next=/app/dashboard`} size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none">
             Testar Gratis
-          </Link>
+          </Button>
         </section>
 
         <footer className="mt-16 pt-8 border-t border-white/10 text-center text-sm text-gray-500">

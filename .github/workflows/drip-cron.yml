@@ -9,4 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Process drip emails
-        run: curl -s "https://geoleads-production.up.railway.app/api/drip/process?secret=${{ secrets.CRON_SECRET }}"
+        run: curl -s "${{ secrets.APP_URL || 'https://geoleads-production.up.railway.app' }}/api/drip/process?secret=${{ secrets.CRON_SECRET }}"

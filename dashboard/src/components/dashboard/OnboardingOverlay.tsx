@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/Button';
 
 const STEPS = [
   {
@@ -82,9 +83,9 @@ export default function OnboardingOverlay() {
               </button>
             </>
           ) : (
-            <Link href="/pricing" onClick={finish} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-black font-bold text-sm text-center transition-all">
+            <Button href="/pricing" onClick={finish} size="md" className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-black shadow-none">
               Ver Planos
-            </Link>
+            </Button>
           )}
         </div>
       </div>

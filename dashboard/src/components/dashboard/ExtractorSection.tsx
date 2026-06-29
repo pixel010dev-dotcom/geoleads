@@ -6,6 +6,7 @@ import type { SearchLead } from '@/app/api/extract/lib/types';
 import type { CrmLead, ExtractStats } from '@/types/crm';
 import HackerRadar from '@/components/HackerRadar';
 import { filterOptions, quickSearches } from './dashboard-constants';
+import { Button } from '@/components/Button';
 import { useTranslations } from '@/lib/i18n';
 
 export interface ExtractorSectionProps {
@@ -252,12 +253,9 @@ export default function ExtractorSection({
                   {t('extractor.stopExtraction')}
                 </button>
               ) : (
-                <button 
-                  type="submit"
-                  className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:-translate-y-1 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
-                >
+                <Button type="submit" size="lg" className="w-full hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]">
                   {user ? t('extractor.startExtraction') : t('extractor.createAccountToExtract')}
-                </button>
+                </Button>
               )}
             </form>
           </div>

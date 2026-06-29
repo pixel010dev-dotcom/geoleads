@@ -5,6 +5,7 @@ import type { FeatureKey } from '@/lib/plans';
 import type { DashboardTab } from './dashboard-constants';
 import type { CrmLead, WaSentMessage, AiCopyResult } from '@/types/crm';
 import { waMessagePresets, waTemplateTags } from './dashboard-constants';
+import { Button } from '@/components/Button';
 import { useTranslations } from '@/lib/i18n';
 
 export interface WhatsAppSectionProps {
@@ -424,10 +425,9 @@ export function WhatsAppSection({
             <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
               className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 [color-scheme:dark]" />
           </div>
-          <button type="button" onClick={handleCreateCampaign}
-            className="w-full py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 cursor-pointer transition-all">
+          <Button onClick={handleCreateCampaign} size="sm" className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-none text-xs py-2">
             {t('whatsapp.scheduleCampaign')}
-          </button>
+          </Button>
         </div>
 
         {/* FOLLOW-UP SEQUENCE */}
@@ -460,24 +460,15 @@ export function WhatsAppSection({
         </div>
 
             {isSendingBulk ? (
-              <button
-                type="button"
-                onClick={handleStopBulkSending}
-                className="w-full py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 border border-red-500/30 cursor-pointer flex items-center justify-center gap-2 transition-colors"
-              >
+              <Button onClick={handleStopBulkSending} variant="danger" size="md" className="w-full">
                 {t('whatsapp.stopQueue')}
-              </button>
+              </Button>
             ) : (
               <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={handleStartBulkSending}
-                  className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer flex items-center justify-center gap-2 transition-all"
-                >
+                <Button onClick={handleStartBulkSending} variant="danger" size="md" className="w-full">
                   {t('whatsapp.startQueue')}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   onClick={() => {
                     if (chatbotSession?.status === 'connected') {
                       handleStartAutoBulkSend();
@@ -486,14 +477,15 @@ export function WhatsAppSection({
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }
                   }}
-                  className={`w-full py-3 rounded-xl font-bold text-white cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                  size="md"
+                  className={`w-full ${
                     chatbotSession?.status === 'connected'
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-                      : 'bg-amber-600/30 text-amber-300 hover:bg-amber-600/50 border border-amber-500/30'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
+                      : 'bg-amber-600/30 text-amber-300 hover:bg-amber-600/50 border border-amber-500/30 shadow-none'
                   }`}
                 >
                   {chatbotSession?.status === 'connected' ? t('whatsapp.autoSendBot') : t('whatsapp.connectBotFirst')}
-                </button>
+                </Button>
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import Toast, { showToast } from '@/components/Toast';
+import { Button } from '@/components/Button';
 import { getCostPerLeadLabel, paidPlanIds, plans, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
 import { useTranslations } from '@/lib/i18n';
 
@@ -208,16 +209,17 @@ export default function Pricing() {
                   {formatPlanPrice(pixSession.amount)}
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
                 onClick={closePixModal}
-                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white flex items-center justify-center cursor-pointer transition-all hover:scale-110"
+                variant="ghost"
+                size="sm"
                 aria-label={t('pricing.close')}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                icon={
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                }
+              ></Button>
             </div>
 
             <div className="text-center mb-5">
@@ -244,16 +246,13 @@ export default function Pricing() {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={copyPixCode}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 font-bold text-white cursor-pointer mb-3 transition-all hover:-translate-y-0.5 active:scale-[0.98] shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-            >
-              <svg className="w-4 h-4 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <Button onClick={copyPixCode} variant="success" size="lg" className="w-full mb-3" icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
+            }>
               {t('pricing.copyPixCode')}
-            </button>
+            </Button>
 
             {pixMessage && (
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 mb-3 text-center">
@@ -317,7 +316,7 @@ export default function Pricing() {
           <button
             type="button"
             onClick={() => setAnnual(!annual)}
-            className={`relative w-14 h-7 rounded-full transition-colors cursor-pointer ${annual ? 'bg-blue-600' : 'bg-white/20'}`}
+            className={`relative w-14 h-7 rounded-full transition-colors cursor-pointer active:scale-95 ${annual ? 'bg-blue-600' : 'bg-white/20'}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${annual ? 'translate-x-7' : 'translate-x-0'}`} />
           </button>
@@ -415,23 +414,26 @@ export default function Pricing() {
               </div>
             </div>
 
-            <button
+            <Button
               onClick={() => buyWithPix(selectedPlan.id)}
-              disabled={loadingPlan !== null}
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 transition-all font-bold flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-wait shadow-[0_0_22px_rgba(16,185,129,0.25)]"
+              loading={loadingPlan === selectedPlan.id}
+              variant="success"
+              size="lg"
+              className="w-full shadow-[0_0_22px_rgba(16,185,129,0.25)]"
             >
               {loadingPlan === selectedPlan.id ? t('pricing.generatingPix') : user ? t('pricing.payWithPix') : t('pricing.enterToBuy')}
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
               onClick={() => !user ? router.push(`/login?next=/pricing&plan=${selectedPlanId}`) : buyWithCard(selectedPlan.id)}
               disabled={loadingPlan !== null && !!user}
-              className="mt-3 w-full py-3 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-gray-200 disabled:opacity-50 cursor-pointer"
+              variant="secondary"
+              size="md"
+              className="w-full mt-3"
               title={!user ? t('pricing.loginForCard') : ''}
             >
               {!user ? t('pricing.loginForCard') : loadingPlan === selectedPlan.id ? t('pricing.generatingPix') : t('pricing.payWithCard')}
-            </button>
+            </Button>
 
             <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3">
               <p className="text-xs font-bold text-emerald-300 mb-1">{t('pricing.pixOnTheSpot')}</p>
@@ -441,13 +443,9 @@ export default function Pricing() {
             </div>
 
             {nextPlan && (
-              <button
-                type="button"
-                onClick={() => setSelectedPlanId(nextPlan.id)}
-                className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/[0.06] transition-colors"
-              >
+              <Button onClick={() => setSelectedPlanId(nextPlan.id)} variant="ghost" size="sm" className="w-full mt-4">
                 {t('pricing.needMoreVolume', { name: t('pricing.planNames.' + nextPlan.id) })}
-              </button>
+              </Button>
             )}
 
             <p className="mt-4 text-xs text-gray-500 leading-relaxed">

@@ -203,7 +203,7 @@ const callProvider = async (
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.apiKey}`,
         ...(config.name === 'OpenRouter' ? {
-          'HTTP-Referer': 'https://geoleads-production.up.railway.app',
+          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app',
           'X-Title': 'GeoLeads',
         } : {}),
       },

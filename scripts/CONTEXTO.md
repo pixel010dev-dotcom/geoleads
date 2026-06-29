@@ -16,9 +16,10 @@ Deploy: https://geoleads-production.up.railway.app
 
 ## 2. Stack
 
-- **Frontend + API:** Next.js 14 (App Router), TypeScript
+- **Frontend + API:** Next.js 16 (App Router), TypeScript
 - **DB:** Supabase (PostgreSQL), 15+ tabelas com RLS
-- **Deploy:** Railway (Docker + Playwright/Chromium)
+- **Deploy:** Railway (Docker + Playwright/Chromium) — hot standby
+- **Deploy alternativa:** Oracle Cloud Free Tier (4 ARM CPU, 24GB RAM) — deploy-oracle.sh
 - **Automação:** GitHub Actions (cron jobs)
 - **IA:** DeepSeek V4 Flash via OpenRouter (grátis) + OpenCode Zen
 
@@ -148,6 +149,7 @@ Scan → diagnóstico IA → auto-fix (script gerado + exec + commit) → revert
 ### Infra
 - `SUPABASE_URL` — https://mwnpwrzwgwrqqlomqhux.supabase.co
 - `SUPABASE_SERVICE_ROLE_KEY` — admin do Supabase
+- `APP_URL` (GitHub Secret) — URL base do site (fallback Railway). Usado por workflows e scripts Python.
 - `RAILWAY_URL` — https://geoleads-production.up.railway.app
 
 ---

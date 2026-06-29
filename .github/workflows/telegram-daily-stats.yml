@@ -24,5 +24,5 @@ jobs:
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APP_URL: https://geoleads-production.up.railway.app
+          APP_URL: ${{ secrets.APP_URL || 'https://geoleads-production.up.railway.app' }}
         run: python scripts/telegram_monitor.py stats

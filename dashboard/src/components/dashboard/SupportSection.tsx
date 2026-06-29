@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from '@/lib/i18n';
+import { Button } from '@/components/Button';
 import { showToast, type ToastType } from '@/components/Toast';
 
 export interface SupportSectionProps {
@@ -73,16 +74,15 @@ export default function SupportSection({
             </button>
           </div>
 
-          <a href="mailto:pixel010dev@gmail.com?subject=Suporte GeoLeads&body=Olá equipe GeoLeads,"
-            className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2">
+          <Button href="mailto:pixel010dev@gmail.com?subject=Suporte GeoLeads&body=Olá equipe GeoLeads,"
+            size="lg" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-none">
             {t('support.openTicket')}
-          </a>
+          </Button>
 
-          <a href="https://mail.google.com/mail/?view=cm&fs=1&to=pixel010dev@gmail.com&su=Suporte%20GeoLeads&body=Ol%C3%A1%20equipe%20GeoLeads%2C"
-            target="_blank" rel="noopener noreferrer"
-            className="w-full py-3 rounded-xl font-medium text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 text-sm">
+          <Button href="https://mail.google.com/mail/?view=cm&fs=1&to=pixel010dev@gmail.com&su=Suporte%20GeoLeads&body=Ol%C3%A1%20equipe%20GeoLeads%2C"
+            target="_blank" rel="noopener noreferrer" variant="secondary" size="md" className="w-full">
             {t('support.openGmail')}
-          </a>
+          </Button>
         </div>
       </div>
 
@@ -150,10 +150,9 @@ export default function SupportSection({
                 value={supportFeedback} onChange={(e) => setSupportFeedback(e.target.value)} />
             </div>
 
-            <button type="submit"
-              className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-200 cursor-pointer">
+            <Button type="submit" size="lg" className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-none">
               {t('support.sendRating')}
-            </button>
+            </Button>
           </form>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { Button } from '@/components/Button';
 
 const POSTS: Record<string, { title: string; content: string[]; date: string; readTime: string; description: string }> = {
   'como-extrair-leads-google-maps': {
@@ -324,9 +325,9 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/blog" className="text-sm text-gray-400 hover:text-white transition-colors">Blog</Link>
-            <Link href="/login?next=/app/dashboard" className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-sm font-bold transition-colors">
+            <Button href="/login?next=/app/dashboard" size="sm" className="bg-blue-500 hover:bg-blue-400 text-black shadow-none">
               Testar Gratis
-            </Link>
+            </Button>
           </div>
         </div>
       </nav>
@@ -358,9 +359,9 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         <div className="mt-12 p-6 rounded-2xl bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/20 text-center">
           <h3 className="text-xl font-bold mb-2">Quer extrair leads agora?</h3>
           <p className="text-gray-400 mb-4">Teste o GeoLeads gratuitamente. Sem cartao de credito.</p>
-          <Link href="/login?next=/app/dashboard" className="inline-block px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-black font-bold transition-colors">
+          <Button href="/login?next=/app/dashboard" className="bg-blue-500 hover:bg-blue-400 text-black shadow-none">
             Testar Gratis
-          </Link>
+          </Button>
         </div>
       </main>
     </div>

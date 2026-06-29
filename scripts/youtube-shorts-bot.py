@@ -4,7 +4,7 @@ from googleapiclient.http import MediaFileUpload
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bot_utils import generate_varied_content, generate_post_image, save_image_to_file, download_music
 
-APP_URL = os.environ.get("APP_URL", "https://geoleads-production.up.railway.app")
+APP_URL = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL") or "https://geoleads-production.up.railway.app"
 OUTPUT = os.path.join(tempfile.gettempdir(), "geoleads_short.mp4")
 
 

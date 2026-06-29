@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/Button';
 import { CITIES, NICHE_EXAMPLES } from '@/lib/cities-data';
 
 const LEAD_DENSITY: Record<string, number> = {
@@ -58,7 +59,7 @@ export default function CalculadoraPage() {
           <Link href="/" className="flex items-center gap-2">
             <span className="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Geo<span className="text-blue-400">Leads</span></span>
           </Link>
-          <Link href="/login?next=/app/dashboard" className="px-5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-sm font-bold transition-colors">Testar Gratis</Link>
+          <Button href="/login?next=/app/dashboard" size="sm" className="bg-blue-500 hover:bg-blue-400 text-black shadow-none">Testar Gratis</Button>
         </div>
       </nav>
 
@@ -123,16 +124,14 @@ export default function CalculadoraPage() {
             <p className="text-xs text-gray-500 mb-4">Com o GeoLeads, voce extrai todos esses leads em menos de {extractionTime} minutos. Manualmente, levaria horas.</p>
 
             {nicheUrl && (
-              <Link href={nicheUrl}
-                className="inline-block px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-black font-bold text-sm transition-all mb-3">
+              <Button href={nicheUrl} variant="secondary" className="mb-3 w-full">
                 Ver pagina de {niche} em {cityName}
-              </Link>
+              </Button>
             )}
 
-            <Link href="/login?next=/app/dashboard"
-              className="block w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black font-bold text-sm transition-all text-center">
+            <Button href="/login?next=/app/dashboard" size="lg" className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none">
               Extrair {estimatedLeads} Leads Gratis Agora
-            </Link>
+            </Button>
           </div>
         )}
 

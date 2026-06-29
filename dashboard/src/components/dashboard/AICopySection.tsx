@@ -2,6 +2,7 @@
 
 import type { AiCopyResult } from '@/types/crm';
 import { useTranslations } from '@/lib/i18n';
+import { Button } from '@/components/Button';
 import { showToast, type ToastType } from '@/components/Toast';
 import type { DashboardTab } from './dashboard-constants';
 
@@ -99,13 +100,14 @@ export default function AICopySection({
               </select>
             </div>
 
-            <button
+            <Button
               type="submit"
-              disabled={isGeneratingCopies}
-              className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all duration-200 cursor-pointer disabled:opacity-50"
+              loading={isGeneratingCopies}
+              size="lg"
+              className="w-full hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500"
             >
               {isGeneratingCopies ? t('aiCopy.generating') : t('aiCopy.generate')}
-            </button>
+            </Button>
           </form>
         </div>
       </div>
@@ -136,18 +138,20 @@ export default function AICopySection({
                   </div>
 
                   <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                    <button
+                    <Button
                       onClick={() => { setWaTemplate(copy.text); setActiveTab('whatsapp'); }}
-                      className="px-4 py-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-300 border border-green-500/20 text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                      variant="ghost" size="sm"
+                      className="bg-green-500/10 hover:bg-green-500/20 text-green-300 border border-green-500/20"
                     >
                       {t('aiCopy.useInDispatcher')}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => { navigator.clipboard.writeText(copy.text); showToast('Copiado!', 'success'); }}
-                      className="px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                      variant="ghost" size="sm"
+                      className="bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20"
                     >
                       {t('aiCopy.copy')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}

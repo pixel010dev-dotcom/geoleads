@@ -8,6 +8,7 @@ import { getPlanById, plans, paidPlanIds, formatPlanPrice, allFeatureKeys, featu
 import { useTranslations } from '@/lib/i18n';
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
+import { Button } from '@/components/Button';
 import ShareButtons from '@/components/ShareButtons';
 
 export default function Account() {
@@ -78,9 +79,9 @@ export default function Account() {
       <div className="app-shell min-h-screen text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 mb-4">{loadError}</p>
-          <button onClick={() => { setLoading(true); setLoadError(''); loadAccountData(); }} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer">
+          <Button onClick={() => { setLoading(true); setLoadError(''); loadAccountData(); }} variant="secondary">
             {t('account.retry')}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -218,12 +219,13 @@ export default function Account() {
                 className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none"
                 onClick={e => (e.target as HTMLInputElement).select()}
               />
-              <button
+              <Button
                 onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/login?ref=${user?.id || ''}`); showToast('Link copiado!', 'success'); }}
-                className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold cursor-pointer"
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-400 text-black shadow-none"
               >
                 Copiar
-              </button>
+              </Button>
             </div>
           </div>
           <ShareButtons
