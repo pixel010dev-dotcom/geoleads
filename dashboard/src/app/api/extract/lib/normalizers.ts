@@ -30,6 +30,11 @@ const COMMON_NICHES = [
   'informática', 'celular', 'desentupidora', 'dedetizadora', 'segurança',
   'advocacia', 'odontologia', 'autoescola', 'fotografia', 'buffet',
   'cerimonial', 'festas', 'eventos', 'acupuntura', 'massagem',
+  'marketing', 'agência', 'agencia', 'consultoria', 'assessoria', 'design',
+  'fotografia', 'social media', 'midias sociais', 'gestão de tráfego',
+  'criação de sites', 'desenvolvimento web', 't.i', 'ti',
+  'contabilidade', 'contador', 'imobiliária', 'imobiliaria', 'seguros',
+  'fotógrafo', 'fotografo', 'filmagem', 'buffet', 'eventos',
 ];
 
 const TYPO_DICTIONARY: Record<string, string> = {
@@ -43,6 +48,19 @@ const TYPO_DICTIONARY: Record<string, string> = {
   'imobliaria': 'imobiliária', 'imobiliara': 'imobiliária',
   'estetcia': 'estética', 'esstetica': 'estética', 'esteticista': 'esteticista',
   'comfeitaria': 'confeitaria', 'contabelidade': 'contabilidade', 'medco': 'médico',
+  'marketings': 'marketing', 'marketin': 'marketing', 'markting': 'marketing',
+  'markerting': 'marketing', 'mkt': 'marketing', 'mktg': 'marketing',
+  'agensia': 'agencia', 'agênci': 'agencia', 'agencia': 'agência',
+  'agencias': 'agências', 'assessoria': 'assessoria',
+  'assessoria de marketing': 'assessoria de marketing',
+  'consultoria': 'consultoria', 'consoltoria': 'consultoria',
+  'consutoria': 'consultoria', 'constoria': 'consultoria',
+  'imobiliaria': 'imobiliária', 'imobiliária': 'imobiliária',
+  'contabil': 'contabilidade', 'contador': 'contador',
+  'designer': 'design', 'designer grafico': 'design gráfico',
+  'desing': 'design', 'desenvolvedor': 'desenvolvimento web',
+  'desenvolvimento': 'desenvolvimento web', 'dev web': 'desenvolvimento web',
+  'programador': 'desenvolvimento de software',
 };
 
 const LOCATION_DICTIONARY: Record<string, string> = {
@@ -752,9 +770,11 @@ export const MAJOR_CITIES = [
 
 export function getNicheVariations(keyword: string): string[] {
   const kwLower = keyword.toLowerCase();
+  const kwNormalized = kwLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const variants: Record<string, string[]> = {
     // Serviços profissionais / B2B
     'agência': ['Agência de Marketing', 'Agência Digital', 'Marketing Digital', 'Consultoria de Marketing', 'Gestão de Tráfego', 'Social Media', 'Criação de Sites', 'Design Gráfico'],
+    'agencia': ['Agência de Marketing', 'Agência Digital', 'Marketing Digital', 'Consultoria de Marketing', 'Gestão de Tráfego', 'Social Media', 'Criação de Sites', 'Design Gráfico'],
     'marketing': ['Marketing Digital', 'Agência de Marketing', 'Consultoria de Marketing', 'Gestão de Tráfego', 'Social Media', 'Mídias Sociais', 'Inbound Marketing'],
     'consultoria': ['Consultoria Empresarial', 'Consultoria de Gestão', 'Consultoria Comercial', 'Consultoria em Vendas', 'Consultoria RH', 'Consultoria Financeira'],
     'contabilidade': ['Contabilidade', 'Escritório de Contabilidade', 'Contador', 'Consultoria Contábil', 'Assessoria Contábil', 'Abertura de Empresa'],
@@ -780,7 +800,8 @@ export function getNicheVariations(keyword: string): string[] {
     'eventos': ['Buffet', 'Salão de Festas', 'Organização de Eventos', 'Cerimonial', 'Decoração', 'Espaço para Eventos'],
   };
   for (const [base, vars] of Object.entries(variants)) {
-    if (kwLower.includes(base)) return [keyword, ...vars];
+    const baseNorm = base.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (kwNormalized.includes(baseNorm)) return [keyword, ...vars];
   }
   return [keyword];
 }

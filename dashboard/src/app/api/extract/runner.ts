@@ -259,26 +259,27 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     const mainAdded = processResults(mainResult.leads, `PW:${city.split(',')[0]}`);
     let foundFromCity = mainAdded;
 
-    // 2. Se não atingiu o target, tenta variações do nicho
+    // 2. Se não atingiu o target, tenta variações do nicho — UMA DE CADA VEZ (evita bloqueio do Google)
     if (foundFromCity < cityTarget && !(await cancelled())) {
       const variations = getNicheVariations(keyword).filter(v => v.toLowerCase() !== keyword.toLowerCase());
       if (variations.length > 0) {
-        const varTarget = Math.ceil((cityTarget - foundFromCity) / variations.length);
-        const varExisting = new Set<string>(Array.from(scrapedNames));
+        const maxVars = Math.min(variations.length, 4);
+        const varTarget = Math.ceil((cityTarget - foundFromCity) / maxVars);
 
-        const varResults = await Promise.allSettled(
-          variations.slice(0, 4).map(kw =>
-            extractFromPlaywrightMaps(browser, kw, city, Math.min(varTarget, cityTarget - foundFromCity), varExisting, 8)
-              .catch(() => ({ leads: [] as SearchLead[], blocked: false }))
-          )
-        );
-
-        for (const vr of varResults) {
-          if (vr.status === 'fulfilled' && vr.value.leads.length > 0) {
-            const added = processResults(vr.value.leads, `PW:${city.split(',')[0]}/${vr.value.leads[0]?.nome?.split(' ')[0] || 'var'}`);
+        for (let vi = 0; vi < maxVars && foundFromCity < cityTarget && !(await cancelled()); vi++) {
+          const kw = variations[vi];
+          const varExisting = new Set<string>(Array.from(scrapedNames));
+          const vr = await extractFromPlaywrightMaps(
+            browser, kw, city,
+            Math.min(varTarget, cityTarget - foundFromCity),
+            varExisting, 8
+          ).catch(() => ({ leads: [] as SearchLead[], blocked: false }));
+          if (vr.leads.length > 0) {
+            const added = processResults(vr.leads, `PW:${city.split(',')[0]}/${kw.slice(0, 12)}`);
             foundFromCity += added;
           }
-          if (foundFromCity >= cityTarget) break;
+          await new Promise(r => setTimeout(r, 800 + Math.random() * 400));
+          if (vr.blocked) break;
         }
       }
     }
@@ -308,6 +309,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
             }
             if (foundFromCity >= cityTarget) break;
           }
+
+          await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
         }
       }
     }
@@ -359,6 +362,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
           }
 
           notify(`${leadsByName.size}/${targetLimit} leads (${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length} cidades)`);
+
+          await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
         }
       });
     } else {
