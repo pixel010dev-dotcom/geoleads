@@ -11,11 +11,13 @@ RUN apt-get update -qq && apt-get install -y -qq \
   ca-certificates fonts-liberation && \
   rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-RUN npm ci --legacy-peer-deps && npm cache clean --force
-RUN npx playwright install chromium --with-deps 2>/dev/null || true
+COPY dashboard/package*.json ./dashboard/
+RUN cd dashboard && npm ci --legacy-peer-deps && npm cache clean --force
+RUN cd dashboard && npx playwright install chromium --with-deps 2>/dev/null || true
 
-COPY . .
+COPY dashboard/ ./dashboard/
+
+WORKDIR /app/dashboard
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
@@ -30,4 +32,4 @@ RUN npm run build
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]
