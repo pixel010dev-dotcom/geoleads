@@ -148,6 +148,24 @@ CF_WORKER_URL=https://geoleads-proxy.pixel010dev.workers.dev
 | `scraping_worker.py` | Worker de scraping contínuo | OK |
 | `reconciliation-worker.js` | Reconciliação de pagamentos | OK |
 
+### API Routes — Disparador WhatsApp
+| Rota | Função |
+|------|--------|
+| `/api/chatbot/send` | Envio via bot Baileys (com rate limiting) |
+| `/api/chatbot/campaign` | CRUD de campanhas |
+| `/api/chatbot/messages` | Histórico de mensagens |
+| `/api/chatbot/stats` | Estatísticas de envio |
+| `/api/cron/process-campaigns` | CRON: executa campanhas agendadas (10min) |
+| `/api/cron/process-follow-ups` | CRON: dispara follow-ups pendentes (15min) |
+
+### Novas Tabelas (Supabase)
+| Tabela | Função |
+|--------|--------|
+| `wa_followups` | Follow-ups automáticos agendados |
+| `wa_campaign_leads` | Status individual de cada lead em campanhas |
+| `wa_rate_tracker` | Controle de rate limit por sessão |
+| `whatsapp_sessions` (expandida) | Agora com `session_label`, `proxy_url`, `rate_limit_*`, `active`, `last_ban_check` |
+
 ---
 
 ## 5. MERCADO PAGO

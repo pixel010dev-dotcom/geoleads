@@ -4,6 +4,9 @@ ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS session_id uuid DEFAULT g
 ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS active boolean DEFAULT true;
 ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS proxy_url text;
 ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS last_ban_check timestamptz;
+ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS phone_number text;
+ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS min_delay_seconds int DEFAULT 20;
+ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS max_delay_seconds int DEFAULT 60;
 
 -- Rate limit config por sessão
 ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS rate_limit_per_minute int DEFAULT 10;
@@ -11,6 +14,19 @@ ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS rate_limit_per_hour int D
 ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS rate_limit_per_day int DEFAULT 500;
 ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS min_delay_seconds int DEFAULT 20;
 ALTER TABLE whatsapp_sessions ADD COLUMN IF NOT EXISTS max_delay_seconds int DEFAULT 60;
+
+-- Opt-out persistente
+CREATE TABLE IF NOT EXISTS wa_optout (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  jid text NOT NULL,
+  phone text,
+  name text,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, jid)
+);
+ALTER TABLE wa_optout ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users manage own optout" ON wa_optout FOR ALL USING (auth.uid() = user_id);
 
 -- Tracking de rate limit em tempo real por sessão
 CREATE TABLE IF NOT EXISTS wa_rate_tracker (

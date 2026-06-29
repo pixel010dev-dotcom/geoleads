@@ -17,6 +17,7 @@ import CRMSection from '@/components/dashboard/CRMSection';
 
 import { WhatsAppSection } from '@/components/dashboard/WhatsAppSection';
 import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
+import { MultiSessionManager } from '@/components/dashboard/MultiSessionManager';
 import AICopySection from '@/components/dashboard/AICopySection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import { generatePdfReport } from '@/lib/pdf-report';
@@ -103,6 +104,7 @@ export default function Home() {
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [chatbotMessage, setChatbotMessage] = useState('');
   const [chatbotPhoneNumber, setChatbotPhoneNumber] = useState('');
+  const [selectedSessionId, setSelectedSessionId] = useState('');
 
   const [aiProduct, setAiProduct] = useState('');
   const [aiValue, setAiValue] = useState('');
@@ -1679,23 +1681,32 @@ export default function Home() {
         )}
 
         {activeTab === 'chatbot' && !activeTabLocked && (
-          <ChatbotSection
-            chatbotEnabled={chatbotEnabled} setChatbotEnabled={setChatbotEnabled}
-            chatbotBusinessName={chatbotBusinessName} setChatbotBusinessName={setChatbotBusinessName}
-            chatbotWelcomeMessage={chatbotWelcomeMessage} setChatbotWelcomeMessage={setChatbotWelcomeMessage}
-            chatbotFallbackMessage={chatbotFallbackMessage} setChatbotFallbackMessage={setChatbotFallbackMessage}
-            chatbotRules={chatbotRules} setChatbotRules={setChatbotRules}
-            chatbotUseAI={chatbotUseAI} setChatbotUseAI={setChatbotUseAI}
-            chatbotAiInstructions={chatbotAiInstructions} setChatbotAiInstructions={setChatbotAiInstructions}
-            chatbotSession={chatbotSession} chatbotLoading={chatbotLoading} chatbotMessage={chatbotMessage}
-            chatbotPhoneNumber={chatbotPhoneNumber} setChatbotPhoneNumber={setChatbotPhoneNumber}
-            user={user} handleConnectChatbot={handleConnectChatbot} handleDisconnectChatbot={handleDisconnectChatbot}
-            handlePairChatbot={handlePairChatbot} handleResetSession={handleResetSession} saveChatbotConfig={saveChatbotConfig}
-            updateChatbotRule={updateChatbotRule} addChatbotRule={addChatbotRule} removeChatbotRule={removeChatbotRule}
-            chatbotAutoCapture={chatbotAutoCapture} setChatbotAutoCapture={setChatbotAutoCapture}
-            chatbotStats={chatbotStats} conversations={conversations} conversationsLoading={conversationsLoading}
-            handleLoadConversations={handleLoadConversations} handleLoadChatbotStats={handleLoadChatbotStats}
-          />
+          <div className="space-y-6 animate-slide-up">
+            <MultiSessionManager
+              user={user}
+              selectedSessionId={selectedSessionId}
+              onSelectSession={setSelectedSessionId}
+              onSessionUpdate={refreshChatbotStatus}
+            />
+            <div className="border-t border-white/10" />
+            <ChatbotSection
+              chatbotEnabled={chatbotEnabled} setChatbotEnabled={setChatbotEnabled}
+              chatbotBusinessName={chatbotBusinessName} setChatbotBusinessName={setChatbotBusinessName}
+              chatbotWelcomeMessage={chatbotWelcomeMessage} setChatbotWelcomeMessage={setChatbotWelcomeMessage}
+              chatbotFallbackMessage={chatbotFallbackMessage} setChatbotFallbackMessage={setChatbotFallbackMessage}
+              chatbotRules={chatbotRules} setChatbotRules={setChatbotRules}
+              chatbotUseAI={chatbotUseAI} setChatbotUseAI={setChatbotUseAI}
+              chatbotAiInstructions={chatbotAiInstructions} setChatbotAiInstructions={setChatbotAiInstructions}
+              chatbotSession={chatbotSession} chatbotLoading={chatbotLoading} chatbotMessage={chatbotMessage}
+              chatbotPhoneNumber={chatbotPhoneNumber} setChatbotPhoneNumber={setChatbotPhoneNumber}
+              user={user} handleConnectChatbot={handleConnectChatbot} handleDisconnectChatbot={handleDisconnectChatbot}
+              handlePairChatbot={handlePairChatbot} handleResetSession={handleResetSession} saveChatbotConfig={saveChatbotConfig}
+              updateChatbotRule={updateChatbotRule} addChatbotRule={addChatbotRule} removeChatbotRule={removeChatbotRule}
+              chatbotAutoCapture={chatbotAutoCapture} setChatbotAutoCapture={setChatbotAutoCapture}
+              chatbotStats={chatbotStats} conversations={conversations} conversationsLoading={conversationsLoading}
+              handleLoadConversations={handleLoadConversations} handleLoadChatbotStats={handleLoadChatbotStats}
+            />
+          </div>
         )}
 
         {activeTab === 'ia' && !activeTabLocked && (

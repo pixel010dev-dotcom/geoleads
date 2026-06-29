@@ -30,6 +30,7 @@ type ChatbotConfig = {
 
 type BotSession = {
   userId: string;
+  sessionId?: string;
   socket?: any;
   status: 'idle' | 'connecting' | 'qr' | 'connected' | 'disconnected' | 'error' | 'pairing';
   qr?: string;
@@ -340,7 +341,7 @@ const startBotSession = async (session: BotSession) => {
     session.socket?.end?.();
   } catch (e) { console.error(e); }
 
-  const { state, saveCreds } = await makeSupabaseAuthState(session.userId);
+  const { state, saveCreds } = await makeSupabaseAuthState(session.userId, session.sessionId);
 
   const socket = makeWASocket({
     auth: state,
@@ -392,10 +393,14 @@ const startBotSession = async (session: BotSession) => {
         session.qr = '';
         session.qrDataUrl = '';
         session.reconnectAttempts = 0;
-        // CRITICAL: limpa credenciais invalidas do Supabase para permitir nova conexao
         try {
           const supabase = createAdminSupabaseClient();
-          await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
+          const delQuery = supabase.from('whatsapp_sessions').delete();
+          if (session.sessionId) {
+            await delQuery.eq('session_id', session.sessionId);
+          } else {
+            await delQuery.eq('user_id', session.userId);
+          }
           console.log('[WAP] Credenciais invalidas removidas para usuario', session.userId);
         } catch (cleanupErr: any) {
           console.error('[WAP] Falha ao limpar credenciais:', cleanupErr.message);
@@ -409,14 +414,38 @@ const startBotSession = async (session: BotSession) => {
         session.qr = '';
         session.qrDataUrl = '';
         session.reconnectAttempts = 0;
-        // CRITICAL: limpa credenciais corrompidas
         try {
           const supabase = createAdminSupabaseClient();
-          await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
-          console.log('[WAP] Credenciais corrompidas removidas para usuario', session.userId);
+          const delQuery = supabase.from('whatsapp_sessions').delete();
+          if (session.sessionId) {
+            await delQuery.eq('session_id', session.sessionId);
+          } else {
+            await delQuery.eq('user_id', session.userId);
+          }
         } catch (cleanupErr: any) {
           console.error('[WAP] Falha ao limpar credenciais corrompidas:', cleanupErr.message);
         }
+        return;
+      }
+
+      // Ban detection: códigos que indicam bloqueio do WhatsApp
+      const BAN_CODES = [401, 403, 405, 409];
+      if (statusCode !== undefined && BAN_CODES.includes(statusCode)) {
+        session.status = 'error';
+        session.lastError = `⚠️ Número bloqueado pelo WhatsApp (código ${statusCode}). Use outro número.`;
+        session.reconnectAttempts = 0;
+        try {
+          const supabase = createAdminSupabaseClient();
+          const updateQuery = supabase.from('whatsapp_sessions').update({
+            active: false,
+            last_ban_check: new Date().toISOString()
+          });
+          if (session.sessionId) {
+            await updateQuery.eq('session_id', session.sessionId);
+          } else {
+            await updateQuery.eq('user_id', session.userId);
+          }
+        } catch {}
         return;
       }
 
@@ -683,20 +712,42 @@ export async function POST(request: Request) {
   const body = await request.json();
   const action = body.action;
   const config = body.config as Partial<ChatbotConfig> | undefined;
-  const session = getOrCreateSession(auth.user.id, config);
+  const sessionId = body.sessionId as string | undefined;
+
+  let session: BotSession;
+  if (sessionId) {
+    const { getSession } = await import('@/lib/wa-session-store');
+    const ms = getSession(auth.user.id, sessionId);
+    session = getOrCreateSession(auth.user.id, config);
+    session.sessionId = sessionId;
+    if (ms) {
+      session.socket = ms.socket;
+      session.status = ms.status;
+      session.qr = ms.qr;
+      session.qrDataUrl = ms.qrDataUrl;
+      session.lastError = ms.lastError;
+      session.lastDisconnectCode = ms.lastDisconnectCode;
+      session.connectedAt = ms.connectedAt;
+      session.reconnectAttempts = ms.reconnectAttempts;
+    }
+  } else {
+    session = getOrCreateSession(auth.user.id, config);
+  }
 
   if (action === 'connect') {
     if (session.status === 'connected' || session.status === 'qr' || session.status === 'connecting') {
       return NextResponse.json({ success: true, session: getPublicSession(session) });
     }
 
-    // Limpa credenciais antigas para garantir QR Code fresco
     try {
       const supabase = createAdminSupabaseClient();
-      await supabase.from('whatsapp_sessions').delete().eq('user_id', auth.user.id);
-      console.log('[WAP] Credenciais antigas removidas antes de nova conexao para usuario', auth.user.id);
+      if (sessionId) {
+        await supabase.from('whatsapp_sessions').delete().eq('session_id', sessionId);
+      } else {
+        await supabase.from('whatsapp_sessions').delete().eq('user_id', auth.user.id);
+      }
     } catch (cleanupErr: any) {
-      console.error('[WAP] Falha ao limpar credenciais antes de conectar:', cleanupErr.message);
+      console.error('[WAP] Falha ao limpar credenciais:', cleanupErr.message);
     }
 
     session.status = 'idle';
@@ -704,7 +755,22 @@ export async function POST(request: Request) {
     session.qrDataUrl = '';
     session.lastError = '';
 
-    await startBotSession(session);
+    startBotSession(session).then(async () => {
+      if (sessionId) {
+        const { getSession } = await import('@/lib/wa-session-store');
+        const ms = getSession(auth.user.id, sessionId);
+        if (ms) {
+          ms.socket = session.socket;
+          ms.status = session.status;
+          ms.qr = session.qr;
+          ms.qrDataUrl = session.qrDataUrl;
+          ms.lastError = session.lastError;
+        }
+      }
+    }).catch((error: any) => {
+      session.status = 'error';
+      session.lastError = `Falha ao conectar: ${error?.message || 'erro desconhecido'}`;
+    });
     return NextResponse.json({ success: true, session: getPublicSession(session) });
   }
 
@@ -738,7 +804,7 @@ export async function POST(request: Request) {
     const baileys = await import('@whiskeysockets/baileys');
     const makeWASocket = baileys.default;
     const { Browsers, DisconnectReason } = baileys;
-    const { state, saveCreds } = await makeSupabaseAuthState(session.userId);
+    const { state, saveCreds } = await makeSupabaseAuthState(session.userId, session.sessionId);
 
     const socket = makeWASocket({
       auth: state,
@@ -780,7 +846,7 @@ export async function POST(request: Request) {
           session.reconnectAttempts = 0;
           try {
             const supabase = createAdminSupabaseClient();
-            await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
+            await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId).eq('session_id', session.sessionId || '');
             console.log('[WAP] Credenciais invalidas removidas (pair) para usuario', session.userId);
           } catch (cleanupErr: any) {
             console.error('[WAP] Falha ao limpar credenciais (pair):', cleanupErr.message);
@@ -794,7 +860,7 @@ export async function POST(request: Request) {
           session.reconnectAttempts = 0;
           try {
             const supabase = createAdminSupabaseClient();
-            await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId);
+            await supabase.from('whatsapp_sessions').delete().eq('user_id', session.userId).eq('session_id', session.sessionId || '');
             console.log('[WAP] Credenciais corrompidas removidas (pair) para usuario', session.userId);
           } catch (cleanupErr: any) {
             console.error('[WAP] Falha ao limpar credenciais corrompidas (pair):', cleanupErr.message);
@@ -855,6 +921,11 @@ export async function POST(request: Request) {
     session.status = 'disconnected';
     session.qr = '';
     session.qrDataUrl = '';
+    if (sessionId) {
+      const { getSession } = await import('@/lib/wa-session-store');
+      const ms = getSession(auth.user.id, sessionId);
+      if (ms) { ms.socket = undefined; ms.status = 'disconnected'; }
+    }
     getSessionStore().delete(session.userId);
     return NextResponse.json({ success: true, session: getPublicSession(session) });
   }
@@ -864,10 +935,20 @@ export async function POST(request: Request) {
       session.socket?.end?.();
     } catch (e) { console.error(e); }
     session.socket = undefined;
+    if (sessionId) {
+      const { getSession, removeSessionFromStore } = await import('@/lib/wa-session-store');
+      const ms = getSession(auth.user.id, sessionId);
+      if (ms) { ms.socket = undefined; ms.status = 'idle'; }
+    }
     getSessionStore().delete(session.userId);
 
     const supabase = createAdminSupabaseClient();
-    await supabase.from('whatsapp_sessions').delete().eq('user_id', auth.user.id);
+    const delQuery = supabase.from('whatsapp_sessions').delete();
+    if (sessionId) {
+      await delQuery.eq('session_id', sessionId);
+    } else {
+      await delQuery.eq('user_id', auth.user.id);
+    }
 
     session.status = 'idle';
     session.qr = '';

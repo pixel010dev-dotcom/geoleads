@@ -16,16 +16,22 @@ const reviveBuffers = (obj: any): any => {
   return obj;
 };
 
-export const makeSupabaseAuthState = async (userId: string) => {
+export const makeSupabaseAuthState = async (userId: string, sessionId?: string) => {
   const supabase = createAdminSupabaseClient();
   const baileys = await import('@whiskeysockets/baileys');
   const { initAuthCreds, proto } = baileys;
 
-  const { data: existing } = await supabase
+  let query = supabase
     .from('whatsapp_sessions')
-    .select('creds, keys_json')
-    .eq('user_id', userId)
-    .maybeSingle();
+    .select('creds, keys_json, session_id');
+
+  if (sessionId) {
+    query = query.eq('session_id', sessionId);
+  } else {
+    query = query.eq('user_id', userId);
+  }
+
+  const { data: existing } = await query.maybeSingle();
 
   let creds: any = existing?.creds ? reviveBuffers(existing.creds) : initAuthCreds();
   let keysData: Record<string, any> = {};
@@ -35,16 +41,24 @@ export const makeSupabaseAuthState = async (userId: string) => {
     }
   }
 
+  const rowSessionId = existing?.session_id || sessionId;
+
   let pendingWrite: ReturnType<typeof setTimeout> | null = null;
   const schedulePersist = () => {
     if (pendingWrite) clearTimeout(pendingWrite);
     pendingWrite = setTimeout(async () => {
-      await supabase.from('whatsapp_sessions').upsert({
+      const record: Record<string, any> = {
         user_id: userId,
         creds,
         keys_json: keysData,
         last_connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
+      };
+      if (rowSessionId) {
+        record.session_id = rowSessionId;
+      }
+      await supabase.from('whatsapp_sessions').upsert(record, {
+        onConflict: rowSessionId ? 'session_id' : 'user_id'
       });
       pendingWrite = null;
     }, 300);
