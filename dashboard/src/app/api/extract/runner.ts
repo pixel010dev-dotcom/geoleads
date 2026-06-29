@@ -335,37 +335,50 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     if (isBroadRegion) {
       notify(`Buscando "${keyword}" em todo o Brasil (${MAJOR_CITIES.length} cidades, variações de nicho + bairros)...`);
 
-      // Skip HTTP para busca ampla — só perde tempo
-      // Vai direto pro Playwright com cidade × variação × bairro
+      // Rodada 1: HTTP (rápido, garante resultado mesmo se Playwright falhar)
+      await runAllStrategies();
+      notify(`${leadsByName.size}/${targetLimit} leads (fontes HTTP)`);
 
-      await withPlaywrightBrowser(async (browser) => {
-        const BATCH_SIZE = 3;
+      // Rodada 2: Playwright com cidade × variação × bairro (aprofunda)
+      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+        notify(`Reforçando com navegador em ${MAJOR_CITIES.length} cidades...`);
+        await withPlaywrightBrowser(async (browser) => {
+          const BATCH_SIZE = 3;
+          const startBatch = 0;
 
-        for (let i = 0; i < MAJOR_CITIES.length && leadsByName.size < targetLimit && Date.now() < hardDeadline; i += BATCH_SIZE) {
-          if (await cancelled()) break;
+          for (let i = startBatch; i < MAJOR_CITIES.length && leadsByName.size < targetLimit && Date.now() < hardDeadline; i += BATCH_SIZE) {
+            if (await cancelled()) break;
 
-          const batch = MAJOR_CITIES.slice(i, i + BATCH_SIZE);
-          const citiesLeft = MAJOR_CITIES.length - i;
-          const remainingForBatch = targetLimit - leadsByName.size;
+            const batch = MAJOR_CITIES.slice(i, i + BATCH_SIZE);
+            const citiesLeft = MAJOR_CITIES.length - i;
+            const remainingForBatch = targetLimit - leadsByName.size;
 
-          notify(`${leadsByName.size}/${targetLimit} leads — cidades ${i + 1}-${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length}`);
+            notify(`${leadsByName.size}/${targetLimit} leads — cidades ${i + 1}-${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length}`);
 
-          const cityResults = await Promise.allSettled(
-            batch.map(city => {
-              const cityTarget = getTargetPerCity(city, remainingForBatch, citiesLeft);
-              return searchCity(browser, city, cityTarget);
-            })
-          );
+            const cityResults = await Promise.allSettled(
+              batch.map(city => {
+                const cityTarget = getTargetPerCity(city, remainingForBatch, citiesLeft);
+                return searchCity(browser, city, cityTarget);
+              })
+            );
 
-          for (const cr of cityResults) {
-            if (cr.status === 'fulfilled' && cr.value > 0) citiesDone++;
+            for (const cr of cityResults) {
+              if (cr.status === 'fulfilled' && cr.value > 0) citiesDone++;
+            }
+
+            notify(`${leadsByName.size}/${targetLimit} leads (${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length} cidades)`);
+
+            await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
           }
+        });
+      }
 
-          notify(`${leadsByName.size}/${targetLimit} leads (${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length} cidades)`);
-
-          await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
-        }
-      });
+      // Rodada 3: HTTP round 2 (coleta o que sobrou)
+      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+        notify(`Rodada final de refinamento...`);
+        await runAllStrategies();
+        notify(`${leadsByName.size}/${targetLimit} leads (após rodada final)`);
+      }
     } else {
       notify(`Buscando ${targetLimit} leads em ${location} com variações de nicho...`);
 
