@@ -208,12 +208,14 @@ export async function extractFromPlaywrightMaps(
   targetLimit: number,
   existingKeys: Set<string>,
   maxScrolls: number = 50,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  sharedCtx?: any,
 ): Promise<MapsScrapeResult> {
   const allLeads: SearchLead[] = [];
   let wasBlocked = false;
 
-  const context = await browser.newContext({
+  const usingSharedContext = !!sharedCtx;
+  const effectiveContext = sharedCtx || await browser.newContext({
     userAgent: getRandomUserAgent(),
     viewport: getRandomViewport(),
     locale: 'pt-BR',
@@ -222,26 +224,28 @@ export async function extractFromPlaywrightMaps(
     permissions: ['geolocation'],
   });
 
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
-    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-  });
+  if (!sharedCtx) {
+    await effectiveContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    });
 
-  await context.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}', (route: any) => route.fulfill({ status: 204, body: '' }));
-  await context.route('**/maps/vt**', (route: any) => route.fulfill({ status: 204, body: '' }));
+    await effectiveContext.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}', (route: any) => route.fulfill({ status: 204, body: '' }));
+    await effectiveContext.route('**/maps/vt**', (route: any) => route.fulfill({ status: 204, body: '' }));
 
-  await context.addCookies([
-    GOOGLE_CONSENT_COOKIE,
-    GOOGLE_SOCS_COOKIE,
-  ]);
+    await effectiveContext.addCookies([
+      GOOGLE_CONSENT_COOKIE,
+      GOOGLE_SOCS_COOKIE,
+    ]);
+  }
 
-  const page = await context.newPage();
+  const searchPage = await effectiveContext.newPage();
 
   const scrapedNames = new Set<string>(Array.from(existingKeys).map(k => k.split('|')[0]).filter(Boolean));
   const scrapedPhones = new Set<string>(Array.from(existingKeys).map(k => k.split('|')[1]).filter(Boolean));
 
-  // Tenta todos os formatos de query em paralelo (corrida)
+  // Tenta todos os formatos de query
   const queryFormats = [
     `${keyword} ${location}`,
     `${keyword} em ${location}`,
@@ -258,29 +262,30 @@ export async function extractFromPlaywrightMaps(
     if (allLeads.length >= targetLimit) break;
 
     const encodedQuery = encodeURIComponent(queryFormat);
-    const gotoTimeout = formatIndex === 0 ? 10000 : 6000;
+    const gotoTimeout = formatIndex === 0 ? 10000 : 5000;
 
     try {
-      await page.goto(`https://www.google.com/maps/search/${encodedQuery}`, {
+      await searchPage.goto(`https://www.google.com/maps/search/${encodedQuery}`, {
         waitUntil: 'domcontentloaded',
         timeout: gotoTimeout,
       });
 
-      const pageUrl = page.url();
-      const pageTitle = await page.title().catch(() => '');
+      const pageUrl = searchPage.url();
+      const pageTitle = await searchPage.title().catch(() => '');
 
       if (pageUrl.includes('sorry') || pageUrl.includes('captcha') || 
           pageTitle.toLowerCase().includes('captcha') || pageTitle.toLowerCase().includes('sorry')) {
         wasBlocked = true;
-        await context.close();
+        await searchPage.close().catch(() => {});
+        if (!sharedCtx) await effectiveContext.close();
         return { leads: allLeads, blocked: wasBlocked };
       }
 
-      const feedEl = await page.waitForSelector('div[role="feed"]', { timeout: 6000 }).catch(() => null);
+      const feedEl = await searchPage.waitForSelector('div[role="feed"]', { timeout: 5000 }).catch(() => null);
       if (feedEl) {
         foundResults = true;
       } else {
-        const placeLinks = await page.waitForSelector('a[href*="/maps/place"]', { timeout: 3000 }).catch(() => null);
+        const placeLinks = await searchPage.waitForSelector('a[href*="/maps/place"]', { timeout: 3000 }).catch(() => null);
         if (placeLinks) foundResults = true;
       }
     } catch { continue; }
@@ -288,20 +293,19 @@ export async function extractFromPlaywrightMaps(
   }
 
   if (!foundResults) {
-    await context.close();
+    await searchPage.close().catch(() => {});
+    if (!sharedCtx) await effectiveContext.close();
     return { leads: allLeads, blocked: wasBlocked };
   }
 
-  await page.waitForTimeout(300 + Math.random() * 200);
-
-  const emitProgress = typeof (page as any).emitProgress === 'function';
+  await searchPage.waitForTimeout(200 + Math.random() * 200);
 
   let scrollCount = 0;
   let emptyScrolls = 0;
   const scrollSize = maxScrolls > 20 ? 1200 : 1500;
 
   while (allLeads.length < targetLimit && scrollCount < maxScrolls && !(signal?.aborted)) {
-    const rawChunk = await extractCardsFromPage(page);
+    const rawChunk = await extractCardsFromPage(searchPage);
 
     const newLeads = rawChunk.filter((l: SearchLead) => {
       if (scrapedNames.has(l.nome)) return false;
@@ -319,13 +323,12 @@ export async function extractFromPlaywrightMaps(
     if (newLeads.length === 0) {
       emptyScrolls++;
       if (emptyScrolls >= 4) {
-        // Tenta scroll extra grande antes de desistir
-        await page.evaluate((px: number) => {
+        await searchPage.evaluate((px: number) => {
           const feed = document.querySelector('div[role="feed"]');
           if (feed) feed.scrollBy(0, px);
         }, 4000);
-        await page.waitForTimeout(1200 + Math.random() * 400);
-        const finalCards = await extractCardsFromPage(page);
+        await searchPage.waitForTimeout(1000 + Math.random() * 400);
+        const finalCards = await extractCardsFromPage(searchPage);
         const newFinal = finalCards.filter((l: SearchLead) => !scrapedNames.has(l.nome));
         if (newFinal.length === 0) break;
         if (newFinal.length > 0) {
@@ -346,20 +349,20 @@ export async function extractFromPlaywrightMaps(
     }
 
     if (allLeads.length < targetLimit) {
-      await page.evaluate((px: number) => {
+      await searchPage.evaluate((px: number) => {
         const feed = document.querySelector('div[role="feed"]');
         if (feed) feed.scrollBy(0, px);
       }, scrollSize + Math.random() * 400);
 
-      const waitTime = emptyScrolls > 0 ? 400 + Math.random() * 200 : 200 + Math.random() * 150;
-      await page.waitForTimeout(waitTime);
+      const waitTime = emptyScrolls > 0 ? 300 + Math.random() * 200 : 150 + Math.random() * 100;
+      await searchPage.waitForTimeout(waitTime);
     }
     scrollCount++;
   }
 
   try {
-    const finalUrl = page.url();
-    const finalTitle = await page.title().catch(() => '');
+    const finalUrl = searchPage.url();
+    const finalTitle = await searchPage.title().catch(() => '');
     if (finalUrl.includes('sorry') || finalUrl.includes('captcha') || 
         finalTitle.toLowerCase().includes('captcha') || finalTitle.toLowerCase().includes('sorry')) {
       wasBlocked = true;
@@ -371,12 +374,12 @@ export async function extractFromPlaywrightMaps(
     const needsDetails = allLeads
       .map((l, idx) => ({ lead: l, idx }))
       .filter(({ lead }) => !lead.telefone || lead.telefone === 'Não informado' || !lead.site || lead.site === 'Sem site')
-      .slice(0, 10);
+      .slice(0, 30);
 
     if (needsDetails.length > 0 && !(signal?.aborted)) {
       try {
-        const tab = await context.newPage();
-        tab.setDefaultTimeout(12000);
+        const tab = await effectiveContext.newPage();
+        tab.setDefaultTimeout(10000);
         for (const { lead, idx } of needsDetails) {
           if (signal?.aborted) break;
           if (lead.placeUrl) {
@@ -390,6 +393,7 @@ export async function extractFromPlaywrightMaps(
             if (extra.facebook && !lead.facebook) lead.facebook = extra.facebook;
             if (extra.tiktok && !lead.tiktok) lead.tiktok = extra.tiktok;
             if (extra.endereco && !lead.endereco) lead.endereco = extra.endereco;
+            if (extra.horarios && !lead.horarios) lead.horarios = extra.horarios;
           }
         }
         await tab.close().catch(() => {});
@@ -400,7 +404,8 @@ export async function extractFromPlaywrightMaps(
     }
   }
 
-  await context.close();
+  await searchPage.close().catch(() => {});
+  if (!sharedCtx) await effectiveContext.close();
   return { leads: allLeads, blocked: wasBlocked };
 }
 

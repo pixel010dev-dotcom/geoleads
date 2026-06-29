@@ -8,6 +8,7 @@ import { extractFromGoogleMapsMobile } from './strategies/google-maps-mobile';
 import { extractFromPlaywrightMaps } from './strategies/maps-scraper';
 import { getCachedQuery, setCachedQuery, generateQueryCacheKey } from './lib/cache';
 import { MAJOR_CITIES, getCityBairros, getNicheVariations } from './lib/normalizers';
+import { getRandomUserAgent, getRandomViewport, getRandomTimezone, getRandomGeolocation } from './lib/stealth';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -69,19 +70,6 @@ function mergeLeadsData(existing: SearchLead, incoming: SearchLead): SearchLead 
     linkedin: existing.linkedin || incoming.linkedin,
     cnpj: existing.cnpj || incoming.cnpj,
   };
-}
-
-async function withPlaywrightBrowser<T>(fn: (browser: any) => Promise<T>): Promise<T> {
-  const { chromium } = require('playwright');
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
-  });
-  try {
-    return await fn(browser);
-  } finally {
-    await browser.close();
-  }
 }
 
 // City "weight" based on population — cidades maiores contribuem mais leads
@@ -245,72 +233,68 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   }
 
   // Busca uma cidade com múltiplas variações de keyword + bairros
+  // USA UM ÚNICO CONTEXTO DO PLAYWRIGHT — Google vê como UM usuário, não varios bots
   async function searchCity(
-    browser: any,
+    ctx: any,
     city: string,
     cityTarget: number,
   ): Promise<number> {
     if (cityTarget <= 0) return 0;
     const before = leadsByName.size;
-    const existingSet = new Set<string>(Array.from(scrapedNames));
 
     // 1. Tenta a keyword principal primeiro
-    const mainResult = await extractFromPlaywrightMaps(browser, keyword, city, cityTarget, existingSet, 12);
+    const mainResult = await extractFromPlaywrightMaps(null, keyword, city, cityTarget, scrapedNames, 20, undefined, ctx);
     const mainAdded = processResults(mainResult.leads, `PW:${city.split(',')[0]}`);
     let foundFromCity = mainAdded;
+    let wasBlocked = mainResult.blocked;
 
-    // 2. Se não atingiu o target, tenta variações do nicho — UMA DE CADA VEZ (evita bloqueio do Google)
-    if (foundFromCity < cityTarget && !(await cancelled())) {
+    // 2. Se não atingiu o target, tenta variações do nicho — MESMO CONTEXTO
+    if (!wasBlocked && foundFromCity < cityTarget && !(await cancelled())) {
       const variations = getNicheVariations(keyword).filter(v => v.toLowerCase() !== keyword.toLowerCase());
       if (variations.length > 0) {
         const maxVars = Math.min(variations.length, 4);
         const varTarget = Math.ceil((cityTarget - foundFromCity) / maxVars);
 
-        for (let vi = 0; vi < maxVars && foundFromCity < cityTarget && !(await cancelled()); vi++) {
+        for (let vi = 0; vi < maxVars && !wasBlocked && foundFromCity < cityTarget && !(await cancelled()); vi++) {
           const kw = variations[vi];
-          const varExisting = new Set<string>(Array.from(scrapedNames));
           const vr = await extractFromPlaywrightMaps(
-            browser, kw, city,
+            null, kw, city,
             Math.min(varTarget, cityTarget - foundFromCity),
-            varExisting, 8
+            scrapedNames, 12, undefined, ctx,
           ).catch(() => ({ leads: [] as SearchLead[], blocked: false }));
           if (vr.leads.length > 0) {
             const added = processResults(vr.leads, `PW:${city.split(',')[0]}/${kw.slice(0, 12)}`);
             foundFromCity += added;
           }
-          await new Promise(r => setTimeout(r, 800 + Math.random() * 400));
-          if (vr.blocked) break;
+          wasBlocked = vr.blocked;
+          await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
         }
       }
     }
 
-    // 3. Se ainda não atingiu e a cidade tem bairros, busca por bairro
-    if (foundFromCity < cityTarget && !(await cancelled())) {
+    // 3. Se ainda não atingiu e a cidade tem bairros, busca por bairro — MESMO CONTEXTO
+    if (!wasBlocked && foundFromCity < cityTarget && !(await cancelled())) {
       const bairros = getCityBairros(city);
       if (bairros.length > 0) {
         const bairroTarget = Math.max(3, Math.ceil((cityTarget - foundFromCity) / bairros.length));
         const BATCH = 4;
 
-        for (let bi = 0; bi < bairros.length && foundFromCity < cityTarget && !(await cancelled()); bi += BATCH) {
+        for (let bi = 0; bi < bairros.length && !wasBlocked && foundFromCity < cityTarget && !(await cancelled()); bi += BATCH) {
           const batch = bairros.slice(bi, bi + BATCH);
-          const bairroExisting = new Set<string>(Array.from(scrapedNames));
 
-          const bairroResults = await Promise.allSettled(
-            batch.map(bairro =>
-              extractFromPlaywrightMaps(browser, keyword, `${bairro}, ${city}`, bairroTarget, bairroExisting, 6)
-                .catch(() => ({ leads: [] as SearchLead[], blocked: false }))
-            )
-          );
-
-          for (const br of bairroResults) {
-            if (br.status === 'fulfilled' && br.value.leads.length > 0) {
-              const added = processResults(br.value.leads, `PW:${city.split(',')[0]}/${br.value.leads[0]?.nome?.split(' ')[0] || 'bairro'}`);
+          for (const bairro of batch) {
+            if (wasBlocked || foundFromCity >= cityTarget) break;
+            const br = await extractFromPlaywrightMaps(
+              null, keyword, `${bairro}, ${city}`,
+              bairroTarget, scrapedNames, 8, undefined, ctx,
+            ).catch(() => ({ leads: [] as SearchLead[], blocked: false }));
+            if (br.leads.length > 0) {
+              const added = processResults(br.leads, `PW:${city.split(',')[0]}/${bairro}`);
               foundFromCity += added;
             }
-            if (foundFromCity >= cityTarget) break;
+            wasBlocked = br.blocked;
+            await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
           }
-
-          await new Promise(r => setTimeout(r, 800 + Math.random() * 500));
         }
       }
     }
@@ -340,37 +324,58 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       notify(`${leadsByName.size}/${targetLimit} leads (fontes HTTP)`);
 
       // Rodada 2: Playwright com cidade × variação × bairro (aprofunda)
+      // Só as top cidades (peso >= 2 em CITY_WEIGHT) — 20 cidades com maior população
+      const TOP_CITIES = MAJOR_CITIES.filter(c => (CITY_WEIGHT as any)[c] >= 2 || MAJOR_CITIES.indexOf(c) < 20);
+      const targetCities = TOP_CITIES.slice(0, 30);
       if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
-        notify(`Reforçando com navegador em ${MAJOR_CITIES.length} cidades...`);
-        await withPlaywrightBrowser(async (browser) => {
-          const BATCH_SIZE = 3;
-          const startBatch = 0;
-
-          for (let i = startBatch; i < MAJOR_CITIES.length && leadsByName.size < targetLimit && Date.now() < hardDeadline; i += BATCH_SIZE) {
+        notify(`Reforçando com navegador em ${targetCities.length} cidades...`);
+        const { chromium } = require('playwright');
+        const browser = await chromium.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
+        });
+        try {
+          for (let i = 0; i < targetCities.length && leadsByName.size < targetLimit && Date.now() < hardDeadline; i++) {
             if (await cancelled()) break;
 
-            const batch = MAJOR_CITIES.slice(i, i + BATCH_SIZE);
-            const citiesLeft = MAJOR_CITIES.length - i;
+            const city = targetCities[i];
+            const citiesLeft = targetCities.length - i;
             const remainingForBatch = targetLimit - leadsByName.size;
+            const cityTarget = getTargetPerCity(city, remainingForBatch, citiesLeft);
 
-            notify(`${leadsByName.size}/${targetLimit} leads — cidades ${i + 1}-${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length}`);
+            notify(`${leadsByName.size}/${targetLimit} leads — cidade ${i + 1}/${targetCities.length}: ${city.split(',')[0]}`);
 
-            const cityResults = await Promise.allSettled(
-              batch.map(city => {
-                const cityTarget = getTargetPerCity(city, remainingForBatch, citiesLeft);
-                return searchCity(browser, city, cityTarget);
-              })
-            );
+            // Cria UM contexto por cidade, reusa pra keyword + variações + bairros
+            const ctx = await browser.newContext({
+              userAgent: getRandomUserAgent(),
+              viewport: getRandomViewport(),
+              locale: 'pt-BR',
+              timezoneId: getRandomTimezone(),
+              geolocation: getRandomGeolocation(),
+              permissions: ['geolocation'],
+            });
+            await ctx.addInitScript(() => {
+              Object.defineProperty(navigator, 'webdriver', { get: () => false });
+              Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
+              Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            });
+            await ctx.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}', (route: any) => route.fulfill({ status: 204, body: '' }));
+            await ctx.route('**/maps/vt**', (route: any) => route.fulfill({ status: 204, body: '' }));
+            await ctx.addCookies([{ name: 'CONSENT', value: 'YES+', domain: '.google.com', path: '/' }]);
 
-            for (const cr of cityResults) {
-              if (cr.status === 'fulfilled' && cr.value > 0) citiesDone++;
+            try {
+              const added = await searchCity(ctx, city, cityTarget);
+              if (added > 0) citiesDone++;
+            } finally {
+              await ctx.close().catch(() => {});
             }
 
-            notify(`${leadsByName.size}/${targetLimit} leads (${Math.min(i + BATCH_SIZE, MAJOR_CITIES.length)}/${MAJOR_CITIES.length} cidades)`);
-
-            await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+            notify(`${leadsByName.size}/${targetLimit} leads (${i + 1}/${targetCities.length} cidades)`);
+            await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
           }
-        });
+        } finally {
+          await browser.close().catch(() => {});
+        }
       }
 
       // Rodada 3: HTTP round 2 (coleta o que sobrou)
@@ -390,9 +395,36 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
         notify(`Reforçando com navegador + variações...`);
         try {
-          await withPlaywrightBrowser(async (browser) => {
-            await searchCity(browser, location, targetLimit - leadsByName.size);
+          const { chromium } = require('playwright');
+          const pwBrowser = await chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
           });
+          try {
+            const ctx = await pwBrowser.newContext({
+              userAgent: getRandomUserAgent(),
+              viewport: getRandomViewport(),
+              locale: 'pt-BR',
+              timezoneId: getRandomTimezone(),
+              geolocation: getRandomGeolocation(),
+              permissions: ['geolocation'],
+            });
+            await ctx.addInitScript(() => {
+              Object.defineProperty(navigator, 'webdriver', { get: () => false });
+              Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
+              Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            });
+            await ctx.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}', (route: any) => route.fulfill({ status: 204, body: '' }));
+            await ctx.route('**/maps/vt**', (route: any) => route.fulfill({ status: 204, body: '' }));
+            await ctx.addCookies([{ name: 'CONSENT', value: 'YES+', domain: '.google.com', path: '/' }]);
+            try {
+              await searchCity(ctx, location, targetLimit - leadsByName.size);
+            } finally {
+              await ctx.close().catch(() => {});
+            }
+          } finally {
+            await pwBrowser.close().catch(() => {});
+          }
         } catch (e: any) {
           console.warn(`[EXTRACT] Playwright failed (non-critical):`, e?.message || e);
         }
