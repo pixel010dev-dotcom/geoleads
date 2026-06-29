@@ -25,6 +25,7 @@ import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
 import ReferralSection from '@/components/dashboard/ReferralSection';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from '@/lib/i18n';
+import { toWhatsAppNumber } from '@/lib/phone';
 
 function mergeEnrichmentIntoLead(lead: CrmLead, enriched: Record<string, any>): CrmLead {
   const merged = { ...lead, ...enriched };
@@ -1404,7 +1405,7 @@ export default function Home() {
   const openWhatsApp = (lead: CrmLead | SearchLead, customText?: string, options?: { markSent?: boolean; preferWeb?: boolean; target?: string }) => {
     if (!requireFeature('whatsappSender')) { setActiveTab('whatsapp'); return; }
     if (!lead.telefone || lead.telefone === 'Não informado') { showToast('Lead sem telefone válido.', 'warning'); return; }
-    const number = lead.telefone.replace(/\D/g, '');
+    const number = toWhatsAppNumber(lead.telefone);
     if (number.length < 10) { showToast('Número de telefone inválido.', 'warning'); return; }
     let msg = customText ? renderWhatsAppMessage(lead, customText) : `Olá! Vi o perfil da *${lead.nome}* no Google e gostaria de saber mais sobre os serviços de vocês. Podemos conversar?`;
     const messageEncoded = encodeURIComponent(msg);

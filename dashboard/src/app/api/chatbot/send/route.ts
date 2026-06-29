@@ -2,9 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthUser, requireFeature } from '@/lib/server-auth';
 import { createAdminSupabaseClient } from '@/lib/server-auth';
 import { checkRateLimit, getSmartDelay } from '@/lib/wa-rate-limiter';
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+import { toWhatsAppJid } from '@/lib/phone';
 
 export async function POST(request: Request) {
   const auth = await getAuthUser(request);
@@ -32,9 +30,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Mensagem muito longa (max 4096 caracteres).' }, { status: 400 });
   }
 
-  const sanitizedPhone = leadPhone.replace(/\D/g, '');
-  if (sanitizedPhone.length < 10 || sanitizedPhone.length > 15) {
-    return NextResponse.json({ error: 'Telefone invalido.' }, { status: 400 });
+  const jid = toWhatsAppJid(leadPhone);
+  if (!jid) {
+    return NextResponse.json({ error: 'Telefone invalido para WhatsApp.' }, { status: 400 });
   }
 
   const supabase = createAdminSupabaseClient();
@@ -71,8 +69,6 @@ export async function POST(request: Request) {
   if (!rateCheck.allowed) {
     return NextResponse.json({ error: rateCheck.reason }, { status: 429 });
   }
-
-  const jid = `${leadPhone.replace(/\D/g, '')}@s.whatsapp.net`;
 
   try {
     await botSession.socket.sendMessage(jid, { text: message });
