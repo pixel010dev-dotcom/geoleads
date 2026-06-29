@@ -5,9 +5,8 @@ dockerfilePath = "dashboard/Dockerfile"
 [deploy]
 healthcheckPath = "/"
 healthcheckTimeout = 120
-restartPolicyType = "ALWAYS"
+restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
-startCommand = "npm run start"
 
 [[cron.jobs]]
 schedule = "0 * * * *"

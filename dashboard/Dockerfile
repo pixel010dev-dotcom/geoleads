@@ -26,7 +26,7 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 ENV GEMINI_MODEL=gemini-1.5-flash
 ENV NEXT_PUBLIC_APP_URL=https://geoleads-production.up.railway.app
 
-RUN npm run build 2>&1 | tail -20
+RUN npm run build
 
 EXPOSE 3000
 
