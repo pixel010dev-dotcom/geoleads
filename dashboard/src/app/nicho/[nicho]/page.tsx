@@ -6,7 +6,7 @@ import { getNicheBySlug, getAllNicheSlugs, CITIES, NICHES } from '@/lib/cities-d
 export const dynamic = 'force-static';
 export const revalidate = 86400;
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app';
 
 export async function generateStaticParams() {
   return getAllNicheSlugs().map(nicho => ({ nicho }));

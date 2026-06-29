@@ -6,7 +6,7 @@ import { getCityBySlug, getAllCitySlugs, CITIES, NICHE_EXAMPLES } from '@/lib/ci
 export const dynamic = 'force-static';
 export const revalidate = 86400;
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app';
 
 const faqData = [
   { q: 'Como extrair leads do Google Maps?', a: 'Com o GeoLeads voce informa o nicho e a cidade, e o sistema navega automaticamente pelo Google Maps coletando nome, telefone, site, email e endereco de cada negocio. Em minutos voce tem uma lista pronta para usar.' },

@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',

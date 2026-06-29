@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = cookieStore.get('geoleads_locale')?.value || 'pt-BR';
   const isEn = locale === 'en';
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app';
 
   return {
     title: {

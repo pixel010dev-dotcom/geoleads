@@ -137,7 +137,7 @@ export default function LandingPage() {
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
             description: t('footer.description'),
-            url: process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app',
+            url: process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app',
             offers: {
               '@type': 'AggregateOffer',
               offerCount: 4,

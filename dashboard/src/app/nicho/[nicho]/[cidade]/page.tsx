@@ -5,7 +5,7 @@ import { getNicheBySlug, getCityBySlug, getAllComboSlugs, CITIES, NICHES } from 
 
 export const dynamic = 'force-dynamic';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production.up.railway.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app';
 
 export async function generateMetadata({ params }: { params: { nicho: string; cidade: string } }): Promise<Metadata> {
   const niche = getNicheBySlug(params.nicho);
