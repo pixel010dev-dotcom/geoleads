@@ -5,36 +5,58 @@ const URL_REGEX = /https?:\/\/[^\s"'<>\\\])]+/gi;
 const HREF_REGEX = /href=["']([^"']+)["']/gi;
 const ABSOLUTE_SOCIAL_REGEX = /https?:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|fb\.com|tiktok\.com)\/[^\s"'<>]+/gi;
 
+function isValidBRDDD(ddd: number): boolean {
+  return (ddd >= 11 && ddd <= 19) || (ddd >= 21 && ddd <= 28) ||
+    (ddd >= 31 && ddd <= 38) || (ddd >= 41 && ddd <= 49) ||
+    (ddd >= 51 && ddd <= 59) || (ddd >= 61 && ddd <= 69) ||
+    (ddd >= 71 && ddd <= 79) || (ddd >= 81 && ddd <= 89) ||
+    (ddd >= 91 && ddd <= 99);
+}
+
+function addBrazilianMobileDigit(digits: string): string {
+  if (digits.length === 10) {
+    const ddd = parseInt(digits.slice(0, 2), 10);
+    if (isValidBRDDD(ddd)) {
+      return digits.slice(0, 2) + '9' + digits.slice(2);
+    }
+  }
+  if (digits.startsWith('55') && digits.length === 12) {
+    const ddd = parseInt(digits.slice(2, 4), 10);
+    if (isValidBRDDD(ddd)) {
+      return digits.slice(0, 4) + '9' + digits.slice(4);
+    }
+  }
+  return digits;
+}
+
 export function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (digits.length === 0) return raw;
   if (/(\d)\1{5,}/.test(digits)) return 'Não informado';
-  if (digits.startsWith('55') && digits.length >= 12) {
-    if (digits.length === 12) {
-      return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
+
+  const normalized = addBrazilianMobileDigit(digits);
+
+  if (normalized.startsWith('55') && normalized.length >= 12) {
+    if (normalized.length === 12) {
+      return `+55 (${normalized.slice(2, 4)}) ${normalized.slice(4, 8)}-${normalized.slice(8, 12)}`;
     }
-    return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+    return `+55 (${normalized.slice(2, 4)}) ${normalized.slice(4, 9)}-${normalized.slice(9, 13)}`;
   }
-  if (digits.length >= 13 && !digits.startsWith('55')) {
-    if (digits.length === 13) {
-      return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
+  if (normalized.length >= 13 && !normalized.startsWith('55')) {
+    if (normalized.length === 13) {
+      return `+${normalized.slice(0, 2)} (${normalized.slice(2, 4)}) ${normalized.slice(4, 8)}-${normalized.slice(8, 12)}`;
     }
-    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+    return `+${normalized.slice(0, 2)} (${normalized.slice(2, 4)}) ${normalized.slice(4, 9)}-${normalized.slice(9, 13)}`;
   }
-  if (digits.length >= 10 && digits.length <= 11) {
-    const ddd = parseInt(digits.slice(0, 2), 10);
-    const isValidBR = (ddd >= 11 && ddd <= 19) || (ddd >= 21 && ddd <= 28) ||
-      (ddd >= 31 && ddd <= 38) || (ddd >= 41 && ddd <= 49) ||
-      (ddd >= 51 && ddd <= 59) || (ddd >= 61 && ddd <= 69) ||
-      (ddd >= 71 && ddd <= 79) || (ddd >= 81 && ddd <= 89) ||
-      (ddd >= 91 && ddd <= 99);
-    if (isValidBR) {
-      if (digits.length === 10) {
-        return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+  if (normalized.length >= 10 && normalized.length <= 11) {
+    const ddd = parseInt(normalized.slice(0, 2), 10);
+    if (isValidBRDDD(ddd)) {
+      if (normalized.length === 10) {
+        return `+55 (${normalized.slice(0, 2)}) ${normalized.slice(2, 6)}-${normalized.slice(6, 10)}`;
       }
-      return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+      return `+55 (${normalized.slice(0, 2)}) ${normalized.slice(2, 7)}-${normalized.slice(7, 11)}`;
     }
-    return `+${digits.slice(0, 2)} ${digits.slice(2)}`;
+    return `+${normalized.slice(0, 2)} ${normalized.slice(2)}`;
   }
   return 'Não informado';
 }
@@ -46,11 +68,7 @@ export function isValidBrazilianPhone(raw: string): boolean {
   if (/^(\d)\1+$/.test(local)) return false;
   if (/(\d)\1{5,}/.test(local)) return false;
   const ddd = parseInt(local.slice(0, 2), 10);
-  return (ddd >= 11 && ddd <= 19) || (ddd >= 21 && ddd <= 28) ||
-    (ddd >= 31 && ddd <= 38) || (ddd >= 41 && ddd <= 49) ||
-    (ddd >= 51 && ddd <= 59) || (ddd >= 61 && ddd <= 69) ||
-    (ddd >= 71 && ddd <= 79) || (ddd >= 81 && ddd <= 89) ||
-    (ddd >= 91 && ddd <= 99);
+  return isValidBRDDD(ddd);
 }
 
 export function normalizeCnpj(value: string): string {
