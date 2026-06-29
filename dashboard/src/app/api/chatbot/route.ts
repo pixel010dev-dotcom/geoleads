@@ -618,6 +618,45 @@ const startBotSession = async (session: BotSession) => {
     }
   });
 
+  // Delivery tracking: processa recibos de entrega/leitura
+  socket.ev.on('messages.update', async (updates: any[]) => {
+    try {
+      const supabaseAdmin = createAdminSupabaseClient();
+      for (const update of updates || []) {
+        const jid = update.key?.remoteJid;
+        if (!jid || jid.endsWith('@g.us') || jid === 'status@broadcast') continue;
+        if (!update.key?.fromMe) continue;
+
+        const phone = jid.split('@')[0];
+        const status = update.status;
+
+        if (status === 'delivery_ack' || status === 'read' || status === 'played') {
+          const deliveredAt = new Date().toISOString();
+
+          await supabaseAdmin.from('whatsapp_messages')
+            .update({
+              delivered_at: deliveredAt,
+              status: status === 'read' ? 'read' : 'delivered'
+            })
+            .eq('lead_phone', phone)
+            .is('delivered_at', null);
+
+          // Atualiza wa_campaign_leads se existir
+          await supabaseAdmin.from('wa_campaign_leads')
+            .update({
+              status: status === 'read' ? 'read' : 'delivered',
+              delivered_at: deliveredAt,
+              read_at: status === 'read' ? deliveredAt : null
+            })
+            .eq('lead_jid', jid)
+            .is('delivered_at', null);
+        }
+      }
+    } catch (e: any) {
+      console.error('[DELIVERY] Erro ao processar entrega:', e?.message || e);
+    }
+  });
+
   return session;
 };
 
