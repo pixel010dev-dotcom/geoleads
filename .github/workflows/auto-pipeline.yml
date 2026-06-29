@@ -28,7 +28,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
-          APP_URL: ${{ secrets.APP_URL || 'https://geoleads-production.up.railway.app' }}
+          APP_URL: ${{ secrets.APP_URL || 'https://geoleads-production-6583.up.railway.app' }}
         run: |
           if [ -n "${{ github.event.inputs.city }}" ]; then
             python scripts/auto_lead_pipeline.py --city "${{ github.event.inputs.city }}"

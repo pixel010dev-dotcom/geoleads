@@ -15,7 +15,7 @@ SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or os.environ.get("SUP
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_ADMIN_ID = os.environ.get("TELEGRAM_ADMIN_ID")
-APP_URL = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL") or "https://geoleads-production.up.railway.app"
+APP_URL = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL") or "https://geoleads-production-6583.up.railway.app"
 CRON_SECRET = os.environ.get("CRON_SECRET", "")
 MAX_JOBS = 5
 

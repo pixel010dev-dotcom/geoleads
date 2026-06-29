@@ -7,7 +7,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<do .env.local>
 SUPABASE_SERVICE_ROLE_KEY=<do .env.local>
 
 # App URL
-NEXT_PUBLIC_APP_URL=https://geoleads-production.up.railway.app
+NEXT_PUBLIC_APP_URL=https://geoleads-production-6583.up.railway.app
 
 # Pagamento (obrigatório para cobrança)
 MERCADO_PAGO_ACCESS_TOKEN=<do .env.local>

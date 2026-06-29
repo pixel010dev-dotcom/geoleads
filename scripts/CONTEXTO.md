@@ -10,7 +10,7 @@
 
 Plataforma SaaS de **extração de leads do Google Maps** + **CRM** + **automação de marketing**.
 Público: pequenas empresas brasileiras (dentistas, advogados, corretores, etc).
-Deploy: https://geoleads-production.up.railway.app
+Deploy: https://geoleads-production-6583.up.railway.app
 
 ---
 
@@ -150,7 +150,7 @@ Scan → diagnóstico IA → auto-fix (script gerado + exec + commit) → revert
 - `SUPABASE_URL` — https://mwnpwrzwgwrqqlomqhux.supabase.co
 - `SUPABASE_SERVICE_ROLE_KEY` — admin do Supabase
 - `APP_URL` (GitHub Secret) — URL base do site (fallback Railway). Usado por workflows e scripts Python.
-- `RAILWAY_URL` — https://geoleads-production.up.railway.app
+- `RAILWAY_URL` — https://geoleads-production-6583.up.railway.app
 
 ---
 

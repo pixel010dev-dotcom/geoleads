@@ -4,7 +4,7 @@ Plataforma SaaS de **extracao de leads do Google Maps** + CRM + automacao de mar
 
 ## Deploy
 
-[https://geoleads-production.up.railway.app](https://geoleads-production.up.railway.app)
+[https://geoleads-production-6583.up.railway.app](https://geoleads-production-6583.up.railway.app)
 
 ---
 

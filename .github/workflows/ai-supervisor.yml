@@ -44,6 +44,6 @@ jobs:
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
-          RAILWAY_URL: ${{ secrets.APP_URL || 'https://geoleads-production.up.railway.app' }}
+          RAILWAY_URL: ${{ secrets.APP_URL || 'https://geoleads-production-6583.up.railway.app' }}
         run: |
           python scripts/ai_supervisor.py

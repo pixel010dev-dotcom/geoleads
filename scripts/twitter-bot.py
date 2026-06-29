@@ -14,7 +14,7 @@ ACCESS_TOKEN = os.environ.get("TWITTER_ACCESS_TOKEN", "")
 ACCESS_SECRET = os.environ.get("TWITTER_ACCESS_SECRET", "")
 OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
-APP_URL = os.environ.get("APP_URL", "https://geoleads-production.up.railway.app")
+APP_URL = os.environ.get("APP_URL", "https://geoleads-production-6583.up.railway.app")
 LOGIN_URL = f"{APP_URL}/login"
 
 TWEET_TEMPLATES = [
