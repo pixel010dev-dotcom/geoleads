@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
+import { getAuthUser } from '@/lib/server-auth';
 import * as XLSX from 'xlsx';
 
 export const runtime = 'nodejs';

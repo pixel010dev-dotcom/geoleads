@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       ...status,
       approved: status.status === 'approved'
     });
-  } catch (error: unknown) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao verificar status do pagamento' }, { status: 500 });
   }
 }

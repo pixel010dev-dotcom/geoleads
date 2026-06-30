@@ -37,7 +37,6 @@ export function useExtraction(): UseExtractionReturn {
   const currentJobIdRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
-  const mountedRef = useRef(true);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {

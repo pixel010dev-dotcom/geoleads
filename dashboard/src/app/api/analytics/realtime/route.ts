@@ -17,7 +17,6 @@ export async function GET() {
       jobsWeek,
       jobsMonth,
       usersRes,
-      leadsCrm,
       payments,
       chatbotMsgs,
     ] = await Promise.all([
@@ -28,7 +27,6 @@ export async function GET() {
       supabase.from('extraction_jobs').select('id, status, leads_count, created_at')
         .gte('created_at', monthAgo),
       supabase.from('profiles').select('id, tokens, plan_id'),
-      supabase.from('crm_leads').select('id', { count: 'exact' }),
       supabase.from('payment_history').select('id, amount, plan_id, created_at')
         .gte('created_at', monthAgo),
       supabase.from('chatbot_conversations').select('id, direction, created_at')

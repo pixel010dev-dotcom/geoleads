@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 
-const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
-
 function normalizeCnpj(value: string) {
   return value.replace(/\D/g, '').slice(0, 14);
 }

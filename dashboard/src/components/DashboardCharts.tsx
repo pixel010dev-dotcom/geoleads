@@ -47,7 +47,7 @@ export default function DashboardCharts({ tokens, leads, planName }: { tokens: n
       last6.push({ month: label, leads: months[key] || 0 });
     }
     return last6;
-  }, [leads]);
+  }, [leads, locale]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

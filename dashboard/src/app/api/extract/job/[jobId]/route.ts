@@ -49,7 +49,7 @@ export async function GET(
         delivered: data.delivered,
       }
     });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }
@@ -110,7 +110,7 @@ export async function PATCH(
 
     if (error || !data) return NextResponse.json({ error: 'Erro ao atualizar job' }, { status: 500 });
     return NextResponse.json({ success: true, job: data });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

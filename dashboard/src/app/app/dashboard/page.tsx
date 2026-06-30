@@ -10,7 +10,7 @@ import Toast, { showToast } from '@/components/Toast';
 import DashboardCharts from '@/components/DashboardCharts';
 import type { CrmLead, ExtractStats, WaSentMessage, BatchEnrichProgress, BatchResult, BatchPollResponse, AiCopyResult, ChatbotRule } from '@/types/crm';
 import type { SearchLead } from '@/app/api/extract/lib/types';
-import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, quickSearches, type DashboardTab } from '@/components/dashboard/dashboard-constants';
+import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, type DashboardTab } from '@/components/dashboard/dashboard-constants';
 import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
 import ExtractorSection from '@/components/dashboard/ExtractorSection';
 import CRMSection from '@/components/dashboard/CRMSection';
@@ -20,12 +20,13 @@ import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
 import { MultiSessionManager } from '@/components/dashboard/MultiSessionManager';
 import AICopySection from '@/components/dashboard/AICopySection';
 import SupportSection from '@/components/dashboard/SupportSection';
-import { generatePdfReport } from '@/lib/pdf-report';
 import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
 import ReferralSection from '@/components/dashboard/ReferralSection';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from '@/lib/i18n';
 import { toWhatsAppNumber } from '@/lib/phone';
+import CommandPalette from '@/components/CommandPalette';
+import AIInsightPanel from '@/components/AIInsightPanel';
 
 function mergeEnrichmentIntoLead(lead: CrmLead, enriched: Record<string, any>): CrmLead {
   const merged = { ...lead };
@@ -63,10 +64,8 @@ export default function Home() {
   const [crmSyncStatus, setCrmSyncStatus] = useState<'local' | 'syncing' | 'cloud' | 'error'>('local');
   const [crmSyncMessage, setCrmSyncMessage] = useState('CRM local');
   const [crmPage, setCrmPage] = useState(0);
-  const [chartRefreshKey, setChartRefreshKey] = useState(0);
   const [bulkStageLoading, setBulkStageLoading] = useState(false);
   const [bulkStageTarget, setBulkStageTarget] = useState('Novo');
-  const CRM_PAGE_SIZE = 25;
 
   const [waTemplate, setWaTemplate] = useState('Olá {Nome}! Vi seu perfil comercial em {Cidade} e gostaria de saber se vocês têm interesse em receber mais clientes de {Nicho}. Podemos conversar?');
   const [waSentStatus, setWaSentStatus] = useState<Record<string, boolean>>({});
@@ -126,7 +125,7 @@ export default function Home() {
   const [historyData, setHistoryData] = useState<Record<string, any>[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
-  const [referralBonus, setReferralBonus] = useState<number | null>(null);
+  const [referralBonus] = useState<number | null>(null);
 
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -289,7 +288,7 @@ export default function Home() {
       await supabase.from('profiles').update({ chatbot_auto_capture: chatbotAutoCapture }).eq('id', user.id);
     }
     if (user?.id && ['connected', 'qr', 'connecting'].includes(chatbotSession.status)) {
-      try { await callChatbotApi('update-config', config); } catch (error: any) { runtimeSyncFailed = true; }
+      try { await callChatbotApi('update-config', config); } catch { runtimeSyncFailed = true; }
     }
     if (!silent) {
       if (runtimeSyncFailed) setChatbotMessage('Configuração salva, mas o bot conectado não recebeu a atualização. Reconecte o QR.');
@@ -589,6 +588,7 @@ export default function Home() {
       timers.forEach(t => clearTimeout(t));
       if (batchPollRef.current) { clearInterval(batchPollRef.current); batchPollRef.current = null; }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -596,11 +596,12 @@ export default function Home() {
     refreshChatbotStatus();
     const interval = setInterval(refreshChatbotStatus, 5000);
     return () => clearInterval(interval);
-  }, [activeTab, user, planId]);
+  }, [activeTab, user, planId, refreshChatbotStatus, requireFeature]);
 
   useEffect(() => {
     if (activeTab === 'whatsapp' && user && requireFeature('whatsappSender')) handleLoadSentMessages();
-  }, [activeTab, user, planId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user, planId, requireFeature]);
 
   useEffect(() => { setCrmPage(0); }, [crmSearch, crmFilterStage]);
 
@@ -660,7 +661,8 @@ export default function Home() {
       try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { }
       syncCrmToCloud(merged, enrichUserId);
     });
-  }, [crmLeads]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crmLeads, user]);
 
   const saveCrm = (updatedCrm: CrmLead[]) => {
     const normalized = updatedCrm.map(normalizeCrmLead);
@@ -827,94 +829,6 @@ export default function Home() {
       setTimeout(() => setBatchEnrichProgress(null), 8000);
       if (totalCompleted > 0) showToast(`${totalCompleted} leads enriquecidos!`, 'success');
       if (totalFailed > 0) showToast(`${totalFailed} leads falharam.`, 'info');
-    }
-  };
-
-  const [enrichLoading, setEnrichLoading] = useState(false);
-
-  const handleReEnrichSingle = async (lead: CrmLead) => {
-    setEnrichLoading(true);
-    try {
-      const headers = await getAuthedJsonHeaders();
-      if (!headers) return;
-      const res = await fetch('/api/lead-enrich', {
-        method: 'POST', headers,
-        body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: lead.cidade, cnpj: lead.cnpj })
-      });
-      const data = await res.json();
-      if (data.success && data.enriched) {
-        const leadKey = getLeadKey(lead);
-        setCrmLeads(prev => {
-          return prev.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
-        });
-        const latestCrm = crmLeadsRef.current;
-        const updated = latestCrm.map(l => getLeadKey(l) === leadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l);
-        try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
-        syncCrmToCloud(updated);
-      }
-    } catch (e) { console.warn('[ENRICH] handleReEnrichSingle:', e); }
-    finally { setEnrichLoading(false); }
-  };
-
-  const handleReEnrichSelected = async () => {
-    if (selectedCrmLeads.length === 0) return;
-    setEnrichLoading(true);
-    try {
-      const headers = await getAuthedJsonHeaders();
-      if (!headers) return;
-      const selectedLeads = crmLeads.filter(l => selectedCrmLeads.includes(l.nome));
-      const res = await fetch('/api/lead-enrich/batch', {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          leads: selectedLeads.map(l => ({
-            nome: l.nome, site: l.site, cidade: l.cidade,
-            cnpj: l.cnpj, email: l.email, instagram: l.instagram,
-            facebook: l.facebook, tiktok: l.tiktok,
-            leadKey: getLeadKey(l),
-          }))
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.batchId) {
-        if (batchPollRef.current) clearInterval(batchPollRef.current);
-        const pollStart = Date.now();
-        const MAX_POLL_MS = 300000;
-        const poll = setInterval(async () => {
-          if (!mountedRef.current || Date.now() - pollStart > MAX_POLL_MS) { clearInterval(poll); batchPollRef.current = null; setEnrichLoading(false); return; }
-          try {
-            const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers });
-            const pollData = await pollRes.json();
-            if (pollData.status === 'completed' || pollData.status === 'failed') {
-              clearInterval(poll);
-              batchPollRef.current = null;
-              if (pollData.results) {
-                setCrmLeads(prev => {
-                  return prev.map(l => {
-                    const r = pollData.results.find((r: BatchResult) => (r.leadKey || r.nome) === getLeadKey(l));
-                    return r?.enriched ? mergeEnrichmentIntoLead(l, r.enriched) : l;
-                  });
-                });
-                const latestCrm = crmLeadsRef.current;
-                const updated = latestCrm.map(l => {
-                  const r = pollData.results.find((r: BatchResult) => (r.leadKey || r.nome) === getLeadKey(l));
-                  return r?.enriched ? mergeEnrichmentIntoLead(l, r.enriched) : l;
-                });
-                try { localStorage.setItem('geoleads_crm', JSON.stringify(updated.map(normalizeCrmLead))); } catch { /* ignore */ }
-                syncCrmToCloud(updated);
-              }
-              showToast(`${pollData.completed} leads enriquecidos!`, 'success');
-              setEnrichLoading(false);
-            }
-          } catch { clearInterval(poll); batchPollRef.current = null; setEnrichLoading(false); }
-        }, 1500);
-        batchPollRef.current = poll;
-      } else {
-        setEnrichLoading(false);
-        showToast(data.error || 'Erro no enrichment em lote.', 'error');
-      }
-    } catch {
-      setEnrichLoading(false);
-      showToast('Erro ao enriquecer leads selecionados.', 'error');
     }
   };
 
@@ -1294,6 +1208,7 @@ export default function Home() {
       })();
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cancelExtraction = async () => {
@@ -1437,17 +1352,6 @@ export default function Home() {
     finally { setIsGeneratingCopies(false); }
   };
 
-  const filteredCrmLeads = useMemo(() => crmLeads.filter(lead => {
-    const matchesSearch = lead.nome.toLowerCase().includes(crmSearch.toLowerCase()) || lead.telefone.toLowerCase().includes(crmSearch.toLowerCase()) || lead.email?.toLowerCase().includes(crmSearch.toLowerCase()) || lead.cnpj?.toLowerCase().includes(crmSearch.toLowerCase()) || lead.nicho.toLowerCase().includes(crmSearch.toLowerCase()) || lead.cidade.toLowerCase().includes(crmSearch.toLowerCase());
-    if (crmFilterStage === 'all') return matchesSearch;
-    return matchesSearch && lead.stage === crmFilterStage;
-  }), [crmLeads, crmSearch, crmFilterStage]);
-
-  const crmTotalPages = Math.max(1, Math.ceil(filteredCrmLeads.length / CRM_PAGE_SIZE));
-  const safeCrmPage = Math.min(crmPage, crmTotalPages - 1);
-  const paginatedCrmLeads = filteredCrmLeads.slice(safeCrmPage * CRM_PAGE_SIZE, (safeCrmPage + 1) * CRM_PAGE_SIZE);
-  const displayLeads = leads.length > 0 ? leads : [];
-
   if (!user) {
     return (
       <div className="app-shell min-h-screen text-white font-sans bg-black flex items-center justify-center">
@@ -1462,6 +1366,7 @@ export default function Home() {
   return (
     <div className="app-shell min-h-screen text-white font-sans selection:bg-blue-500/30 relative pb-12 sm:pb-16 overflow-x-hidden">
       <Toast />
+      <CommandPalette crmLeads={crmLeads} onSelectLead={(lead) => { setCrmSearch(lead.nome); setActiveTab('crm'); }} />
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(720px,92vw)] h-[260px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
 
@@ -1522,6 +1427,9 @@ export default function Home() {
                 {t('dashboard.heroSubtitle')}
               </p>
             </div>
+            <div>
+              <AIInsightPanel crmLeads={crmLeads} />
+            </div>
           </div>
           <DashboardCharts tokens={tokens ?? 0} leads={crmLeads} planName={t(currentPlan.nameKey)} />
 
@@ -1572,7 +1480,7 @@ export default function Home() {
           <ExtractorSection
             isExtracting={isExtracting} hasSearched={hasSearched} leads={leads} extractStats={extractStats}
             keyword={keyword} location={location} limit={limit} filterRule={filterRule}
-            tokens={tokens} user={user} currentPlan={currentPlan} planId={planId}
+            user={user}
             handleExtract={handleExtract} handleAddToCRM={handleAddToCRM} handleAddAllToCRM={handleAddAllToCRM}
             openWhatsApp={openWhatsApp} exportToCSV={exportToCSV} exportToXLSX={exportToXLSX}
             fetchHistory={fetchHistory} showHistory={showHistory} setShowHistory={setShowHistory}
@@ -1610,7 +1518,7 @@ export default function Home() {
           <CRMSection
             crmLeads={crmLeads} crmSearch={crmSearch} setCrmSearch={setCrmSearch}
             crmFilterStage={crmFilterStage} setCrmFilterStage={setCrmFilterStage}
-            selectedCrmLeads={selectedCrmLeads} setSelectedCrmLeads={setSelectedCrmLeads}
+            selectedCrmLeads={selectedCrmLeads}
             crmSyncStatus={crmSyncStatus} crmSyncMessage={crmSyncMessage}
             crmPage={crmPage} setCrmPage={setCrmPage}
             bulkStageLoading={bulkStageLoading} bulkStageTarget={bulkStageTarget} setBulkStageTarget={setBulkStageTarget}
@@ -1660,7 +1568,7 @@ export default function Home() {
 
         {activeTab === 'whatsapp' && !activeTabLocked && (
           <WhatsAppSection
-            dispatchableWaLeads={dispatchableWaLeads} selectedWaLeads={selectedWaLeads} setSelectedWaLeads={setSelectedWaLeads}
+            dispatchableWaLeads={dispatchableWaLeads} selectedWaLeads={selectedWaLeads}
             waTemplate={waTemplate} setWaTemplate={setWaTemplate} waSentStatus={waSentStatus}
             isSendingBulk={isSendingBulk} isAutoSending={isAutoSending} bulkDelay={bulkDelay} setBulkDelay={setBulkDelay}
             bulkSimulateHuman={bulkSimulateHuman} setBulkSimulateHuman={setBulkSimulateHuman}
@@ -1668,7 +1576,7 @@ export default function Home() {
             waAiProduct={waAiProduct} setWaAiProduct={setWaAiProduct} waAiValue={waAiValue} setWaAiValue={setWaAiValue}
             waAiTone={waAiTone} setWaAiTone={setWaAiTone} waAiCopies={waAiCopies} waAiLoading={waAiLoading} waAiMessage={waAiMessage}
             waSendingViaBot={waSendingViaBot} waSentMessages={waSentMessages} waSentMessagesLoading={waSentMessagesLoading}
-            chatbotSession={chatbotSession} user={user} requireFeature={requireFeature} setActiveTab={setActiveTab}
+            chatbotSession={chatbotSession} setActiveTab={setActiveTab}
             openWhatsApp={openWhatsApp} handleStartBulkSending={handleStartBulkSending}
             handleStopBulkSending={handleStopBulkSending} handleStartAutoBulkSend={handleStartAutoBulkSend}
             handleConfirmSentAndNext={handleConfirmSentAndNext} handleTriggerBulkSendLead={handleTriggerBulkSendLead}

@@ -1,13 +1,7 @@
 import type { SearchLead, MapsPlaceExtraData } from '../lib/types';
-import { createEmptySearchLead, emptyMapsPlaceExtraData } from '../lib/types';
-import { normalizePhone, applySignalsToLead, mergeMapsPlaceExtraData } from '../lib/validation';
-import { getRandomUserAgent, getRandomViewport, getRandomTimezone, getRandomGeolocation, getHumanDelay, simulateHumanScroll, withMapsLocale, GOOGLE_CONSENT_COOKIE, GOOGLE_SOCS_COOKIE } from '../lib/stealth';
-
-interface ScrapeResult {
-  leads: SearchLead[];
-  blocked: boolean;
-  error?: string;
-}
+import { emptyMapsPlaceExtraData } from '../lib/types';
+import { normalizePhone, mergeMapsPlaceExtraData } from '../lib/validation';
+import { getRandomUserAgent, getRandomViewport, getRandomTimezone, getRandomGeolocation, withMapsLocale, GOOGLE_CONSENT_COOKIE, GOOGLE_SOCS_COOKIE } from '../lib/stealth';
 
 const PHONE_SELECTORS = [
   'button[data-item-id*="phone"]',
@@ -214,7 +208,6 @@ export async function extractFromPlaywrightMaps(
   const allLeads: SearchLead[] = [];
   let wasBlocked = false;
 
-  const usingSharedContext = !!sharedCtx;
   const effectiveContext = sharedCtx || await browser.newContext({
     userAgent: getRandomUserAgent(),
     viewport: getRandomViewport(),
@@ -380,7 +373,7 @@ export async function extractFromPlaywrightMaps(
       try {
         const tab = await effectiveContext.newPage();
         tab.setDefaultTimeout(10000);
-        for (const { lead, idx } of needsDetails) {
+        for (const { lead } of needsDetails) {
           if (signal?.aborted) break;
           if (lead.placeUrl) {
             const extra = await extractMapsPlaceDetails(tab, lead.placeUrl);

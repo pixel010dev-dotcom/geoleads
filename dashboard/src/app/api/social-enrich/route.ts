@@ -173,13 +173,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, city, niche, site } = body;
+    const { name, city, niche } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'Informe o nome da empresa.' }, { status: 400 });
     }
-
-    const cacheKey = `${normalizeName(name)}|${normalizeName(city || '')}`;
 
     const supabase = createAdminSupabaseClient();
 

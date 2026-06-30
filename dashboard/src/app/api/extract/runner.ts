@@ -84,9 +84,6 @@ const CITY_WEIGHT: Record<string, number> = {
 
 function getTargetPerCity(city: string, totalRemaining: number, citiesRemaining: number): number {
   const weight = CITY_WEIGHT[city] || 1;
-  const totalWeight = citiesRemaining > 0
-    ? Object.values(CITY_WEIGHT).slice(0, citiesRemaining).reduce((a, b) => a + b, 0) + citiesRemaining
-    : citiesRemaining;
   const baseTarget = Math.max(5, Math.ceil(totalRemaining / Math.max(1, citiesRemaining)));
   return Math.min(totalRemaining, Math.ceil(baseTarget * (weight / 2)));
 }

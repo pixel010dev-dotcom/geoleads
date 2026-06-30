@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminSupabaseClient, getAuthUser } from '@/lib/server-auth';
+import { createAdminSupabaseClient } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

@@ -41,8 +41,8 @@ export function clearExpiredCache() {
 export function getEnrichCache(domain: string): EnrichmentData | undefined {
   const cached = enrichCache.get(domain);
   if (cached && Date.now() - cached.timestamp < ENRICH_CACHE_TTL) {
-    const { timestamp, ...data } = cached;
-    return data;
+    const { ...data } = cached;
+    return data as EnrichmentData;
   }
   return undefined;
 }
@@ -52,12 +52,10 @@ export function setEnrichCache(domain: string, data: EnrichmentData) {
 }
 
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
-let cleanupTimer: ReturnType<typeof setInterval> | null = null;
-
 function startCleanupTimer() {
   if (typeof globalThis !== 'undefined' && !(globalThis as any).__geoleadsCacheCleanupSet) {
     (globalThis as any).__geoleadsCacheCleanupSet = true;
-    cleanupTimer = setInterval(clearExpiredCache, CLEANUP_INTERVAL_MS);
+    setInterval(clearExpiredCache, CLEANUP_INTERVAL_MS);
   }
 }
 

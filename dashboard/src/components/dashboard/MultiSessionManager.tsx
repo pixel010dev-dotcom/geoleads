@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from '@/lib/i18n';
 import { Button } from '@/components/Button';
+import Image from 'next/image';
 
 type SessionData = {
   sessionId: string;
@@ -305,7 +306,7 @@ export function MultiSessionManager({ user, selectedSessionId, onSelectSession, 
 
               {s.qrDataUrl && (s.status === 'qr' || s.status === 'pairing' || s.status === 'connecting') && (
                 <div className="mb-3 p-3 rounded-xl bg-white border border-cyan-500/20">
-                  <img src={s.qrDataUrl} alt="QR Code" className="w-full max-w-[180px] mx-auto" />
+                  <Image src={s.qrDataUrl} alt="QR Code" width={180} height={180} className="w-full max-w-[180px] mx-auto" />
                   <p className="text-center text-[10px] text-black/70 font-semibold mt-2">{t('chatbot.scanQr')}</p>
                 </div>
               )}

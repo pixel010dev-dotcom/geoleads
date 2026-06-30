@@ -22,7 +22,6 @@ function splitCsvLine(line: string, delimiter: string): string[] {
 }
 
 function detectDelimiter(firstLine: string): string {
-  const quoteCount = (firstLine.match(/"/g) || []).length;
   const commas = firstLine.split(',').length - 1;
   const semicolons = firstLine.split(';').length - 1;
   const tabs = firstLine.split('\t').length - 1;
@@ -126,7 +125,7 @@ export async function POST(request: Request) {
       delimiter,
       unmappedColumns,
     });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao processar CSV' }, { status: 500 });
   }
 }

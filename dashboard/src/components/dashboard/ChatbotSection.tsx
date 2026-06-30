@@ -3,6 +3,7 @@
 import { defaultAiInstructions } from './dashboard-constants';
 import { Button } from '@/components/Button';
 import { useTranslations } from '@/lib/i18n';
+import Image from 'next/image';
 
 import type { ChatbotRule } from '@/types/crm';
 
@@ -151,7 +152,7 @@ export function ChatbotSection({
 
           {chatbotSession.qrDataUrl ? (
             <div className="p-4 rounded-2xl bg-white border border-cyan-500/20 mb-5">
-              <img src={chatbotSession.qrDataUrl} alt="QR Code" className="w-full max-w-[260px] mx-auto" />
+              <Image src={chatbotSession.qrDataUrl} alt="QR Code" width={260} height={260} className="w-full max-w-[260px] mx-auto" />
               <p className="text-center text-xs text-black/70 font-semibold mt-3">{t('chatbot.scanQr')}</p>
             </div>
           ) : chatbotSession.pairingCode ? (

@@ -61,6 +61,7 @@ export default function Account() {
   useEffect(() => {
     document.title = t('account.title');
     loadAccountData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {

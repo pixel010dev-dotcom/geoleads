@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { FeatureKey, PlanId } from '@/lib/plans';
+import type { FeatureKey } from '@/lib/plans';
 import type { DashboardTab } from './dashboard-constants';
 import { tabUpgradeCopy } from './dashboard-constants';
 import { useTranslations } from '@/lib/i18n';

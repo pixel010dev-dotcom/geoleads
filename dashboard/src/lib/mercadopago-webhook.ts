@@ -1,5 +1,5 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { getPlanById, getPlanLevel, paidPlanIds, type PlanId } from '@/lib/plans';
+import { getPlanById, paidPlanIds, type PlanId } from '@/lib/plans';
 import { createAdminSupabaseClient, hasSupabaseServiceRole } from '@/lib/server-auth';
 
 const client = new MercadoPagoConfig({
@@ -266,13 +266,4 @@ export async function creditApprovedMercadoPagoPayment(paymentId: string): Promi
   };
 }
 
-// Funcao hash simples (reservada para uso futuro)
-function _hashlittle(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash);
-}
+

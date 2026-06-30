@@ -18,10 +18,6 @@ function parseFilterRules(filterRule: string): string[] {
   return filterRule.split(',').map(r => r.trim()).filter(Boolean);
 }
 
-function getConcurrentCount(userId: string): number {
-  return activeExtractions.get(userId) || 0;
-}
-
 function getGlobalConcurrent(): number {
   let total = 0;
   for (const count of activeExtractions.values()) total += count;

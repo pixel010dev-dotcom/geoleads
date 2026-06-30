@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/Button';
 import { CITIES, NICHE_EXAMPLES } from '@/lib/cities-data';

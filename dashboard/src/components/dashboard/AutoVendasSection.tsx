@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { showToast } from '@/components/Toast';
 import { useTranslations } from '@/lib/i18n';
+import Image from 'next/image';
 
 type CampaignStatus = 'draft' | 'pending_payment' | 'paid' | 'running' | 'paused' | 'completed' | 'cancelled';
 
@@ -424,7 +425,7 @@ export default function AutoVendasSection() {
                       </div>
                       {campaign.payment_pix_qr && (
                         <div className="bg-white rounded-xl p-3 w-40 h-40 mx-auto lg:mx-0">
-                          <img src={campaign.payment_pix_qr} alt="QR Code PIX" className="w-full h-full object-contain" />
+                          <Image src={campaign.payment_pix_qr} alt="QR Code PIX" width={200} height={200} className="w-full h-full object-contain" />
                         </div>
                       )}
                     </div>

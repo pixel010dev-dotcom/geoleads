@@ -23,13 +23,14 @@ export default function AdminPage() {
   const router = useRouter();
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   useEffect(() => {
     document.title = t('admin.title');
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = async () => {
@@ -66,7 +67,7 @@ export default function AdminPage() {
       } else {
         showToast(json.error || t('admin.connectionError'), 'error');
       }
-    } catch (err) {
+    } catch {
       showToast(t('admin.connectionError'), 'error');
     } finally {
       setLoading(false);

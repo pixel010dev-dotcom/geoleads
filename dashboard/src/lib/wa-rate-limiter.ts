@@ -1,14 +1,5 @@
 const COUNTERS = new Map<string, { minute: number; hour: number; day: number; minuteTs: number; hourTs: number; dayTs: number }>();
 
-function getBucketKey(sessionId: string): string {
-  const now = Date.now();
-  const minuteTs = Math.floor(now / 60000);
-  const hourTs = Math.floor(now / 3600000);
-  const dayTs = Math.floor(now / 86400000);
-  const key = `${sessionId}:${minuteTs}:${hourTs}:${dayTs}`;
-  return key;
-}
-
 export function checkRateLimit(sessionId: string, limits: { perMinute: number; perHour: number; perDay: number }): { allowed: boolean; reason?: string } {
   const now = Date.now();
   const minuteTs = Math.floor(now / 60000);

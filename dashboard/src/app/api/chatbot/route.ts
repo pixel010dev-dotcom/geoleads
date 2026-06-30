@@ -936,7 +936,7 @@ export async function POST(request: Request) {
     } catch (e) { console.error(e); }
     session.socket = undefined;
     if (sessionId) {
-      const { getSession, removeSessionFromStore } = await import('@/lib/wa-session-store');
+      const { getSession } = await import('@/lib/wa-session-store');
       const ms = getSession(auth.user.id, sessionId);
       if (ms) { ms.socket = undefined; ms.status = 'idle'; }
     }

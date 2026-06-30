@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { FeatureKey, PlanId } from '@/lib/plans';
+import type { FeatureKey } from '@/lib/plans';
 import type { SearchLead } from '@/app/api/extract/lib/types';
 import type { CrmLead, ExtractStats } from '@/types/crm';
 import HackerRadar from '@/components/HackerRadar';
@@ -18,10 +18,7 @@ export interface ExtractorSectionProps {
   location: string;
   limit: number | '';
   filterRule: string;
-  tokens: number | null;
   user: { id: string; email?: string } | null;
-  currentPlan: { nameKey: string; shortNameKey: string; tokens: number };
-  planId: PlanId;
   handleExtract: (e: React.FormEvent) => Promise<void>;
   handleAddToCRM: (lead: SearchLead | CrmLead) => void;
   handleAddAllToCRM: () => void;
@@ -52,10 +49,7 @@ export default function ExtractorSection({
   location,
   limit,
   filterRule,
-  tokens,
   user,
-  currentPlan,
-  planId,
   handleExtract,
   handleAddToCRM,
   handleAddAllToCRM,

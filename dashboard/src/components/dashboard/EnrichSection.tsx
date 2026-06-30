@@ -8,12 +8,6 @@ import { supabase } from '@/lib/supabase';
 
 interface Props {
   crmLeads: CrmLead[];
-  handleReEnrichSingle: (lead: CrmLead) => Promise<void>;
-  handleReEnrichSelected: () => Promise<void>;
-  enrichLoading: boolean;
-  selectedCrmLeads: string[];
-  setSelectedCrmLeads: React.Dispatch<React.SetStateAction<string[]>>;
-  openWhatsApp: (lead: CrmLead) => void;
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
@@ -27,9 +21,9 @@ interface BatchProgress {
   results: BatchResult[];
 }
 
-export default function EnrichSection({ crmLeads, handleReEnrichSingle, handleReEnrichSelected, enrichLoading, selectedCrmLeads, setSelectedCrmLeads, openWhatsApp, showToast }: Props) {
+export default function EnrichSection({ crmLeads, showToast }: Props) {
   const { t } = useTranslations();
-  const [enrichStatus, setEnrichStatus] = useState<Record<string, string>>({});
+  const [, setEnrichStatus] = useState<Record<string, string>>({});
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const batchIdRef = useRef<string | null>(null);

@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
       }).eq('id', item.id);
 
       results.push({ id: item.id, ok: true });
-    } catch (err: any) {
+    } catch {
       await supabase.from('wa_followups').update({
         status: 'failed',
       }).eq('id', item.id);

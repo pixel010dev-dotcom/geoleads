@@ -4,10 +4,9 @@ import type { NextRequest } from 'next/server';
 const protectedPaths = ['/app/dashboard', '/app/admin'];
 const authPaths = ['/login'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for static assets and API routes (APIs handle auth themselves)
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/') ||
@@ -24,12 +23,10 @@ export function middleware(request: NextRequest) {
 
   const isAuthenticated = Boolean(sessionCookie);
 
-  // Redirect authenticated users away from login
   if (isAuthenticated && authPaths.some(p => pathname === p)) {
     return NextResponse.redirect(new URL('/app/dashboard', request.url));
   }
 
-  // Protect dashboard routes
   if (protectedPaths.some(p => pathname.startsWith(p)) && !isAuthenticated) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
@@ -38,7 +35,6 @@ export function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
 
-  // Security headers complementares
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import type { FeatureKey } from '@/lib/plans';
 import type { DashboardTab } from './dashboard-constants';
 import type { CrmLead, WaSentMessage, AiCopyResult } from '@/types/crm';
 import { waMessagePresets, waTemplateTags } from './dashboard-constants';
@@ -11,7 +10,6 @@ import { useTranslations } from '@/lib/i18n';
 export interface WhatsAppSectionProps {
   dispatchableWaLeads: CrmLead[];
   selectedWaLeads: string[];
-  setSelectedWaLeads: (v: string[]) => void;
   waTemplate: string;
   setWaTemplate: (v: string) => void;
   waSentStatus: Record<string, boolean>;
@@ -39,8 +37,6 @@ export interface WhatsAppSectionProps {
   waSentMessages: WaSentMessage[];
   waSentMessagesLoading: boolean;
   chatbotSession: Record<string, any>;
-  user: { id: string; email?: string } | null;
-  requireFeature: (feature: FeatureKey) => boolean;
   setActiveTab: (tab: DashboardTab) => void;
   openWhatsApp: (lead: CrmLead, customText?: string, options?: Record<string, any>) => void;
   handleStartBulkSending: () => void;
@@ -74,7 +70,6 @@ export interface WhatsAppSectionProps {
 export function WhatsAppSection({
   dispatchableWaLeads,
   selectedWaLeads,
-  setSelectedWaLeads,
   waTemplate,
   setWaTemplate,
   waSentStatus,
@@ -102,8 +97,6 @@ export function WhatsAppSection({
   waSentMessages,
   waSentMessagesLoading,
   chatbotSession,
-  user,
-  requireFeature,
   setActiveTab,
   openWhatsApp,
   handleStartBulkSending,

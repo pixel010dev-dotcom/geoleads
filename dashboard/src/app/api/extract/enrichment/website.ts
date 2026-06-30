@@ -1,9 +1,6 @@
-import { isSafeUrl } from '../lib/validation';
-import { isGoogleOwnedHost, pickEmail, pickCnpj, pickSocialLinks, pickContactUrls } from '../lib/validation';
+import { isSafeUrl, isGoogleOwnedHost, pickContactUrls, applySignalsToLead } from '../lib/validation';
 import { extractDomain } from '../lib/normalizers';
-import { applySignalsToLead } from '../lib/validation';
 import { getEnrichCache, setEnrichCache } from '../lib/cache';
-import type { SearchLead } from '../lib/types';
 
 export async function fetchHtml(url: string): Promise<string> {
   if (!isSafeUrl(url)) return '';

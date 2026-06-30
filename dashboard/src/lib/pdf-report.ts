@@ -5,9 +5,6 @@ export function generatePdfReport({ tokens, leads, userName }: { tokens: number;
   const pageW = 190;
   let y = 20;
 
-  const colorPrimary = '#3b82f6';
-  const colorBg = '#f8fafc';
-
   const header = () => {
     doc.setFillColor(59, 130, 246);
     doc.rect(0, 0, 210, 28, 'F');

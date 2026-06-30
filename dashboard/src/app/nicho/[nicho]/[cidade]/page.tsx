@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/Button';
-import { getNicheBySlug, getCityBySlug, getAllComboSlugs, CITIES, NICHES } from '@/lib/cities-data';
+import { getNicheBySlug, getCityBySlug, CITIES, NICHES } from '@/lib/cities-data';
 
 export const dynamic = 'force-dynamic';
 

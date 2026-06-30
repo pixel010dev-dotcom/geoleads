@@ -59,6 +59,7 @@ export default function Pricing() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedPlan = plans[selectedPlanId];
@@ -94,7 +95,7 @@ export default function Pricing() {
         }
       } catch (e) { console.error(e); }
     }, 5000);
-  }, [selectedPlanId, stopPolling]);
+  }, [selectedPlanId, stopPolling, router, t]);
 
   const checkoutRequest = async (planId: PlanId, method: 'pix' | 'card') => {
     const { data: { session } } = await supabase.auth.getSession();

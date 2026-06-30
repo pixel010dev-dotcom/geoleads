@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser, requireFeature } from '@/lib/server-auth';
 import { createAdminSupabaseClient } from '@/lib/server-auth';
-import { checkRateLimit, getSmartDelay } from '@/lib/wa-rate-limiter';
+import { checkRateLimit } from '@/lib/wa-rate-limiter';
 import { toWhatsAppJid } from '@/lib/phone';
 
 export async function POST(request: Request) {

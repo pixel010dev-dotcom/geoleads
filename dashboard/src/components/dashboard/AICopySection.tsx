@@ -3,7 +3,7 @@
 import type { AiCopyResult } from '@/types/crm';
 import { useTranslations } from '@/lib/i18n';
 import { Button } from '@/components/Button';
-import { showToast, type ToastType } from '@/components/Toast';
+import { type ToastType } from '@/components/Toast';
 import type { DashboardTab } from './dashboard-constants';
 
 export interface AICopySectionProps {

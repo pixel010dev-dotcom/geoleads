@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { CrmLead, WaSentMessage, BatchEnrichProgress } from '@/types/crm';
-import { getLeadKey, normalizeCrmLead } from './dashboard-constants';
+
 import { showToast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 import { useTranslations } from '@/lib/i18n';
@@ -85,7 +85,6 @@ export interface CRMSectionProps {
   crmFilterStage: string;
   setCrmFilterStage: (v: string) => void;
   selectedCrmLeads: string[];
-  setSelectedCrmLeads: (v: string[]) => void;
   crmSyncStatus: string;
   crmSyncMessage: string;
   crmPage: number;
@@ -154,7 +153,6 @@ export default function CRMSection({
   crmFilterStage,
   setCrmFilterStage,
   selectedCrmLeads,
-  setSelectedCrmLeads,
   crmSyncStatus,
   crmSyncMessage,
   crmPage,
@@ -173,13 +171,13 @@ export default function CRMSection({
   onImportLeads,
   batchEnrichProgress,
 }: CRMSectionProps) {
-  const { t, locale } = useTranslations();
+  const { t } = useTranslations();
   const waSentNames = new Set((waSentMessages || []).map((m: WaSentMessage) => m.lead_name).filter(Boolean));
   const [crmFilterTag, setCrmFilterTag] = useState('all');
   const [crmSortField, setCrmSortField] = useState('nome');
   const [crmSortDir, setCrmSortDir] = useState<'asc' | 'desc'>('asc');
   const [tagInputs, setTagInputs] = useState<Record<string, string>>({});
-  const [showTagMenu, setShowTagMenu] = useState<Record<string, boolean>>({});
+
   const [crmViewMode, setCrmViewMode] = useState<'table' | 'kanban' | 'map'>('table');
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);

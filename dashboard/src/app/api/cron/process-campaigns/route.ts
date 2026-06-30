@@ -65,7 +65,6 @@ export async function GET(req: NextRequest) {
 
     let sentCount = 0;
     let failCount = 0;
-    const BATCH_SIZE = 3;
 
     for (let i = 0; i < leadKeys.length; i++) {
       const leadKey = leadKeys[i];

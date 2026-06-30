@@ -1,7 +1,7 @@
 import type { SearchLead } from '../lib/types';
 import { createEmptySearchLead } from '../lib/types';
 import { normalizePhone } from '../lib/validation';
-import { NICHE_TO_OSM_TAGS, NICHE_TO_CNAE } from '../lib/normalizers';
+import { NICHE_TO_OSM_TAGS } from '../lib/normalizers';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
@@ -9,12 +9,6 @@ const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 const GEO_CACHE = new Map<string, { bbox: string; lat: number; lon: number }>();
 const CNPJ_CACHE = new Map<string, any>();
 const MAX_CACHE_SIZE = 500;
-
-const STATE_CODES_BR = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
-  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
-  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
-];
 
 function extractCityState(location: string): { city: string; state: string } {
   const loc = location.trim();
@@ -300,11 +294,6 @@ export function enrichLeadFromBrasilApi(lead: SearchLead, brasilData: any): Sear
   return lead;
 }
 
-export async function searchByCnaeAndCity(
-  _keyword: string,
-  _location: string,
-  _targetLimit: number,
-  _existingKeys: Set<string>
-): Promise<SearchLead[]> {
+export async function searchByCnaeAndCity(): Promise<SearchLead[]> {
   return [];
 }

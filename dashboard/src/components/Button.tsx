@@ -52,13 +52,11 @@ function getButtonClasses({
   variant = 'primary',
   size = 'md',
   loading,
-  disabled,
   className = '',
 }: {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
-  disabled?: boolean;
   className?: string;
 }) {
   return [
@@ -109,7 +107,6 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
       const classes = getButtonClasses({
         variant,
         size,
-        disabled: disabled || loading,
         className,
       });
 
@@ -145,7 +142,6 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
       variant,
       size,
       loading,
-      disabled,
       className,
     });
 
