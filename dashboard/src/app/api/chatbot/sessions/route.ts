@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withErrorHandler } from '@/lib/api-error-handler';
 import { getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 import { createSessionInStore, getSession, getAllUserSessions, removeSessionFromStore, getPublicSession } from '@/lib/wa-session-store';
 
@@ -10,7 +11,7 @@ function getOldSessionStore(): Map<string, any> | null {
   return g['__geoleadsChatbotSessions'] || null;
 }
 
-export async function GET(request: Request) {
+export const GET = withErrorHandler(async (request: Request) => {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
 
@@ -59,9 +60,9 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json({ success: true, sessions: merged });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withErrorHandler(async (request: Request) => {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
   if (!requireFeature(auth.planId, 'chatbot')) {
@@ -162,4 +163,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ error: 'Acao invalida.' }, { status: 400 });
-}
+});

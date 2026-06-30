@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -163,7 +163,7 @@ export default function Home() {
   const currentPlan = getPlanById(planId);
   const activeTabFeature = tabFeatureMap[activeTab];
   const activeTabLocked = Boolean(activeTabFeature && !hasFeature(planId, activeTabFeature as FeatureKey));
-  const requireFeature = (feature: FeatureKey) => hasFeature(planId, feature);
+  const requireFeature = useCallback((feature: FeatureKey) => hasFeature(planId, feature), [planId]);
   const getUpgradePlan = (feature: FeatureKey) => getPlanById(getRequiredPlanForFeature(feature));
 
   const showLockedFeature = (feature: FeatureKey) => {
@@ -298,7 +298,7 @@ export default function Home() {
     }
   };
 
-  const callChatbotApi = async (action: string, config = getChatbotConfig()) => {
+  const callChatbotApi = useCallback(async (action: string, config = getChatbotConfig()) => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) { router.push('/login'); return null; }
@@ -311,12 +311,13 @@ export default function Home() {
     if (!res.ok) throw new Error(payload.error || 'Erro no chatbot.');
     if (payload.session) setChatbotSession(payload.session);
     return payload;
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, router, setChatbotSession]);
 
-  const refreshChatbotStatus = async () => {
+  const refreshChatbotStatus = useCallback(async () => {
     if (!user) return;
     try { await callChatbotApi('status'); } catch (error: any) { setChatbotMessage(error.message); }
-  };
+  }, [user, callChatbotApi, setChatbotMessage]);
 
   const handleConnectChatbot = async () => {
     if (!requireFeature('chatbot')) { setActiveTab('chatbot'); return; }

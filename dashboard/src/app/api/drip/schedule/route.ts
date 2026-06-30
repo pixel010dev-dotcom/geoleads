@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { withErrorHandler } from '@/lib/api-error-handler';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthUser } from '@/lib/server-auth';
 
@@ -7,7 +8,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const DRIP_DAYS = [1, 3, 5, 7];
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: Request) => {
   const auth = await getAuthUser(req);
   if (!auth) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -37,4 +38,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, scheduled: DRIP_DAYS.length });
-}
+});

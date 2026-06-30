@@ -39,6 +39,7 @@ type BotSession = {
   lastError?: string;
   lastDisconnectCode?: string;
   lastIgnoredReason?: string;
+  proxyUrl?: string;
   connectedAt?: string;
   lastMessageAt?: string;
   lastIncomingAt?: string;
@@ -343,14 +344,24 @@ const startBotSession = async (session: BotSession) => {
 
   const { state, saveCreds } = await makeSupabaseAuthState(session.userId, session.sessionId);
 
+  let proxyAgent: any;
+  if (session.proxyUrl) {
+    const { SocksProxyAgent } = await import('socks-proxy-agent');
+    const { HttpsProxyAgent } = await import('https-proxy-agent');
+    proxyAgent = session.proxyUrl.startsWith('socks')
+      ? new SocksProxyAgent(session.proxyUrl)
+      : new HttpsProxyAgent(session.proxyUrl);
+  }
+
   const socket = makeWASocket({
     auth: state,
     browser: Browsers.ubuntu('GeoLeads Chatbot'),
     logger: pino({ level: 'silent' }),
     markOnlineOnConnect: false,
     printQRInTerminal: false,
-    syncFullHistory: false
-  });
+    syncFullHistory: false,
+    agent: proxyAgent,
+  } as any);
 
   session.socket = socket;
 
@@ -729,6 +740,7 @@ export async function POST(request: Request) {
       session.lastDisconnectCode = ms.lastDisconnectCode;
       session.connectedAt = ms.connectedAt;
       session.reconnectAttempts = ms.reconnectAttempts;
+      session.proxyUrl = ms.proxyUrl;
     }
   } else {
     session = getOrCreateSession(auth.user.id, config);
@@ -806,14 +818,24 @@ export async function POST(request: Request) {
     const { Browsers, DisconnectReason } = baileys;
     const { state, saveCreds } = await makeSupabaseAuthState(session.userId, session.sessionId);
 
+    let proxyAgent: any;
+    if (session.proxyUrl) {
+      const { SocksProxyAgent } = await import('socks-proxy-agent');
+      const { HttpsProxyAgent } = await import('https-proxy-agent');
+      proxyAgent = session.proxyUrl.startsWith('socks')
+        ? new SocksProxyAgent(session.proxyUrl)
+        : new HttpsProxyAgent(session.proxyUrl);
+    }
+
     const socket = makeWASocket({
       auth: state,
       browser: Browsers.ubuntu('GeoLeads Chatbot'),
       logger: pino({ level: 'silent' }),
       markOnlineOnConnect: false,
       printQRInTerminal: false,
-      syncFullHistory: false
-    });
+      syncFullHistory: false,
+      agent: proxyAgent,
+    } as any);
 
     session.socket = socket;
     socket.ev.on('creds.update', saveCreds);

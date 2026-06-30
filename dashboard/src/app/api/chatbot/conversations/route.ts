@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
+import { withErrorHandler } from '@/lib/api-error-handler';
 import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export const GET = withErrorHandler(async (request: Request) => {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
 
@@ -22,9 +23,9 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.json({ error: 'Erro ao buscar conversas' }, { status: 500 });
   return NextResponse.json({ success: true, conversations: data, total: count });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withErrorHandler(async (request: Request) => {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
 
@@ -43,4 +44,4 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: 'Erro ao salvar conversa' }, { status: 500 });
   return NextResponse.json({ success: true, conversation: data });
-}
+});

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
+import { withErrorHandler } from '@/lib/api-error-handler';
 import { getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export const GET = withErrorHandler(async (request: Request) => {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
 
@@ -18,9 +19,9 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.json({ error: 'Erro ao buscar campanhas' }, { status: 500 });
   return NextResponse.json({ success: true, campaigns: data });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withErrorHandler(async (request: Request) => {
   const auth = await getAuthUser(request);
   if (!auth) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
   if (!requireFeature(auth.planId, 'whatsappSender')) {
@@ -70,4 +71,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ error: 'Ação inválida.' }, { status: 400 });
-}
+});

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withErrorHandler } from '@/lib/api-error-handler';
 import { getPlanById, getPlanIdFromTokens, getPlanLevel, type PlanId } from '@/lib/plans';
 import {
   createAdminSupabaseClient,
@@ -16,7 +17,7 @@ function resolvePlanId(savedPlanId: string | null | undefined, tokens: number): 
   return getPlanLevel(saved) >= getPlanLevel(inferred) ? saved : inferred;
 }
 
-export async function GET(request: Request) {
+export const GET = withErrorHandler(async (request: Request) => {
   const auth = await getAuthUser(request);
   if (!auth) {
     return NextResponse.json({ error: 'Nao autorizado.' }, { status: 401 });
@@ -63,4 +64,4 @@ export async function GET(request: Request) {
       chatbotAutoCapture: profile?.chatbot_auto_capture ?? false
     }
   });
-}
+});
