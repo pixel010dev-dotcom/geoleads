@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { CrmLead, WaSentMessage, BatchEnrichProgress } from '@/types/crm';
 
 import { showToast } from '@/components/Toast';
+import { LeadScoreBadge } from '@/components/LeadScore';
 import dynamic from 'next/dynamic';
 import { useTranslations } from '@/lib/i18n';
 
@@ -51,32 +52,7 @@ function exportCrmToCsv(t: (key: string, vars?: Record<string, string | number>)
   URL.revokeObjectURL(url);
 }
 
-function computeQualityScore(lead: CrmLead): number {
-  let score = 0;
-  if (lead.telefone && lead.telefone !== 'Não informado') score += 1;
-  if (lead.email) score += 1;
-  if (lead.site && lead.site !== 'Sem site') score += 1;
-  if (lead.telefone && /^(\+55|55)?\s*\(?\d{2}\)?\s*9\d/.test(lead.telefone.replace(/\D/g, ''))) score += 1;
-  if (Number(lead.avaliacao) > 0) score += 1;
-  if (lead.instagram) score += 1;
-  if (lead.facebook) score += 1;
-  if (lead.tiktok) score += 1;
-  if (lead.linkedin) score += 1;
-  return score;
-}
 
-function QualityBadge({ score }: { score: number }) {
-  const cfg = score >= 4
-    ? { label: 'Alta', color: 'bg-green-500/15 border-green-500/25 text-green-400' }
-    : score >= 2
-    ? { label: 'Média', color: 'bg-yellow-500/15 border-yellow-500/25 text-yellow-400' }
-    : { label: 'Baixa', color: 'bg-gray-500/15 border-gray-500/25 text-gray-400' };
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full border text-[10px] font-semibold leading-none ${cfg.color}`}>
-      {cfg.label}
-    </span>
-  );
-}
 
 export interface CRMSectionProps {
   crmLeads: CrmLead[];
@@ -429,7 +405,7 @@ export default function CRMSection({
                 <td className="px-4 py-4 font-medium text-gray-200">
                   <div className="font-bold flex items-center gap-2">
                     {lead.nome}
-                    <QualityBadge score={computeQualityScore(lead)} />
+                    <LeadScoreBadge lead={lead} />
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">{lead.nicho} · {lead.cidade}</div>
                   {lead.site && lead.site !== 'Sem site' ? (
@@ -585,7 +561,7 @@ export default function CRMSection({
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-gray-200 text-sm flex items-center gap-2">
                     {lead.nome}
-                    <QualityBadge score={computeQualityScore(lead)} />
+                    <LeadScoreBadge lead={lead} />
                   </div>
                   <div className="text-xs text-gray-500 mt-1">{lead.nicho} · {lead.cidade}</div>
                   {lead.site && lead.site !== 'Sem site' ? (
