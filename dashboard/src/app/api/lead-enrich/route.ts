@@ -2,24 +2,10 @@ import { NextResponse } from 'next/server';
 import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
 import { enrichLead } from '../extract/enrichment/website';
 
-const BR_PHONE_REGEX = /(?:\(\d{2,3}\)\s?)?\d{4,5}[\s-]?\d{4}/g;
-const CNPJ_REGEX = /\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/;
 const URL_REGEX = /https?:\/\/[^\s"'<>)\]]+/g;
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
 function normalizeName(name: string) {
   return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g, '').trim();
-}
-
-function extractPhoneFromText(text: string): string[] {
-  const phones: string[] = [];
-  let m: RegExpExecArray | null;
-  const brRegex = /\(?(\d{2,3})\)?\s?(\d{4,5})[\s-]?(\d{4})/g;
-  while ((m = brRegex.exec(text)) !== null) {
-    const full = `(${m[1]}) ${m[2]}-${m[3]}`;
-    if (!phones.includes(full)) phones.push(full);
-  }
-  return phones;
 }
 
 function extractCNPJFromText(text: string): string | null {
@@ -102,10 +88,9 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
     const html = await duckduckgoSearch(query);
     if (!html) continue;
 
-    if (!data.telefone) {
-      const phones = extractPhoneFromText(html);
-      if (phones.length > 0) data.telefone = phones[0];
-    }
+    // NOTA: Nao extraimos telefone de busca web (DuckDuckGo/diretorios)
+    // porque os numeros encontrados sao de outros negocios na pagina.
+    // So aceitamos telefone via BrasilAPI (CNPJ oficial).
 
     if (!data.cnpj) {
       const cnpj = extractCNPJFromText(html);
@@ -144,7 +129,7 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
   }
 
   // Follow BR directory links to extract more data
-  if (!data.site || !data.telefone || !data.cnpj) {
+  if (!data.site || !data.cnpj) {
     const html = await duckduckgoSearch(`${name} ${city || ''}`);
     if (html) {
       const urls = Array.from(html.matchAll(/href="[^"]*"/g), m => m[1]);
@@ -158,10 +143,6 @@ async function searchBusinessData(name: string, city?: string): Promise<Record<s
           if (dirDomains.some(d => host === d || host.endsWith('.' + d))) {
             const text = await fetchPageText(url);
             if (text) {
-              if (!data.telefone) {
-                const phones = extractPhoneFromText(text);
-                if (phones.length > 0) data.telefone = phones[0];
-              }
               if (!data.cnpj) {
                 const cnpj = extractCNPJFromText(text);
                 if (cnpj) data.cnpj = cnpj;
@@ -242,7 +223,6 @@ export async function POST(request: Request) {
         if (cached.tiktok) enriched.tiktok = cached.tiktok;
         if (!cnpj && cached.cnpj) enriched.cnpj = cached.cnpj;
         if (!discoveredSite && cached.site) discoveredSite = cached.site;
-        if (cached.telefone) enriched.telefone = cached.telefone;
         if (Object.keys(enriched).length >= 3 && discoveredSite) {
           return NextResponse.json({ success: true, enriched, message: 'Cache.' });
         }
@@ -254,7 +234,6 @@ export async function POST(request: Request) {
       (async () => {
         try {
           const bizData = await searchBusinessData(nome, cidade);
-          if (bizData.telefone && !enriched.telefone) enriched.telefone = bizData.telefone;
           if (bizData.cnpj && !enriched.cnpj) enriched.cnpj = bizData.cnpj;
           if (bizData.endereco && !enriched.endereco) enriched.endereco = bizData.endereco;
           if (bizData.instagram && !enriched.instagram) enriched.instagram = bizData.instagram;
@@ -362,7 +341,7 @@ export async function POST(request: Request) {
         company_name: nome, city: cidade || '', site: discoveredSite || site || '',
         email: enriched.email || '', instagram: enriched.instagram || '',
         facebook: enriched.facebook || '', tiktok: enriched.tiktok || '',
-        cnpj: enriched.cnpj || '', telefone: enriched.telefone || '',
+        cnpj: enriched.cnpj || '',
         enriched_at: new Date().toISOString(),
       }, { onConflict: 'company_name,city' });
     } catch (e) { console.warn('[ENRICH] step:', e); }

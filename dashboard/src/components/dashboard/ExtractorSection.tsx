@@ -218,7 +218,7 @@ export default function ExtractorSection({
                 const isBroad = /brasil|brazil|todos os estados|nacional|pa[ií]s inteiro|mundo/i.test(location);
                 if (isBroad) {
                   const citiesEst = Math.min(Math.ceil(l / 5), 100);
-                  let sec = Math.min(6 + citiesEst * 0.6 + l * 0.4 + 8, 180);
+                  const sec = Math.min(6 + citiesEst * 0.6 + l * 0.4 + 8, 180);
                   if (sec > 120) {
                     const mins = Math.ceil(sec / 60);
                     const statesEst = Math.min(27, Math.ceil(citiesEst / 4));

@@ -32,7 +32,7 @@ function detectDelimiter(firstLine: string): string {
 }
 
 function parseCsv(text: string): { rows: Record<string, string>[]; delimiter: string } {
-  let cleaned = text.replace(/^\uFEFF/, '');
+  const cleaned = text.replace(/^\uFEFF/, '');
   const lines = cleaned.split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return { rows: [], delimiter: ',' };
   const delimiter = detectDelimiter(lines[0]);

@@ -48,7 +48,7 @@ const sizeStyles: Record<ButtonSize, string> = {
   lg: 'px-8 py-3.5 rounded-2xl text-base',
 };
 
-function useButtonClasses({
+function getButtonClasses({
   variant = 'primary',
   size = 'md',
   loading,
@@ -106,7 +106,7 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
         ...rest
       } = props;
 
-      const classes = useButtonClasses({
+      const classes = getButtonClasses({
         variant,
         size,
         disabled: disabled || loading,
@@ -141,7 +141,7 @@ const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
       ...rest
     } = props as ButtonAsButton;
 
-    const classes = useButtonClasses({
+    const classes = getButtonClasses({
       variant,
       size,
       loading,

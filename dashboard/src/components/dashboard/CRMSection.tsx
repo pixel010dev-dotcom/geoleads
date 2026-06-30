@@ -9,7 +9,7 @@ import { useTranslations } from '@/lib/i18n';
 
 const HackMap = dynamic(() => import('@/components/HackMap'), { ssr: false, loading: () => <div className="h-[320px] sm:h-[400px] rounded-2xl bg-black/50 border border-green-500/20 flex items-center justify-center text-green-400/50 text-sm font-mono">INICIALIZANDO MAPA...</div> });
 
-function exportCrmToCsv(t: Function, leads: CrmLead[], filename: string) {
+function exportCrmToCsv(t: (key: string, vars?: Record<string, string | number>) => string, leads: CrmLead[], filename: string) {
   const cols = [
     t('crm.csvName'),
     t('crm.csvPhone'),
@@ -118,7 +118,7 @@ const TAG_CONFIG: Record<string, { icon: string; color: string }> = {
 };
 const ALL_TAGS = Object.keys(TAG_CONFIG);
 
-function getTagLabel(tag: string, t: Function): string {
+function getTagLabel(tag: string, t: (key: string, vars?: Record<string, string | number>) => string): string {
   const tagKeyMap: Record<string, string> = {
     'Quente': 'crm.hotLabel',
     'Morno': 'crm.warmLabel',
@@ -132,7 +132,7 @@ function getTagLabel(tag: string, t: Function): string {
   return tag;
 }
 
-function TagBadge({ tag, onRemove, t: tFn }: { tag: string; onRemove?: () => void; t: Function }) {
+function TagBadge({ tag, onRemove, t: tFn }: { tag: string; onRemove?: () => void; t: (key: string, vars?: Record<string, string | number>) => string }) {
   const cfg = TAG_CONFIG[tag];
   const base = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium';
   const style = cfg?.color || 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300';

@@ -31,7 +31,6 @@ function extractBingBusinessData(html: string): Array<{
   const jsonBlobs: string[] = [];
   const entityRegex = /"entities":\s*\[/g;
   let m: RegExpExecArray | null;
-  let lastIndex = 0;
   while ((m = entityRegex.exec(html)) !== null) {
     const start = m.index;
     let depth = 1;

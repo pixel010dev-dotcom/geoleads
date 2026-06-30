@@ -33,8 +33,8 @@ export const makeSupabaseAuthState = async (userId: string, sessionId?: string) 
 
   const { data: existing } = await query.maybeSingle();
 
-  let creds: any = existing?.creds ? reviveBuffers(existing.creds) : initAuthCreds();
-  let keysData: Record<string, any> = {};
+  const creds: any = existing?.creds ? reviveBuffers(existing.creds) : initAuthCreds();
+  const keysData: Record<string, any> = {};
   if (existing?.keys_json) {
     for (const [k, v] of Object.entries(existing.keys_json)) {
       keysData[k] = reviveBuffers(v);

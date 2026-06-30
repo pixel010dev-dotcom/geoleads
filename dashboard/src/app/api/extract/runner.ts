@@ -329,7 +329,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       const targetCities = TOP_CITIES.slice(0, 30);
       if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
         notify(`Reforçando com navegador em ${targetCities.length} cidades...`);
-        const { chromium } = require('playwright');
+        const { chromium } = await import('playwright');
         const browser = await chromium.launch({
           headless: true,
           args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
@@ -395,7 +395,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
         notify(`Reforçando com navegador + variações...`);
         try {
-          const { chromium } = require('playwright');
+          const { chromium } = await import('playwright');
           const pwBrowser = await chromium.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],

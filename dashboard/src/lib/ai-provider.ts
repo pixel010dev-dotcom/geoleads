@@ -231,7 +231,7 @@ const callProvider = async (
   }
 };
 
-let loggedFallback = new Set<string>();
+const loggedFallback = new Set<string>();
 
 export class AIProvider {
   static async generate(request: AIRequest): Promise<AIResponse> {

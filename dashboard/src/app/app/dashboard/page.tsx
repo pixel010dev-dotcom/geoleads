@@ -28,10 +28,13 @@ import { useTranslations } from '@/lib/i18n';
 import { toWhatsAppNumber } from '@/lib/phone';
 
 function mergeEnrichmentIntoLead(lead: CrmLead, enriched: Record<string, any>): CrmLead {
-  const merged = { ...lead, ...enriched };
-  if (enriched.site_descoberto && (!merged.site || merged.site === 'Sem site')) {
-    merged.site = enriched.site_descoberto;
-  }
+  const merged = { ...lead };
+  if (enriched.email && (!lead.email || lead.email === 'Não informado')) merged.email = enriched.email;
+  if (enriched.instagram && !lead.instagram) merged.instagram = enriched.instagram;
+  if (enriched.facebook && !lead.facebook) merged.facebook = enriched.facebook;
+  if (enriched.tiktok && !lead.tiktok) merged.tiktok = enriched.tiktok;
+  if (enriched.cnpj && !lead.cnpj) merged.cnpj = enriched.cnpj;
+  if (enriched.site_descoberto && (!merged.site || merged.site === 'Sem site')) merged.site = enriched.site_descoberto;
   return merged;
 }
 
@@ -1407,7 +1410,7 @@ export default function Home() {
     if (!lead.telefone || lead.telefone === 'Não informado') { showToast('Lead sem telefone válido.', 'warning'); return; }
     const number = toWhatsAppNumber(lead.telefone);
     if (number.length < 10) { showToast('Número de telefone inválido.', 'warning'); return; }
-    let msg = customText ? renderWhatsAppMessage(lead, customText) : `Olá! Vi o perfil da *${lead.nome}* no Google e gostaria de saber mais sobre os serviços de vocês. Podemos conversar?`;
+    const msg = customText ? renderWhatsAppMessage(lead, customText) : `Olá! Vi o perfil da *${lead.nome}* no Google e gostaria de saber mais sobre os serviços de vocês. Podemos conversar?`;
     const messageEncoded = encodeURIComponent(msg);
     const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
     const url = options?.preferWeb && !isMobile ? `https://web.whatsapp.com/send?phone=${number}&text=${messageEncoded}` : `https://wa.me/${number}?text=${messageEncoded}`;

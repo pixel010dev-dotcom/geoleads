@@ -51,6 +51,7 @@ function LiveCounter({ value, label }: { value: number; label: string }) {
 export default function LandingPage() {
   const { t } = useTranslations();
   const [testimonialsList, setTestimonialsList] = useState<{ name: string; stars: number; text: string; role: string }[]>([]);
+  const [testimonialPage, setTestimonialPage] = useState(0);
   const [proofIndex, setProofIndex] = useState(0);
   const [proofVisible, setProofVisible] = useState(true);
   const [exitVisible, setExitVisible] = useState(false);
@@ -162,10 +163,10 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3 text-xs sm:text-sm">
             <LanguageSwitcher />
-            <Link href="/pricing" className="hidden sm:inline-flex px-2.5 py-1.5 rounded-full text-gray-300 hover:text-white transition-colors font-medium">
+            <Link href="/pricing" className="nav-link hidden sm:inline-flex px-2.5 py-1.5 rounded-full text-gray-300 hover:text-white transition-colors font-medium">
               {t('nav.pricing')}
             </Link>
-            <Link href="/login" className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white transition-all font-medium">
+            <Link href="/login" className="nav-link hidden sm:inline-flex px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white transition-all font-medium">
               {t('nav.login')}
             </Link>
             <Button href="/login" size="sm" className="text-xs sm:text-sm">
@@ -213,7 +214,7 @@ export default function LandingPage() {
                 {t('hero.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-                <Button href="/login" size="lg" className="w-full sm:w-auto shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)]">
+                <Button href="/login" size="lg" className="w-full sm:w-auto cta-glow">
                   {t('hero.cta')} — {t('hero.footnote')}
                 </Button>
                 <Button href="/pricing" variant="secondary" size="lg" className="w-full sm:w-auto">
@@ -284,7 +285,13 @@ export default function LandingPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
                 <ScrollReveal delay={0}>
-                  <div className="app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/30 transition-all duration-500">
+                  <div className="glow-card card-border-glow app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/40 transition-all duration-500"
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                    }}
+                  >
                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/20 flex items-center justify-center mx-auto mb-4 sm:mb-5 text-xl sm:text-2xl group-hover:scale-110 transition-transform">
                       🎯
                     </div>
@@ -296,7 +303,13 @@ export default function LandingPage() {
                   </div>
                 </ScrollReveal>
                 <ScrollReveal delay={100}>
-                  <div className="app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/30 transition-all duration-500">
+                  <div className="glow-card card-border-glow app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/40 transition-all duration-500"
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                    }}
+                  >
                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/20 flex items-center justify-center mx-auto mb-4 sm:mb-5 text-xl sm:text-2xl group-hover:scale-110 transition-transform">
                       📋
                     </div>
@@ -308,7 +321,13 @@ export default function LandingPage() {
                   </div>
                 </ScrollReveal>
                 <ScrollReveal delay={200}>
-                  <div className="app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/30 transition-all duration-500">
+                  <div className="glow-card card-border-glow app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/40 transition-all duration-500"
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                    }}
+                  >
                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/20 flex items-center justify-center mx-auto mb-4 sm:mb-5 text-xl sm:text-2xl group-hover:scale-110 transition-transform">
                       💬
                     </div>
@@ -338,7 +357,13 @@ export default function LandingPage() {
                   const Icon = f.iconSvg;
                   return (
                     <ScrollReveal key={i} delay={i * 60}>
-                      <div className="app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl hover:border-white/15 transition-all h-full flex flex-col items-start">
+                      <div className="glow-card card-border-glow app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl hover:border-white/20 transition-all h-full flex flex-col items-start"
+                        onMouseMove={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                          e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                        }}
+                      >
                         {Icon && <Icon className="w-7 h-7 sm:w-8 sm:h-8 mb-2 sm:mb-3" />}
                         <h3 className="font-bold text-xs sm:text-sm mb-1">{f.title}</h3>
                         <p className="text-[11px] sm:text-xs text-gray-500 leading-relaxed">{f.desc}</p>
@@ -360,24 +385,41 @@ export default function LandingPage() {
                 <span className="badge-purple mb-3">{t('testimonials.title')}</span>
                 <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('testimonials.subtitle')}</h2>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                {testimonialsList.slice(0, 3).map((t, i) => (
-                  <ScrollReveal key={i} delay={i * 120}>
-                    <div className="app-card p-5 sm:p-6 rounded-xl sm:rounded-2xl flex flex-col">
-                      <div className="flex items-center gap-1 mb-3">
-                        {Array.from({ length: 5 }).map((_, j) => (
-                          <span key={j} className={j < t.stars ? 'text-amber-400' : 'text-gray-600'}>★</span>
-                        ))}
-                      </div>
-                      <p className="text-sm text-gray-300 leading-relaxed flex-1">"{t.text}"</p>
-                      <div className="mt-4 pt-4 border-t border-white/5">
-                        <p className="text-sm font-bold text-white">{t.name}</p>
-                        <p className="text-xs text-gray-500">{t.role}</p>
+              <div className="overflow-hidden">
+                <div
+                  className="testimonial-track"
+                  style={{ transform: `translateX(-${testimonialPage * 100}%)` }}
+                >
+                  {testimonialsList.map((t, i) => (
+                    <div key={i} className="min-w-full sm:min-w-[33.333%] px-2">
+                      <div className="app-card p-5 sm:p-6 rounded-xl sm:rounded-2xl flex flex-col h-full">
+                        <div className="flex items-center gap-1 mb-3">
+                          {Array.from({ length: 5 }).map((_, j) => (
+                            <span key={j} className={j < t.stars ? 'text-amber-400' : 'text-gray-600'}>★</span>
+                          ))}
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed flex-1">"{t.text}"</p>
+                        <div className="mt-4 pt-4 border-t border-white/5">
+                          <p className="text-sm font-bold text-white">{t.name}</p>
+                          <p className="text-xs text-gray-500">{t.role}</p>
+                        </div>
                       </div>
                     </div>
-                  </ScrollReveal>
-                ))}
+                  ))}
+                </div>
               </div>
+              {testimonialsList.length > 3 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  {Array.from({ length: Math.ceil(testimonialsList.length / 3) }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setTestimonialPage(i)}
+                      className={`testimonial-dot ${i === testimonialPage ? 'active' : ''}`}
+                      aria-label={`Página ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </ScrollReveal>
         </section>
@@ -391,12 +433,16 @@ export default function LandingPage() {
               </div>
               <div className="space-y-3 sm:space-y-4">
                 {faq.map((item, i) => (
-                  <details key={i} className="app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl group open:border-blue-500/30 transition-all cursor-pointer">
+                  <details key={i} className="accordion-premium app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl group open:border-blue-500/30 transition-all cursor-pointer">
                     <summary className="text-sm sm:text-base font-bold text-gray-200 group-open:text-blue-300 transition-colors list-none flex items-center justify-between gap-3">
                       {item.q}
                       <span className="text-blue-400 text-lg shrink-0 group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="mt-3 text-xs sm:text-sm text-gray-400 leading-relaxed border-t border-white/5 pt-3">{item.a}</p>
+                    <div className="accordion-content">
+                      <div>
+                        <p className="mt-3 text-xs sm:text-sm text-gray-400 leading-relaxed border-t border-white/5 pt-3">{item.a}</p>
+                      </div>
+                    </div>
                   </details>
                 ))}
               </div>
@@ -425,7 +471,7 @@ export default function LandingPage() {
                     🔒 Sem risco
                   </span>
                 </div>
-                <Button href="/login" size="lg" className="shadow-[0_8px_30px_rgba(59,130,246,0.35)] hover:shadow-[0_12px_40px_rgba(59,130,246,0.5)]">
+                <Button href="/login" size="lg" className="cta-glow">
                   {t('cta.button')}
                 </Button>
                 <p className="text-xs text-gray-500 mt-4">
