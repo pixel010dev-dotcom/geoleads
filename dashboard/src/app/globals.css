@@ -259,6 +259,16 @@ input[type="number"]::-webkit-outer-spin-button {
   66% { transform: translateY(3px) rotate(-1deg); }
 }
 
+@keyframes gradientX {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient-x {
+  background-size: 200% 100%;
+  animation: gradientX 4s ease infinite;
+}
+
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }

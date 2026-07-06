@@ -90,10 +90,10 @@ export default function LandingPage() {
         .limit(6);
 
       const fallback = [
-        { stars: 5, text: 'Triplicou minha prospecção. Antes eu passava 20 horas por semana catando leads manualmente. Agora em 30 minutos tenho uma lista pronta com CNPJ, email e WhatsApp.', name: 'Ricardo Silva', role: 'Diretor de Vendas' },
-        { stars: 5, text: 'Uso pra encontrar distribuidores pro meu e-commerce. Em 1 semana fechei parceria com 3 lojas. O CNPJ validado e as redes sociais fazem toda diferença.', name: 'Juliana Costa', role: 'E-commerce B2B' },
+        { stars: 5, text: 'Triplicou minha prospecção. Antes eu passava 20 horas por semana catando leads manualmente. Agora em 30 minutos tenho uma lista pronta com telefone, site e WhatsApp.', name: 'Ricardo Silva', role: 'Diretor de Vendas' },
+        { stars: 5, text: 'Uso pra encontrar distribuidores pro meu e-commerce. Em 1 semana fechei parceria com 3 lojas. O WhatsApp direto e os dados completos fazem toda diferença.', name: 'Juliana Costa', role: 'E-commerce B2B' },
         { stars: 5, text: 'O chatbot WhatsApp respondeu 80% das perguntas sozinho no primeiro mês. Economizei horas de atendimento e ainda fechei 4 contratos.', name: 'André Oliveira', role: 'Agência Digital' },
-        { stars: 5, text: 'Já testei 4 ferramentas diferentes. Nenhuma entrega tantos dados quanto o GeoLeads. O enriquecimento com CNPJ e Instagram é diferencial.', name: 'Fernanda Lima', role: 'Marketing B2B' },
+        { stars: 5, text: 'Já testei 4 ferramentas diferentes. Nenhuma entrega tantos dados quanto o GeoLeads. Telefone, site e endereço tudo validado pelo Google.', name: 'Fernanda Lima', role: 'Marketing B2B' },
         { stars: 5, text: 'Em 2 dias extraí 200 leads de imobiliárias na minha cidade. Fechei contrato com 5 em uma semana. Recomendo de olhos fechados.', name: 'Carlos Andrade', role: 'Corretor Imóveis' },
       ];
 
@@ -126,8 +126,39 @@ export default function LandingPage() {
     { iconSvg: IconDownload, title: t('tools.export.title'), desc: t('tools.export.desc') },
   ];
 
+  const pricingPlans = [
+    { name: 'Teste', price: 'Grátis', tokens: '5 leads', featured: false, cta: 'Criar Conta', href: '/login' },
+    { name: 'Starter', price: 'R$9,90', tokens: '300 leads/mês', featured: true, cta: 'Começar Agora', href: '/pricing' },
+    { name: 'Pro', price: 'R$29,90', tokens: '1.000 leads/mês', featured: false, cta: 'Assinar', href: '/pricing' },
+    { name: 'Agency', price: 'R$67,90', tokens: '3.000 leads/mês', featured: false, cta: 'Assinar', href: '/pricing' },
+  ];
+
+  const featureProducts = [
+    { name: 'Extrator Maps', desc: 'Extraia dados de qualquer nicho do Google Maps automaticamente', icon: '🔍', gradient: 'from-blue-600 to-indigo-600' },
+    { name: 'CRM', desc: 'Gerencie leads em estágios com tags, notas e kanban visual', icon: '📋', gradient: 'from-purple-600 to-pink-600' },
+    { name: 'WhatsApp', desc: 'Disparo assistido com fila inteligente e templates prontos', icon: '💬', gradient: 'from-green-600 to-emerald-600' },
+    { name: 'IA', desc: 'Chatbot automático que qualifica e responde leads 24h', icon: '🤖', gradient: 'from-cyan-600 to-blue-600' },
+    { name: 'AutoVendas', desc: 'Funil automatizado que vende por você enquanto dorme', icon: '⚡', gradient: 'from-amber-600 to-orange-600' },
+  ];
+
+  const steps = [
+    { icon: '🔍', number: '01', title: 'Busque', desc: 'Escolha o nicho e a cidade. O motor varre o Google Maps em segundos.' },
+    { icon: '📥', number: '02', title: 'Extraia', desc: 'Receba telefone, WhatsApp, site, endereço e categoria — direto do Google Maps.' },
+    { icon: '🚀', number: '03', title: 'Venda', desc: 'Dispare mensagens no WhatsApp com um clique ou use o chatbot IA.' },
+  ];
+
   return (
-    <div className="app-shell min-h-screen text-white font-sans selection:bg-blue-500/30 relative overflow-x-hidden">
+    <div className="min-h-screen bg-black text-white font-sans selection:bg-blue-500/30 relative overflow-x-hidden">
+      {/* Animated background gradient */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-gradient-to-br from-blue-600/10 to-indigo-600/5 blur-[120px] rounded-full animate-pulse" style={{ animationDuration: '8s' }} />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-gradient-to-tl from-indigo-600/8 to-blue-600/3 blur-[120px] rounded-full animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
+        <div className="absolute top-[40%] left-[50%] translate-x-[-50%] w-[40%] h-[40%] bg-gradient-to-r from-cyan-600/5 to-blue-600/5 blur-[100px] rounded-full animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]" />
+      </div>
+
+      {/* Schema markup */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -147,26 +178,22 @@ export default function LandingPage() {
           }),
         }}
       />
-      <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(720px,92vw)] h-[260px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
-      <div className="floating-orb floating-orb-1" />
-      <div className="floating-orb floating-orb-2" />
-      <div className="floating-orb floating-orb-3" />
 
-      <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="app-container min-h-14 py-2 sm:py-3 flex items-center justify-between gap-3">
+      {/* NAV */}
+      <nav className="border-b border-white/[0.04] bg-black/60 backdrop-blur-2xl sticky top-0 z-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3 cursor-default">
             <Globe size={28} />
-            <span className="font-extrabold text-lg sm:text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            <span className="font-extrabold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
               Geo<span className="text-blue-400">Leads</span>
             </span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3 text-xs sm:text-sm">
             <LanguageSwitcher />
-            <Link href="/pricing" className="nav-link hidden sm:inline-flex px-2.5 py-1.5 rounded-full text-gray-300 hover:text-white transition-colors font-medium">
+            <Link href="/pricing" className="hidden sm:inline-flex px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-medium">
               {t('nav.pricing')}
             </Link>
-            <Link href="/login" className="nav-link hidden sm:inline-flex px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white transition-all font-medium">
+            <Link href="/login" className="hidden sm:inline-flex px-4 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-gray-300 hover:text-white transition-all font-medium">
               {t('nav.login')}
             </Link>
             <Button href="/login" size="sm" className="text-xs sm:text-sm">
@@ -180,7 +207,7 @@ export default function LandingPage() {
         {/* EXIT INTENT POPUP */}
         {exitVisible && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => { setExitVisible(false); try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}>
-            <div className="app-card w-full max-w-md p-6 sm:p-8 rounded-[2rem] bg-gradient-to-b from-white/[0.08] to-black/60 border border-blue-500/30 shadow-2xl relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-md p-6 sm:p-8 rounded-2xl bg-zinc-900 border border-blue-500/30 shadow-2xl relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-red-500" />
               <span className="text-4xl mb-3 block">⏳</span>
               <h2 className="text-xl font-bold mb-2">Espera! Nao va ainda.</h2>
@@ -194,179 +221,194 @@ export default function LandingPage() {
           </div>
         )}
 
-        <section className="app-container pt-12 sm:pt-24 pb-6 sm:pb-12">
-          <ScrollReveal>
-            <div className="max-w-4xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold mb-5">
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                {t('hero.badge').split('{count}')[0]}
-                <span className="text-blue-200 font-extrabold tabular-nums">4.200+</span>
-                {t('hero.badge').split('{count}')[1]}
-              </div>
-              <h1 className="text-[clamp(1.75rem,6vw,3.75rem)] font-extrabold tracking-tight leading-[1.08] mb-4">
-                {t('hero.title').split(t('hero.titleHighlight'))[0]}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400">
-                  {t('hero.titleHighlight')}
-                </span>
-                {t('hero.title').split(t('hero.titleHighlight'))[1]}
-              </h1>
-              <p className="text-sm sm:text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed mb-6 sm:mb-8">
-                {t('hero.subtitle')}
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-                <Button href="/login" size="lg" className="w-full sm:w-auto cta-glow">
-                  {t('hero.cta')} — {t('hero.footnote')}
-                </Button>
-                <Button href="/pricing" variant="secondary" size="lg" className="w-full sm:w-auto">
-                  {t('hero.ctaSecondary')}
-                </Button>
-              </div>
-              <div className="flex items-center justify-center gap-4 mt-5 text-xs text-gray-500">
-                <span className="flex items-center gap-1">✅ Sem cartao</span>
-                <span className="flex items-center gap-1">🔒 Pagamento seguro</span>
-                <span className="flex items-center gap-1">⚡ Ativacao instantanea</span>
-              </div>
-            </div>
-          </ScrollReveal>
-        </section>
+        {/* ===== HERO ===== */}
+        <section className="relative overflow-hidden">
+          {/* Hero gradient animation */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[max(600px,60vw)] h-[500px] bg-gradient-to-b from-blue-500/15 via-indigo-500/10 to-transparent blur-[100px] rounded-full animate-gradient-x" style={{ animationDuration: '6s' }} />
+            <div className="absolute top-[5%] right-[10%] w-[300px] h-[300px] bg-gradient-to-br from-cyan-500/10 to-blue-500/5 blur-[80px] rounded-full animate-float" />
+          </div>
 
-        {/* TRUST BAR */}
-        <section className="app-container pb-8">
-          <ScrollReveal>
-            <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 p-5 sm:p-6 rounded-2xl bg-white/[0.03] border border-white/5">
-              <LiveCounter value={LIVE_LEADS} label="Leads extraidos" />
-              <LiveCounter value={140} label="Cidades disponiveis" />
-              <LiveCounter value={34} label="Nichos segmentados" />
-              <LiveCounter value={LIVE_USERS} label="Usuarios ativos" />
-            </div>
-          </ScrollReveal>
-        </section>
-
-        {/* COMPARISON SECTION */}
-        <section className="app-container py-12 sm:py-16">
-          <ScrollReveal>
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-8 sm:mb-10">
-                <span className="badge-purple mb-3">Antes vs Depois</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">O que muda com o GeoLeads?</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="app-card p-5 sm:p-6 rounded-2xl border border-red-500/20 bg-red-500/5">
-                  <h3 className="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span className="text-red-400">✕</span> Sem ferramenta</h3>
-                  <ul className="space-y-2.5 text-sm text-gray-400">
-                    <li className="flex items-start gap-2"><span className="text-red-400 mt-0.5 shrink-0">✕</span> <span>Horas catando lead por lead no Maps</span></li>
-                    <li className="flex items-start gap-2"><span className="text-red-400 mt-0.5 shrink-0">✕</span> <span>Planilha infinita no Excel</span></li>
-                    <li className="flex items-start gap-2"><span className="text-red-400 mt-0.5 shrink-0">✕</span> <span>So telefone — sem email, CNPJ ou redes</span></li>
-                    <li className="flex items-start gap-2"><span className="text-red-400 mt-0.5 shrink-0">✕</span> <span>Abordagem manual um por um no WhatsApp</span></li>
-                    <li className="flex items-start gap-2"><span className="text-red-400 mt-0.5 shrink-0">✕</span> <span>Zero acompanhamento de leads</span></li>
-                  </ul>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 pb-10 sm:pb-16">
+            <ScrollReveal>
+              <div className="max-w-4xl mx-auto text-center relative">
+                {/* Live badge */}
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/[0.07] border border-blue-500/15 text-blue-300 text-xs sm:text-sm font-medium mb-6 sm:mb-8">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+                  </span>
+                  {t('hero.badge').split('{count}')[0]}
+                  <span className="text-blue-200 font-extrabold tabular-nums">4.200+</span>
+                  {t('hero.badge').split('{count}')[1]}
                 </div>
-                <div className="app-card p-5 sm:p-6 rounded-2xl border border-green-500/20 bg-green-500/5">
-                  <h3 className="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span className="text-green-400">✓</span> Com GeoLeads</h3>
-                  <ul className="space-y-2.5 text-sm text-gray-300">
-                    <li className="flex items-start gap-2"><span className="text-green-400 mt-0.5 shrink-0">✓</span> <span><b>100 leads em 5 minutos</b> — automático</span></li>
-                    <li className="flex items-start gap-2"><span className="text-green-400 mt-0.5 shrink-0">✓</span> <span>CRM completo com tags e notas</span></li>
-                    <li className="flex items-start gap-2"><span className="text-green-400 mt-0.5 shrink-0">✓</span> <span>Telefone + Email + CNPJ + Instagram + TikTok</span></li>
-                    <li className="flex items-start gap-2"><span className="text-green-400 mt-0.5 shrink-0">✓</span> <span>Disparo assistido no WhatsApp com fila inteligente</span></li>
-                    <li className="flex items-start gap-2"><span className="text-green-400 mt-0.5 shrink-0">✓</span> <span>Funil de vendas com AutoVendas 24h</span></li>
-                  </ul>
+
+                {/* Main headline */}
+                <h1 className="text-[clamp(2rem,7vw,4.5rem)] font-extrabold tracking-tight leading-[1.05] mb-5">
+                  {t('hero.title').split(t('hero.titleHighlight'))[0]}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400">
+                    {t('hero.titleHighlight')}
+                  </span>
+                  {t('hero.title').split(t('hero.titleHighlight'))[1]}
+                </h1>
+
+                {/* Subtitle */}
+                <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed mb-8 sm:mb-10">
+                  {t('hero.subtitle')}
+                </p>
+
+                {/* CTAs */}
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+                  <Button href="/login" size="lg" className="w-full sm:w-auto text-base px-10 relative overflow-hidden group">
+                    <span className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_100%] animate-gradient-x group-hover:opacity-90 transition-opacity" style={{ animationDuration: '4s' }} />
+                    <span className="relative">{t('hero.cta')}</span>
+                  </Button>
+                  <Button href="/pricing" variant="secondary" size="lg" className="w-full sm:w-auto text-base border-white/10 hover:border-white/20">
+                    {t('hero.ctaSecondary')}
+                  </Button>
+                </div>
+
+                {/* Trust badges */}
+                <div className="flex items-center justify-center gap-4 sm:gap-6 mt-6 text-xs sm:text-sm text-gray-500">
+                  <span className="flex items-center gap-1.5 text-gray-400">
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Sem cartão
+                  </span>
+                  <span className="flex items-center gap-1.5 text-gray-400">
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    Pagamento seguro
+                  </span>
+                  <span className="flex items-center gap-1.5 text-gray-400">
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Ativação instantânea
+                  </span>
                 </div>
               </div>
+            </ScrollReveal>
+          </div>
+        </section>
+
+        {/* ===== STATS BAR ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12">
+          <ScrollReveal>
+            <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.04] rounded-2xl overflow-hidden border border-white/[0.04]">
+              <div className="bg-black/60 backdrop-blur-sm p-5 sm:p-8">
+                <LiveCounter value={LIVE_LEADS} label="Leads extraídos" />
+              </div>
+              <div className="bg-black/60 backdrop-blur-sm p-5 sm:p-8">
+                <LiveCounter value={140} label="Cidades disponíveis" />
+              </div>
+              <div className="bg-black/60 backdrop-blur-sm p-5 sm:p-8">
+                <LiveCounter value={34} label="Nichos segmentados" />
+              </div>
+              <div className="bg-black/60 backdrop-blur-sm p-5 sm:p-8">
+                <LiveCounter value={LIVE_USERS} label="Usuários ativos" />
+              </div>
             </div>
           </ScrollReveal>
         </section>
 
-        <section className="app-container py-12 sm:py-24">
+        {/* ===== HOW IT WORKS ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-blue mb-3">{t('howItWorks.title')}</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('howItWorks.subtitle')}</h2>
+              {/* Section header */}
+              <div className="text-center mb-12 sm:mb-16">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/[0.07] border border-indigo-500/15 text-indigo-300 text-xs sm:text-sm font-medium mb-4">
+                  <span className="text-indigo-400">⚡</span>
+                  {t('howItWorks.title')}
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-4 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+                  {t('howItWorks.subtitle')}
+                </h2>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
-                <ScrollReveal delay={0}>
-                  <div className="glow-card card-border-glow app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/40 transition-all duration-500"
-                    onMouseMove={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-                    }}
-                  >
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/20 flex items-center justify-center mx-auto mb-4 sm:mb-5 text-xl sm:text-2xl group-hover:scale-110 transition-transform">
-                      🎯
+
+              {/* Steps grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                {steps.map((step, i) => (
+                  <ScrollReveal key={i} delay={i * 150}>
+                    <div className="group relative p-6 sm:p-8 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-blue-500/30 transition-all duration-500">
+                      {/* Hover glow */}
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-blue-500/0 via-blue-500/0 to-blue-500/0 group-hover:from-blue-500/[0.02] group-hover:via-blue-500/[0.02] transition-all duration-500 pointer-events-none" />
+
+                      {/* Connector line (desktop) */}
+                      {i < steps.length - 1 && (
+                        <div className="hidden sm:block absolute top-1/2 -right-3 w-6 h-px bg-gradient-to-r from-blue-500/40 to-transparent" />
+                      )}
+
+                      <div className="relative">
+                        {/* Step number */}
+                        <div className="flex items-center justify-between mb-5">
+                          <span className="text-4xl">{step.icon}</span>
+                          <span className="text-3xl font-black text-white/[0.04]">{step.number}</span>
+                        </div>
+
+                        {/* Step number badge */}
+                        <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold mb-4">
+                          {i + 1}
+                        </div>
+
+                        <h3 className="text-lg sm:text-xl font-bold text-white mb-2">{step.title}</h3>
+                        <p className="text-sm text-gray-400 leading-relaxed">{step.desc}</p>
+                      </div>
                     </div>
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      1
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold mb-2">{t('howItWorks.step1.title')}</h3>
-                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">{t('howItWorks.step1.desc')}</p>
-                  </div>
-                </ScrollReveal>
-                <ScrollReveal delay={100}>
-                  <div className="glow-card card-border-glow app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/40 transition-all duration-500"
-                    onMouseMove={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-                    }}
-                  >
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/20 flex items-center justify-center mx-auto mb-4 sm:mb-5 text-xl sm:text-2xl group-hover:scale-110 transition-transform">
-                      📋
-                    </div>
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      2
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold mb-2">{t('howItWorks.step2.title')}</h3>
-                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">{t('howItWorks.step2.desc')}</p>
-                  </div>
-                </ScrollReveal>
-                <ScrollReveal delay={200}>
-                  <div className="glow-card card-border-glow app-card p-6 sm:p-8 rounded-2xl sm:rounded-[2rem] text-center group hover:border-blue-500/40 transition-all duration-500"
-                    onMouseMove={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                      e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-                    }}
-                  >
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/20 flex items-center justify-center mx-auto mb-4 sm:mb-5 text-xl sm:text-2xl group-hover:scale-110 transition-transform">
-                      💬
-                    </div>
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs sm:text-sm font-bold flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      3
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold mb-2">{t('howItWorks.step3.title')}</h3>
-                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">{t('howItWorks.step3.desc')}</p>
-                  </div>
-                </ScrollReveal>
+                  </ScrollReveal>
+                ))}
               </div>
             </div>
           </ScrollReveal>
         </section>
 
+        {/* ===== DASHBOARD PREVIEW ===== */}
         <DashboardPreview />
 
-        <section className="app-container py-12 sm:py-24">
+        {/* ===== FEATURES PRODUCTS ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-purple mb-3">{t('tools.title')}</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('tools.subtitle')}</h2>
+              <div className="text-center mb-12 sm:mb-16">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/[0.07] border border-purple-500/15 text-purple-300 text-xs sm:text-sm font-medium mb-4">
+                  <span className="text-purple-400">🛠️</span>
+                  {t('tools.title')}
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-4 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+                  {t('tools.subtitle')}
+                </h2>
               </div>
+
+              {/* Feature product cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-12 sm:mb-16">
+                {featureProducts.map((fp, i) => (
+                  <ScrollReveal key={i} delay={i * 80}>
+                    <div className="group relative p-5 sm:p-6 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-blue-500/30 transition-all duration-300 text-center h-full">
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${fp.gradient} bg-opacity-20 flex items-center justify-center mx-auto mb-3 sm:mb-4 text-2xl group-hover:scale-110 transition-transform duration-300`}>
+                        {fp.icon}
+                      </div>
+                      <h3 className="font-bold text-sm sm:text-base text-white mb-1.5">{fp.name}</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">{fp.desc}</p>
+                    </div>
+                  </ScrollReveal>
+                ))}
+              </div>
+
+              {/* Original feature grid */}
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {features.map((f, i) => {
                   const Icon = f.iconSvg;
                   return (
                     <ScrollReveal key={i} delay={i * 60}>
-                      <div className="glow-card card-border-glow app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl hover:border-white/20 transition-all h-full flex flex-col items-start"
+                      <div className="group relative p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/15 transition-all h-full flex flex-col items-start"
                         onMouseMove={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
                           e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
                         }}
                       >
-                        {Icon && <Icon className="w-7 h-7 sm:w-8 sm:h-8 mb-2 sm:mb-3" />}
-                        <h3 className="font-bold text-xs sm:text-sm mb-1">{f.title}</h3>
-                        <p className="text-[11px] sm:text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+                        {/* Hover spotlight */}
+                        <div className="absolute inset-0 rounded-xl bg-[radial-gradient(circle_at_var(--mouse-x,50%)_var(--mouse-y,50%),rgba(59,130,246,0.08),transparent_60%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                        {Icon && <Icon className="w-7 h-7 sm:w-8 sm:h-8 mb-2 sm:mb-3 relative" />}
+                        <h3 className="font-bold text-xs sm:text-sm mb-1 text-white relative">{f.title}</h3>
+                        <p className="text-[11px] sm:text-xs text-gray-500 leading-relaxed relative">{f.desc}</p>
                       </div>
                     </ScrollReveal>
                   );
@@ -376,15 +418,83 @@ export default function LandingPage() {
           </ScrollReveal>
         </section>
 
+        {/* ===== ANIMATED STATS ===== */}
         <AnimatedStats />
 
-        <section className="app-container py-12 sm:py-24">
+        {/* ===== PRICING PREVIEW ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-purple mb-3">{t('testimonials.title')}</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('testimonials.subtitle')}</h2>
+              <div className="text-center mb-12 sm:mb-16">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/[0.07] border border-blue-500/15 text-blue-300 text-xs sm:text-sm font-medium mb-4">
+                  <span className="text-blue-400">💰</span>
+                  {t('pricing.title')}
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-4 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+                  {t('pricing.subtitle')}
+                </h2>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                {pricingPlans.map((plan, i) => (
+                  <ScrollReveal key={i} delay={i * 100}>
+                    <div className={`relative group p-6 sm:p-7 rounded-2xl border transition-all duration-300 ${
+                      plan.featured
+                        ? 'bg-gradient-to-b from-blue-600/[0.12] to-indigo-600/[0.06] border-blue-500/30 shadow-[0_0_30px_-5px_rgba(59,130,246,0.15)]'
+                        : 'bg-white/[0.02] border-white/[0.06] hover:border-white/15'
+                    }`}>
+                      {plan.featured && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-bold tracking-wider uppercase">
+                          Mais Popular
+                        </div>
+                      )}
+                      <div className="mb-4 sm:mb-5">
+                        <h3 className="text-sm font-semibold text-gray-300 mb-1">{plan.name}</h3>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl sm:text-4xl font-extrabold text-white">{plan.price}</span>
+                          {plan.price !== 'Grátis' && <span className="text-sm text-gray-500">/mês</span>}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{plan.tokens}</p>
+                      </div>
+                      <Button
+                        href={plan.href}
+                        variant={plan.featured ? 'primary' : 'secondary'}
+                        size="md"
+                        className="w-full text-sm"
+                      >
+                        {plan.cta}
+                      </Button>
+                    </div>
+                  </ScrollReveal>
+                ))}
+              </div>
+
+              <div className="text-center mt-6">
+                <Link href="/pricing" className="inline-flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors font-medium">
+                  Ver comparação completa
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </ScrollReveal>
+        </section>
+
+        {/* ===== TESTIMONIALS ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <ScrollReveal>
+            <div className="max-w-5xl mx-auto">
+              <div className="text-center mb-12 sm:mb-16">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/[0.07] border border-amber-500/15 text-amber-300 text-xs sm:text-sm font-medium mb-4">
+                  <span className="text-amber-400">⭐</span>
+                  {t('testimonials.title')}
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-4 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+                  {t('testimonials.subtitle')}
+                </h2>
+              </div>
+
               <div className="overflow-hidden">
                 <div
                   className="testimonial-track"
@@ -392,14 +502,14 @@ export default function LandingPage() {
                 >
                   {testimonialsList.map((t, i) => (
                     <div key={i} className="min-w-full sm:min-w-[33.333%] px-2">
-                      <div className="app-card p-5 sm:p-6 rounded-xl sm:rounded-2xl flex flex-col h-full">
+                      <div className="p-5 sm:p-6 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col h-full hover:border-white/15 transition-all duration-300">
                         <div className="flex items-center gap-1 mb-3">
                           {Array.from({ length: 5 }).map((_, j) => (
                             <span key={j} className={j < t.stars ? 'text-amber-400' : 'text-gray-600'}>★</span>
                           ))}
                         </div>
-                        <p className="text-sm text-gray-300 leading-relaxed flex-1">"{t.text}"</p>
-                        <div className="mt-4 pt-4 border-t border-white/5">
+                        <p className="text-sm text-gray-300 leading-relaxed flex-1">&ldquo;{t.text}&rdquo;</p>
+                        <div className="mt-4 pt-4 border-t border-white/[0.04]">
                           <p className="text-sm font-bold text-white">{t.name}</p>
                           <p className="text-xs text-gray-500">{t.role}</p>
                         </div>
@@ -424,25 +534,29 @@ export default function LandingPage() {
           </ScrollReveal>
         </section>
 
-        <section className="app-container py-12 sm:py-24">
+        {/* ===== FAQ ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <ScrollReveal>
             <div className="max-w-3xl mx-auto">
-              <div className="text-center mb-10 sm:mb-12">
-                <span className="badge-blue mb-3">{t('faq.title')}</span>
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('faq.subtitle')}</h2>
+              <div className="text-center mb-12 sm:mb-16">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/[0.07] border border-blue-500/15 text-blue-300 text-xs sm:text-sm font-medium mb-4">
+                  <span className="text-blue-400">❓</span>
+                  {t('faq.title')}
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-4 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+                  {t('faq.subtitle')}
+                </h2>
               </div>
               <div className="space-y-3 sm:space-y-4">
                 {faq.map((item, i) => (
-                  <details key={i} className="accordion-premium app-card p-4 sm:p-5 rounded-xl sm:rounded-2xl group open:border-blue-500/30 transition-all cursor-pointer">
-                    <summary className="text-sm sm:text-base font-bold text-gray-200 group-open:text-blue-300 transition-colors list-none flex items-center justify-between gap-3">
+                  <details key={i} className="group p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] open:border-blue-500/30 transition-all cursor-pointer">
+                    <summary className="text-sm sm:text-base font-semibold text-gray-300 group-open:text-blue-300 transition-colors list-none flex items-center justify-between gap-3">
                       {item.q}
-                      <span className="text-blue-400 text-lg shrink-0 group-open:rotate-180 transition-transform">▾</span>
+                      <svg className="w-4 h-4 text-blue-400 shrink-0 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
                     </summary>
-                    <div className="accordion-content">
-                      <div>
-                        <p className="mt-3 text-xs sm:text-sm text-gray-400 leading-relaxed border-t border-white/5 pt-3">{item.a}</p>
-                      </div>
-                    </div>
+                    <p className="mt-3 text-xs sm:text-sm text-gray-500 leading-relaxed border-t border-white/[0.04] pt-3">{item.a}</p>
                   </details>
                 ))}
               </div>
@@ -450,33 +564,117 @@ export default function LandingPage() {
           </ScrollReveal>
         </section>
 
-        <section className="app-container py-12 sm:py-24">
+        {/* ===== COMPARISON SECTION ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <ScrollReveal>
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-10 sm:mb-14">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/[0.07] border border-emerald-500/15 text-emerald-300 text-xs sm:text-sm font-medium mb-4">
+                  <span className="text-emerald-400">📊</span>
+                  Antes vs Depois
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-4 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+                  O que muda com o GeoLeads?
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.02] border border-red-500/20 bg-gradient-to-b from-red-500/[0.04] to-transparent">
+                  <h3 className="text-base sm:text-lg font-bold mb-4 flex items-center gap-2 text-red-300">
+                    <span className="w-6 h-6 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 text-xs">✕</span>
+                    Sem ferramenta
+                  </h3>
+                  <ul className="space-y-3 text-sm text-gray-500">
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xs shrink-0 mt-0.5">✕</span>
+                      <span>Horas catando lead por lead no Maps</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xs shrink-0 mt-0.5">✕</span>
+                      <span>Planilha infinita no Excel</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xs shrink-0 mt-0.5">✕</span>
+                      <span>Só telefone — sem email, CNPJ ou redes</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xs shrink-0 mt-0.5">✕</span>
+                      <span>Abordagem manual um por um no WhatsApp</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xs shrink-0 mt-0.5">✕</span>
+                      <span>Zero acompanhamento de leads</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.02] border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.04] to-transparent">
+                  <h3 className="text-base sm:text-lg font-bold mb-4 flex items-center gap-2 text-emerald-300">
+                    <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs">✓</span>
+                    Com GeoLeads
+                  </h3>
+                  <ul className="space-y-3 text-sm text-gray-300">
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs shrink-0 mt-0.5">✓</span>
+                      <span><b className="text-white">100 leads em 5 minutos</b> — automático</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs shrink-0 mt-0.5">✓</span>
+                      <span>CRM completo com tags e notas</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs shrink-0 mt-0.5">✓</span>
+                      <span>Telefone + Email + CNPJ + Instagram + TikTok</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs shrink-0 mt-0.5">✓</span>
+                      <span>Disparo assistido no WhatsApp com fila inteligente</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs shrink-0 mt-0.5">✓</span>
+                      <span>Funil de vendas com AutoVendas 24h</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </ScrollReveal>
+        </section>
+
+        {/* ===== CTA ===== */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <ScrollReveal>
             <div className="max-w-3xl mx-auto text-center">
-              <div className="app-card p-8 sm:p-14 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-b from-blue-600/10 to-black/40 border border-blue-500/20 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
-                <span className="text-3xl sm:text-4xl mb-3 sm:mb-4 block">🚀</span>
-                <h2 className="text-xl sm:text-4xl font-extrabold tracking-tight mb-3 sm:mb-4">{t('cta.title')}</h2>
-                <p className="text-gray-400 max-w-md mx-auto mb-6 sm:mb-8 text-sm sm:text-base">
+              <div className="relative p-8 sm:p-14 rounded-3xl bg-gradient-to-b from-blue-600/[0.08] to-black/60 border border-blue-500/20 overflow-hidden group">
+                {/* Glow effect */}
+                <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-blue-500/10 blur-[80px] rounded-full group-hover:bg-blue-500/20 transition-all duration-700" />
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+
+                <span className="text-3xl sm:text-4xl mb-4 block relative">🚀</span>
+                <h2 className="text-xl sm:text-4xl font-extrabold tracking-tight mb-3 sm:mb-4 relative">
+                  {t('cta.title')}
+                </h2>
+                <p className="text-gray-400 max-w-md mx-auto mb-6 sm:mb-8 text-sm sm:text-base relative">
                   {t('cta.subtitle')}
                 </p>
-                <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
+                <div className="flex flex-wrap items-center justify-center gap-3 mb-6 relative">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-bold">
                     🛡️ Garantia 7 dias
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold">
-                    ⚡ Ativacao instantanea
+                    ⚡ Ativação instantânea
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-bold">
                     🔒 Sem risco
                   </span>
                 </div>
-                <Button href="/login" size="lg" className="cta-glow">
-                  {t('cta.button')}
-                </Button>
-                <p className="text-xs text-gray-500 mt-4">
+                <div className="relative">
+                  <Button href="/login" size="lg" className="relative overflow-hidden group/btn">
+                    <span className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_100%] animate-gradient-x" style={{ animationDuration: '4s' }} />
+                    <span className="relative">{t('cta.button')}</span>
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-4 relative">
                   {t('cta.login').replace(t('nav.login'), '')}
-                  <Link href="/login" className="text-blue-400 hover:text-blue-300">{t('nav.login')}</Link>
+                  <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium">{t('nav.login')}</Link>
                 </p>
               </div>
             </div>
@@ -484,16 +682,27 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/5 bg-black/20">
-        <div className="app-container py-8 sm:py-10">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8 text-xs text-gray-500">
+      {/* ===== FOOTER ===== */}
+      <footer className="border-t border-white/[0.04] bg-black/40">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-12 mb-8 sm:mb-10 text-xs sm:text-sm text-gray-500">
             <div className="col-span-2 sm:col-span-1">
-              <div className="font-extrabold text-base text-white mb-3">Geo<span className="text-blue-400">Leads</span></div>
-              <p className="leading-relaxed">{t('footer.description')}</p>
+              <div className="font-extrabold text-base sm:text-lg text-white mb-3 flex items-center gap-2">
+                <Globe size={20} />
+                Geo<span className="text-blue-400">Leads</span>
+              </div>
+              <p className="leading-relaxed text-gray-500 max-w-xs">{t('footer.description')}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <a href="mailto:pixel010dev@gmail.com" className="text-gray-500 hover:text-white transition-colors" aria-label="Email">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </a>
+              </div>
             </div>
             <div>
-              <div className="font-bold text-sm text-gray-300 mb-3">{t('footer.links')}</div>
-              <div className="flex flex-col gap-1.5 sm:gap-2">
+              <div className="font-semibold text-sm text-gray-300 mb-4">{t('footer.links')}</div>
+              <div className="flex flex-col gap-2">
                 <Link href="/pricing" className="hover:text-gray-300 transition-colors">{t('footer.pricing')}</Link>
                 <Link href="/privacy" className="hover:text-gray-300 transition-colors">{t('footer.privacy')}</Link>
                 <Link href="/terms" className="hover:text-gray-300 transition-colors">{t('footer.terms')}</Link>
@@ -501,15 +710,15 @@ export default function LandingPage() {
               </div>
             </div>
             <div>
-              <div className="font-bold text-sm text-gray-300 mb-3">{t('footer.contact')}</div>
-              <div className="flex flex-col gap-1.5 sm:gap-2">
+              <div className="font-semibold text-sm text-gray-300 mb-4">{t('footer.contact')}</div>
+              <div className="flex flex-col gap-2">
                 <a href="mailto:pixel010dev@gmail.com" className="hover:text-gray-300 transition-colors">pixel010dev@gmail.com</a>
-                <span>Guilherme Oliveira</span>
-                <span>São Paulo, Brasil</span>
+                <span className="text-gray-500">Guilherme Oliveira</span>
+                <span className="text-gray-500">São Paulo, Brasil</span>
               </div>
             </div>
           </div>
-          <div className="text-center text-xs text-gray-600 pt-5 sm:pt-6 border-t border-white/5">
+          <div className="text-center text-xs text-gray-600 pt-6 sm:pt-8 border-t border-white/[0.04]">
             {t('footer.rights', { year: new Date().getFullYear() })}
           </div>
         </div>

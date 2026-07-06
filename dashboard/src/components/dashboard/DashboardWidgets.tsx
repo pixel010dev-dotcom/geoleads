@@ -56,6 +56,15 @@ export function LeadGuideWidget({ user, currentPlan, tokens, onNavigate }: {
   onNavigate: (tab: DashboardTab) => void;
 }) {
   const { t, locale } = useTranslations();
+
+  const plans = [
+    { name: 'Free', price: 'Grátis', tokens: '5', popular: false },
+    { name: 'Starter', price: 'R$ 9,90', tokens: '100', popular: false },
+    { name: 'Pro', price: 'R$ 29,90', tokens: '500', popular: true },
+    { name: 'Agency', price: 'R$ 67,90', tokens: '1.500', popular: false },
+    { name: 'API', price: 'R$ 97', tokens: 'Ilimitado', popular: false },
+  ];
+
   return (
     <div className="lead-guide-widget">
       <div className="flex items-start justify-between gap-3 mb-4">
@@ -83,7 +92,7 @@ export function LeadGuideWidget({ user, currentPlan, tokens, onNavigate }: {
         </button>
       </div>
 
-      <div className="rounded-2xl bg-black/25 border border-white/10 p-4">
+      <div className="rounded-2xl bg-black/25 border border-white/10 p-4 mb-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs text-gray-500">{t('widget.currentPlan')}</p>
@@ -96,7 +105,30 @@ export function LeadGuideWidget({ user, currentPlan, tokens, onNavigate }: {
         </div>
       </div>
 
-      <Link href="/pricing" className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-white text-black font-bold text-sm py-3 hover:bg-gray-200 transition-colors">
+      {/* Plan pricing cards */}
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
+        {plans.map((plan) => (
+          <div
+            key={plan.name}
+            className={`relative rounded-xl p-2.5 text-center border transition-all ${
+              plan.popular
+                ? 'bg-blue-500/15 border-blue-500/30 shadow-[0_0_12px_rgba(59,130,246,0.15)]'
+                : 'bg-black/20 border-white/5 hover:border-white/20'
+            }`}
+          >
+            {plan.popular && (
+              <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white leading-tight">
+                {t('widget.popular')}
+              </span>
+            )}
+            <p className="text-[11px] font-bold text-gray-300">{plan.name}</p>
+            <p className={`text-sm font-extrabold ${plan.popular ? 'text-blue-300' : 'text-white'}`}>{plan.price}</p>
+            <p className="text-[9px] text-gray-500">{plan.tokens} tokens</p>
+          </div>
+        ))}
+      </div>
+
+      <Link href="/pricing" className="inline-flex w-full items-center justify-center rounded-xl bg-white text-black font-bold text-sm py-3 hover:bg-gray-200 transition-colors">
         {t('widget.buyOrUpgrade')}
       </Link>
     </div>

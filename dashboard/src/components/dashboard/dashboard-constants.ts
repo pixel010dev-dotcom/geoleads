@@ -133,6 +133,8 @@ export const filterOptions = [
   { value: 'none', labelKey: 'extractor.filters.none', icon: '🔍', descKey: 'extractor.filters.noneDesc', feature: 'extractor' as const },
   { value: 'phone', labelKey: 'extractor.filters.phone', icon: '📞', descKey: 'extractor.filters.phoneDesc', feature: 'extractor' as const },
   { value: 'site', labelKey: 'extractor.filters.site', icon: '🌐', descKey: 'extractor.filters.siteDesc', feature: 'extractor' as const },
+  { value: 'email', labelKey: 'extractor.filters.email', icon: '📧', descKey: 'extractor.filters.emailDesc', feature: 'extractor' as const },
+  { value: 'instagram', labelKey: 'extractor.filters.insta', icon: '📸', descKey: 'extractor.filters.instaDesc', feature: 'extractor' as const },
 ];
 
 export const quickSearches = [

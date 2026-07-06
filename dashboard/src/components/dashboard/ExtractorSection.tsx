@@ -5,7 +5,7 @@ import type { FeatureKey } from '@/lib/plans';
 import type { SearchLead } from '@/app/api/extract/lib/types';
 import type { CrmLead, ExtractStats } from '@/types/crm';
 import HackerRadar from '@/components/HackerRadar';
-import { filterOptions, quickSearches } from './dashboard-constants';
+
 import { Button } from '@/components/Button';
 import { useTranslations } from '@/lib/i18n';
 
@@ -48,7 +48,6 @@ export default function ExtractorSection({
   keyword,
   location,
   limit,
-  filterRule,
   user,
   handleExtract,
   handleAddToCRM,
@@ -67,7 +66,6 @@ export default function ExtractorSection({
   setKeyword,
   setLocation,
   setLimit,
-  setFilterRule,
   onCancel,
 }: ExtractorSectionProps) {
   const { t, locale } = useTranslations();
@@ -105,26 +103,6 @@ export default function ExtractorSection({
             </h2>
 
             <form onSubmit={handleExtract} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">{t('extractor.quickModel')}</label>
-                <div className="quick-preset-grid">
-                   {quickSearches.map((preset) => (
-                    <button
-                      key={`${preset.keywordKey}-${preset.location}`}
-                      type="button"
-                      onClick={() => {
-                        setKeyword(t(preset.keywordKey));
-                        setLocation(preset.location);
-                        setFilterRule('none');
-                      }}
-                      className="quick-preset"
-                    >
-                      <span>{t(preset.keywordKey)}</span>
-                      <small>{preset.location}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">{t('extractor.whatToSearch')}</label>
@@ -160,79 +138,9 @@ export default function ExtractorSection({
                 />
               </div>
 
-              {/* PREMIUM GRID CHIPS FOR FILTER SELECTOR */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">{t('extractor.filters')}</label>
-                <div className="extract-filter-grid">
-                  {filterOptions.map((opt) => {
-                    const selectedSet = new Set(filterRule.split(',').map(s => s.trim()).filter(Boolean));
-                    const isSelected = filterRule === 'none' && opt.value === 'none' ? true : selectedSet.has(opt.value);
-                    const isLocked = !requireFeature(opt.feature);
-                    const requiredPlan = getUpgradePlan(opt.feature);
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          if (isLocked) { showLockedFeature(opt.feature); return; }
-                          if (opt.value === 'none') { setFilterRule('none'); return; }
-                          const current = new Set(filterRule.split(',').map(s => s.trim()).filter(Boolean));
-                          if (current.has(opt.value)) current.delete(opt.value); else current.add(opt.value);
-                          if (current.size === 0) { setFilterRule('none'); return; }
-                          current.delete('none');
-                          setFilterRule(Array.from(current).join(','));
-                        }}
-                        className={`filter-option-card ${
-                          isLocked
-                            ? 'is-locked'
-                            : isSelected
-                              ? 'is-selected'
-                              : ''
-                        }`}
-                      >
-                        <span className="text-xl flex items-center justify-between">
-                          <span>{opt.icon}</span>
-                          {isLocked && <span className="text-[10px] text-amber-300">🔒 {t(requiredPlan.shortNameKey)}</span>}
-                        </span>
-                        <span className="text-xs font-bold leading-tight block text-gray-200 mt-1">{t(opt.labelKey)}</span>
-                        {isSelected && (
-                          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-400" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-gray-500 mt-2">{t('extractor.filtersInfo')}</p>
-              </div>
 
-              {/* Estimated time */}
-              {(() => {
-                const l = Number(limit) || 0;
-                if (l <= 0) return null;
-                const isBroad = /brasil|brazil|todos os estados|nacional|pa[ií]s inteiro|mundo/i.test(location);
-                if (isBroad) {
-                  const citiesEst = Math.min(Math.ceil(l / 5), 100);
-                  const sec = Math.min(6 + citiesEst * 0.6 + l * 0.4 + 8, 180);
-                  if (sec > 120) {
-                    const mins = Math.ceil(sec / 60);
-                    const statesEst = Math.min(27, Math.ceil(citiesEst / 4));
-                    return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeMinutes', { minutes: mins, cities: citiesEst, states: statesEst }) })}</p>;
-                  }
-                  return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: t('extractor.estimatedTimeCities', { seconds: Math.ceil(sec), cities: citiesEst }) })}</p>;
-                }
-                const sec = Math.ceil(3 + l * 1.2);
-                let timeStr = '';
-                if (sec > 3600) {
-                  const h = Math.floor(sec / 3600);
-                  const m = Math.ceil((sec % 3600) / 60);
-                  timeStr = `${h}h${m > 0 ? ` ${m}min` : ''}`;
-                } else if (sec > 60) {
-                  timeStr = `${Math.ceil(sec / 60)}min`;
-                } else {
-                  timeStr = `${sec}s`;
-                }
-                return <p className="text-xs text-blue-400/70 text-center -mt-2">⏱ {t('extractor.estimatedTime', { time: timeStr })}</p>;
-              })()}
+
+
               
               {isExtracting ? (
                 <button 
@@ -321,232 +229,137 @@ export default function ExtractorSection({
               </div>
             )}
 
-            {/* Tabela de Resultados */}
+            {/* Cards de Resultados */}
             {!isExtracting && (
-              <div className="flex-1 rounded-2xl border border-white/5 bg-black/20 overflow-hidden relative overflow-y-auto max-h-[500px]">
-                <table className="hidden md:table w-full text-left text-sm">
-                  <thead className="bg-white/5 border-b border-white/5 text-gray-400 sticky top-0 backdrop-blur-md z-10">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableCompany')}</th>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableContact')}</th>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableEmail')}</th>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableSocial')}</th>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableCategory')}</th>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableAddress')}</th>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableHours')}</th>
-                      <th className="px-4 py-3 font-medium">{t('extractor.tableActions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {leads.map((lead, i: number) => (
-                      <tr key={i} className="hover:bg-white/[0.06] transition-colors animate-slide-up" style={{ animationDelay: `${i * 0.03}s` }}>
-                        <td className="px-4 py-4 font-medium text-gray-200">
-                          <div>{lead.nome}</div>
-                          {lead.site && lead.site !== 'Sem site' ? (
-                            <a href={lead.site} target="_blank" className="inline-block text-xs text-blue-400 hover:underline mt-1">{t('extractor.website')}</a>
-                          ) : (
-                            <span className="text-xs text-gray-600 mt-1 block">{t('extractor.noWebsite')}</span>
-                          )}
-                          {lead.cnpj && (
-                            <span className="block text-[11px] text-amber-300 font-mono mt-1">{t('extractor.cnpj', { number: lead.cnpj })}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-gray-400 font-mono text-xs">
-                          <div className="flex flex-col gap-1">
-                            <span>{lead.telefone}</span>
-                            {lead.telefone && lead.telefone !== 'Não informado' && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 text-[10px] w-fit">
-                                {t('extractor.valid')}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-xs">
-                          {lead.email ? (
-                            <a href={`mailto:${lead.email}`} className="text-purple-400 hover:underline font-mono">{lead.email}</a>
-                          ) : (
-                            <span className="text-gray-600">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col gap-1">
-                            {lead.instagram && (
-                              <a href={lead.instagram} target="_blank" className="text-pink-400 text-xs hover:underline">📷 Instagram</a>
-                            )}
-                            {lead.facebook && (
-                              <a href={lead.facebook} target="_blank" className="text-blue-500 text-xs hover:underline">📘 Facebook</a>
-                            )}
-                            {lead.tiktok && (
-                              <a href={lead.tiktok} target="_blank" className="text-cyan-300 text-xs hover:underline">🎵 TikTok</a>
-                            )}
-                            {lead.linkedin && (
-                              <a href={lead.linkedin} target="_blank" className="text-blue-700 text-xs hover:underline">💼 LinkedIn</a>
-                            )}
-                            {!lead.instagram && !lead.facebook && !lead.tiktok && !lead.linkedin && (
-                              <span className="text-gray-600 text-xs">—</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-400">
-                          {lead.categoria || '-'}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-400 max-w-[200px] truncate" title={lead.endereco || '-'}>
-                          {lead.endereco || '-'}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-400">
-                          {lead.horarios || '-'}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => handleAddToCRM(lead)}
-                              className="p-2 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 hover:border-white/20 transition-all text-xs cursor-pointer flex items-center gap-1"
-                              title={t('extractor.saveToCRM')}
-                            >
-                              📁 {t('extractor.saveToCRM')}
-                            </button>
-                            {lead.telefone && lead.telefone !== 'Não informado' && (
-                              <button 
-                                onClick={() => openWhatsApp(lead)}
-                                className="p-2 rounded bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors text-xs cursor-pointer"
-                                title="WhatsApp Direto"
-                              >
-                                💬 WhatsApp
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    
-                    {/* Estado vazio: antes de buscar */}
-                    {leads.length === 0 && !hasSearched && !isExtracting && (
-                      <tr>
-                        <td colSpan={8} className="px-4 py-16 text-center">
-                          <div className="text-4xl mb-4">🔍</div>
-                          <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.emptyTitle')}</p>
-                          <p className="text-gray-500 text-sm max-w-md mx-auto">
-                            {t('extractor.emptyDesc')}
-                          </p>
-                        </td>
-                      </tr>
-                    )}
-
-                    {/* Estado vazio: depois de buscar e não achar nada */}
-                    {leads.length === 0 && hasSearched && !isExtracting && (
-                      <tr>
-                        <td colSpan={8} className="px-4 py-16 text-center">
-                          <div className="text-4xl mb-4">🕵️</div>
-                          <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.noResultsTitle')}</p>
-                          <p className="text-gray-500 text-sm max-w-lg mx-auto">
-                            {t('extractor.noResultsDesc')}
-                            <br/><br/>
-                            <span className="text-blue-400 font-semibold">{t('extractor.noResultsTokens')}</span>
-                          </p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-
-                {/* Mobile Card List */}
-                <div className="mobile-card-list md:hidden p-3 sm:p-4">
-                  {leads.map((lead, i: number) => (
+              <div className="flex-1 space-y-3 pr-1 overflow-y-auto max-h-[500px]">
+                {leads.map((lead, i: number) => {
+                  const ratingNum = parseFloat(lead.avaliacao);
+                  const hasWhatsApp = lead.isMobile || lead.hasWhatsApp || false;
+                  const phoneNumber = lead.telefone && lead.telefone !== 'Não informado' ? lead.telefone : null;
+                  return (
                     <div 
                       key={i} 
-                      className="p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-3 animate-slide-up"
+                      className="bg-black/30 border border-white/5 hover:border-white/10 rounded-xl p-4 transition-all duration-200 animate-slide-up"
                       style={{ animationDelay: `${i * 0.03}s` }}
                     >
-                      <div>
-                        <div className="font-bold text-gray-200 text-sm">{lead.nome}</div>
-                        {lead.site && lead.site !== 'Sem site' ? (
-                          <a href={lead.site} target="_blank" className="inline-block text-xs text-blue-400 hover:underline mt-1">{t('extractor.website')}</a>
-                        ) : (
-                          <span className="text-xs text-gray-600 mt-1 block">{t('extractor.noWebsite')}</span>
-                        )}
-                        {lead.cnpj && (
-                          <span className="block text-[11px] text-amber-300 font-mono mt-1">{t('extractor.cnpj', { number: lead.cnpj })}</span>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs border-t border-white/5 pt-3">
-                        <div>
-                          <span className="text-gray-500 block mb-0.5">{t('extractor.tableContact')}</span>
-                          <span className="font-mono text-gray-300 block break-words">{lead.telefone}</span>
-                          {lead.telefone && lead.telefone !== 'Não informado' && (
-                            <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 text-[9px] w-fit">
-                              {t('extractor.valid')}
+                      {/* Header: Name + Rating */}
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-white text-sm sm:text-base truncate">{lead.nome}</h3>
+                          {lead.categoria && (
+                            <p className="text-xs text-gray-500 mt-0.5 truncate">{lead.categoria}</p>
+                          )}
+                        </div>
+                        {!isNaN(ratingNum) && (
+                          <div className="flex items-center gap-1 text-yellow-400 text-xs flex-shrink-0">
+                            <span className="flex">
+                              {[1,2,3,4,5].map(i => (
+                                <span key={i}>{i <= Math.round(ratingNum) ? '★' : '☆'}</span>
+                              ))}
                             </span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-gray-500 block mb-0.5">{t('extractor.tableEmail')}</span>
-                          {lead.email ? (
-                            <a href={`mailto:${lead.email}`} className="text-purple-400 hover:underline font-mono block break-all">{lead.email}</a>
+                            <span className="text-gray-400 ml-0.5">{ratingNum}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Phone with WhatsApp/Landline badge */}
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-gray-200 font-mono text-sm">{phoneNumber || 'Não informado'}</span>
+                        {phoneNumber && (
+                          hasWhatsApp ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30 text-[10px] font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                              WhatsApp
+                            </span>
                           ) : (
-                            <span className="text-gray-600 block">—</span>
-                          )}
-                        </div>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 border border-gray-500/30 text-[10px] font-semibold">
+                              Fixo
+                            </span>
+                          )
+                        )}
                       </div>
 
-                      <div className="flex justify-between items-center border-t border-white/5 pt-3 gap-2 flex-wrap">
-                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                          {lead.instagram && (
-                            <a href={lead.instagram} target="_blank" className="text-pink-400 text-xs hover:underline bg-pink-500/5 px-2 py-1 rounded border border-pink-500/10">📷 Insta</a>
-                          )}
-                          {lead.facebook && (
-                            <a href={lead.facebook} target="_blank" className="text-blue-500 text-xs hover:underline bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10">📘 Face</a>
-                          )}
-                          {lead.tiktok && (
-                            <a href={lead.tiktok} target="_blank" className="text-cyan-300 text-xs hover:underline bg-cyan-500/5 px-2 py-1 rounded border border-cyan-500/10">🎵 TikTok</a>
-                          )}
-                          {lead.linkedin && (
-                            <a href={lead.linkedin} target="_blank" className="text-blue-700 text-xs hover:underline bg-blue-700/5 px-2 py-1 rounded border border-blue-700/10">💼 LinkedIn</a>
-                          )}
-                        </div>
+                      {/* Website */}
+                      {lead.site && lead.site !== 'Sem site' && (
+                        <a 
+                          href={lead.site} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 text-xs block truncate mb-1 max-w-full"
+                        >
+                          {lead.site}
+                        </a>
+                      )}
 
-                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                          <button 
-                            onClick={() => handleAddToCRM(lead)}
-                            className="w-full sm:w-auto px-3 py-2 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-xs cursor-pointer flex items-center justify-center gap-1"
-                          >
-                            📁 {t('extractor.saveToCRM')}
-                          </button>
-                          {lead.telefone && lead.telefone !== 'Não informado' && (
-                            <button 
+                      {/* Address */}
+                      {lead.endereco && (
+                        <p className="text-gray-500 text-xs truncate mb-1" title={lead.endereco}>
+                          📍 {lead.endereco}
+                        </p>
+                      )}
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 pt-3 mt-3 border-t border-white/5">
+                        <button
+                          onClick={() => handleAddToCRM(lead)}
+                          className="flex-1 sm:flex-none px-3 py-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Salvar no CRM
+                        </button>
+                        {phoneNumber && (
+                          hasWhatsApp ? (
+                            <button
                               onClick={() => openWhatsApp(lead)}
-                              className="w-full sm:w-auto px-3 py-2 rounded bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 text-xs cursor-pointer flex items-center justify-center gap-1"
+                              className="flex-1 sm:flex-none px-3 py-2 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                             >
-                              💬 WhatsApp
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                              </svg>
+                              Usar WhatsApp
                             </button>
-                          )}
-                        </div>
+                          ) : (
+                            <button
+                              onClick={() => navigator.clipboard.writeText(phoneNumber)}
+                              className="flex-1 sm:flex-none px-3 py-2 rounded-lg bg-gray-500/10 text-gray-400 border border-gray-500/20 hover:bg-gray-500/20 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                              </svg>
+                              Copiar Telefone
+                            </button>
+                          )
+                        )}
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
 
-                  {/* Estado vazio: antes de buscar */}
-                  {leads.length === 0 && !hasSearched && !isExtracting && (
-                    <div className="py-16 text-center">
-                      <div className="text-4xl mb-4">🔍</div>
-                      <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.emptyTitle')}</p>
-                      <p className="text-gray-500 text-xs max-w-xs mx-auto">
-                        {t('extractor.emptyDesc')}
-                      </p>
-                    </div>
-                  )}
+                {/* Estado vazio: antes de buscar */}
+                {leads.length === 0 && !hasSearched && !isExtracting && (
+                  <div className="py-16 text-center">
+                    <div className="text-4xl mb-4">🔍</div>
+                    <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.emptyTitle')}</p>
+                    <p className="text-gray-500 text-sm max-w-md mx-auto">
+                      {t('extractor.emptyDesc')}
+                    </p>
+                  </div>
+                )}
 
-                  {/* Estado vazio: depois de buscar e não achar nada */}
-                  {leads.length === 0 && hasSearched && !isExtracting && (
-                    <div className="py-16 text-center">
-                      <div className="text-4xl mb-4">🕵️</div>
-                      <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.noResultsTitle')}</p>
-                      <p className="text-gray-500 text-xs max-w-xs mx-auto">
-                        {t('extractor.noResultsDesc')}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                {/* Estado vazio: depois de buscar e não achar nada */}
+                {leads.length === 0 && hasSearched && !isExtracting && (
+                  <div className="py-16 text-center">
+                    <div className="text-4xl mb-4">🕵️</div>
+                    <p className="text-gray-300 font-medium text-lg mb-2">{t('extractor.noResultsTitle')}</p>
+                    <p className="text-gray-500 text-sm max-w-lg mx-auto">
+                      {t('extractor.noResultsDesc')}
+                      <br/><br/>
+                      <span className="text-blue-400 font-semibold">{t('extractor.noResultsTokens')}</span>
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

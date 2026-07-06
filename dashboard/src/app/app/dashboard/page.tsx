@@ -22,6 +22,7 @@ import AICopySection from '@/components/dashboard/AICopySection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
 import ReferralSection from '@/components/dashboard/ReferralSection';
+import ApiSection from '@/components/dashboard/ApiSection';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from '@/lib/i18n';
 import { toWhatsAppNumber } from '@/lib/phone';
@@ -1040,8 +1041,8 @@ export default function Home() {
     if (!requireFeature('export')) { showLockedFeature('export'); return; }
     if (leads.length === 0) return;
     const esc = (v: string) => `"${(v || '').replace(/"/g, '""')}"`;
-    const csvHeaders = [t('crm.csvName'), t('crm.csvPhone'), t('crm.csvEmail'), t('crm.csvCnpj'), t('crm.csvRating'), t('crm.csvInstagram'), t('crm.csvFacebook'), t('crm.csvTiktok'), t('crm.csvSite')];
-    const csvContent = [csvHeaders.join(','), ...leads.map(l => [esc(l.nome), esc(l.telefone), esc(l.email), esc(l.cnpj), esc(l.avaliacao), esc(l.instagram), esc(l.facebook), esc(l.tiktok), esc(l.site)].join(','))].join('\n');
+    const csvHeaders = [t('crm.csvName'), t('crm.csvPhone'), t('crm.csvEmail'), t('crm.csvInstagram'), t('crm.csvSite')];
+    const csvContent = [csvHeaders.join(','), ...leads.map(l => [esc(l.nome), esc(l.telefone), esc(l.email), esc(l.instagram), esc(l.site)].join(','))].join('\n');
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1256,6 +1257,10 @@ export default function Home() {
                 className={`text-[11px] px-3 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap font-semibold ${activeTab === 'ia' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'}`}>
                 {t('dashboard.aiCopy')}{!requireFeature('aiCopy') && <span className="ml-1 text-amber-300">🔒</span>}
               </button>
+              <button onClick={() => setActiveTab('api')}
+                className={`text-[11px] px-3 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap font-semibold ${activeTab === 'api' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'}`}>
+                🔌 API{!requireFeature('apiAccess') && <span className="ml-1 text-amber-300">🔒</span>}
+              </button>
             </div>
           </div>
         </header>
@@ -1384,10 +1389,14 @@ export default function Home() {
         )}
 
         {activeTab === 'referral' && (
-          <ReferralSection user={user} showToast={showToast} />
-        )}
+                  <ReferralSection user={user} showToast={showToast} />
+                )}
 
-        {activeTab === 'support' && (
+                {activeTab === 'api' && (
+                  <ApiSection />
+                )}
+
+                {activeTab === 'support' && (
           <SupportSection
             supportRating={supportRating} setSupportRating={setSupportRating}
             supportFeedback={supportFeedback} setSupportFeedback={setSupportFeedback}
