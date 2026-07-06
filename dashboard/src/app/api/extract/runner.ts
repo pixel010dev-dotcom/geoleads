@@ -1,14 +1,12 @@
 import type { SearchLead } from './lib/types';
 import { scoreLeadQuality, cleanLeadName } from './lib/types';
+import { extractFromGooglePlaces, type PlacesApiResult } from './strategies/google-places';
 import { extractFromGoogleSearch } from './strategies/google-search-via-cf';
 import { extractFromOpenStreetMap } from './strategies/alternative-sources';
 import { extractFromDuckDuckGo } from './strategies/duckduckgo';
 import { extractFromBingMaps } from './strategies/bing-maps';
 import { extractFromGoogleMapsMobile } from './strategies/google-maps-mobile';
-import { extractFromPlaywrightMaps } from './strategies/maps-scraper';
 import { getCachedQuery, setCachedQuery, generateQueryCacheKey } from './lib/cache';
-import { MAJOR_CITIES, getCityBairros, getNicheVariations } from './lib/normalizers';
-import { getRandomUserAgent, getRandomViewport, getRandomTimezone, getRandomGeolocation } from './lib/stealth';
 
 export interface RunnerResult {
   leads: SearchLead[];
@@ -72,20 +70,26 @@ function mergeLeadsData(existing: SearchLead, incoming: SearchLead): SearchLead 
   };
 }
 
-// City "weight" based on population — cidades maiores contribuem mais leads
-const CITY_WEIGHT: Record<string, number> = {
-  'São Paulo, SP': 8, 'Rio de Janeiro, RJ': 6, 'Belo Horizonte, MG': 5,
-  'Brasília, DF': 5, 'Salvador, BA': 4, 'Fortaleza, CE': 4,
-  'Curitiba, PR': 4, 'Manaus, AM': 3, 'Recife, PE': 4, 'Porto Alegre, RS': 4,
-  'Belém, PA': 3, 'Goiânia, GO': 3, 'Campinas, SP': 3, 'São Luís, MA': 2,
-  'Maceió, AL': 2, 'Natal, RN': 2, 'Campo Grande, MS': 2, 'Teresina, PI': 2,
-  'João Pessoa, PB': 2, 'São José dos Campos, SP': 2, 'Ribeirão Preto, SP': 2,
-};
-
-function getTargetPerCity(city: string, totalRemaining: number, citiesRemaining: number): number {
-  const weight = CITY_WEIGHT[city] || 1;
-  const baseTarget = Math.max(5, Math.ceil(totalRemaining / Math.max(1, citiesRemaining)));
-  return Math.min(totalRemaining, Math.ceil(baseTarget * (weight / 2)));
+/** Converte resultado da Places API para SearchLead padrão */
+function placesResultToSearchLead(r: PlacesApiResult): SearchLead {
+  return {
+    nome: r.nome,
+    telefone: r.telefone,
+    endereco: r.endereco,
+    site: r.site || 'Sem site',
+    avaliacao: r.avaliacao,
+    reviewCount: String(r.reviewCount || ''),
+    categoria: r.categoria,
+    placeUrl: r.placeUrl,
+    email: '',
+    instagram: '',
+    facebook: '',
+    tiktok: '',
+    linkedin: '',
+    cnpj: '',
+    cep: '',
+    horarios: '',
+  };
 }
 
 export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]> {
@@ -95,7 +99,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   } = config;
 
   const startTime = Date.now();
-  const MAX_TOTAL_MS = 1800000;
+  const MAX_TOTAL_MS = 600000; // 10 minutos (reduzido — Places API é rápida)
   const hardDeadline = startTime + MAX_TOTAL_MS;
   let finalized = false;
   const leadsByName = new Map<string, SearchLead>();
@@ -176,10 +180,11 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     return validLeads;
   };
 
-  async function runAllStrategies(): Promise<number> {
+  /** Roda estratégias HTTP em paralelo (fallback rápido) */
+  async function runHttpStrategies(): Promise<number> {
     const roundStart = leadsByName.size;
-
     const stratTimeout = Math.min(15000 + targetLimit * 2, 45000);
+    const existingKeys = new Set<string>(Array.from(scrapedNames));
 
     const fetchWithTimeout = (name: string, fn: () => Promise<SearchLead[]>, timeoutMs: number): Promise<SearchLead[]> =>
       new Promise<SearchLead[]>((resolve) => {
@@ -194,18 +199,15 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
         });
       });
 
-    const existingForFetch = new Set<string>(Array.from(scrapedNames));
-    const existingForMobile = new Set<string>(Array.from(scrapedNames));
-
-    const strategyPromises = [
-      { name: 'GoogleSearch', promise: fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingForFetch).then(r => r.leads), stratTimeout) },
-      { name: 'GoogleMobile', promise: fetchWithTimeout('GoogleMobile', () => extractFromGoogleMapsMobile(keyword, location, targetLimit, existingForMobile), stratTimeout) },
-      { name: 'BingMaps', promise: fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingForFetch), stratTimeout) },
-      { name: 'DuckDuckGo', promise: fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingForFetch), stratTimeout) },
-      { name: 'OSM', promise: fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingForFetch), stratTimeout) },
+    const strategies = [
+      { name: 'GoogleSearch', promise: fetchWithTimeout('GoogleSearch', () => extractFromGoogleSearch(keyword, location, targetLimit, existingKeys).then(r => r.leads), stratTimeout) },
+      { name: 'GoogleMobile', promise: fetchWithTimeout('GoogleMobile', () => extractFromGoogleMapsMobile(keyword, location, targetLimit, existingKeys), stratTimeout) },
+      { name: 'BingMaps', promise: fetchWithTimeout('BingMaps', () => extractFromBingMaps(keyword, location, targetLimit, existingKeys), stratTimeout) },
+      { name: 'DuckDuckGo', promise: fetchWithTimeout('DuckDuckGo', () => extractFromDuckDuckGo(keyword, location, targetLimit, existingKeys), stratTimeout) },
+      { name: 'OSM', promise: fetchWithTimeout('OSM', () => extractFromOpenStreetMap(keyword, location, targetLimit, existingKeys), stratTimeout) },
     ];
 
-    const remaining = [...strategyPromises];
+    const remaining = [...strategies];
     while (remaining.length > 0 && Date.now() < hardDeadline) {
       if (await cancelled()) break;
       const result = await Promise.race(remaining.map(s =>
@@ -222,84 +224,16 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       }
     }
 
+    // Coleta resultados pendentes (até 2s)
     if (remaining.length > 0) {
-      try { await Promise.race([Promise.all(remaining.map(s => s.promise)), new Promise(r => setTimeout(r, 2000))]); } catch { }
+      try { await Promise.race([Promise.all(remaining.map(s => s.promise)), new Promise(r => setTimeout(r, 3000))]); } catch {}
     }
 
     return leadsByName.size - roundStart;
   }
 
-  // Busca uma cidade com múltiplas variações de keyword + bairros
-  // USA UM ÚNICO CONTEXTO DO PLAYWRIGHT — Google vê como UM usuário, não varios bots
-  async function searchCity(
-    ctx: any,
-    city: string,
-    cityTarget: number,
-  ): Promise<number> {
-    if (cityTarget <= 0) return 0;
-    const before = leadsByName.size;
-
-    // 1. Tenta a keyword principal primeiro
-    const mainResult = await extractFromPlaywrightMaps(null, keyword, city, cityTarget, scrapedNames, 20, undefined, ctx);
-    const mainAdded = processResults(mainResult.leads, `PW:${city.split(',')[0]}`);
-    let foundFromCity = mainAdded;
-    let wasBlocked = mainResult.blocked;
-
-    // 2. Se não atingiu o target, tenta variações do nicho — MESMO CONTEXTO
-    if (!wasBlocked && foundFromCity < cityTarget && !(await cancelled())) {
-      const variations = getNicheVariations(keyword).filter(v => v.toLowerCase() !== keyword.toLowerCase());
-      if (variations.length > 0) {
-        const maxVars = Math.min(variations.length, 4);
-        const varTarget = Math.ceil((cityTarget - foundFromCity) / maxVars);
-
-        for (let vi = 0; vi < maxVars && !wasBlocked && foundFromCity < cityTarget && !(await cancelled()); vi++) {
-          const kw = variations[vi];
-          const vr = await extractFromPlaywrightMaps(
-            null, kw, city,
-            Math.min(varTarget, cityTarget - foundFromCity),
-            scrapedNames, 12, undefined, ctx,
-          ).catch(() => ({ leads: [] as SearchLead[], blocked: false }));
-          if (vr.leads.length > 0) {
-            const added = processResults(vr.leads, `PW:${city.split(',')[0]}/${kw.slice(0, 12)}`);
-            foundFromCity += added;
-          }
-          wasBlocked = vr.blocked;
-          await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
-        }
-      }
-    }
-
-    // 3. Se ainda não atingiu e a cidade tem bairros, busca por bairro — MESMO CONTEXTO
-    if (!wasBlocked && foundFromCity < cityTarget && !(await cancelled())) {
-      const bairros = getCityBairros(city);
-      if (bairros.length > 0) {
-        const bairroTarget = Math.max(3, Math.ceil((cityTarget - foundFromCity) / bairros.length));
-        const BATCH = 4;
-
-        for (let bi = 0; bi < bairros.length && !wasBlocked && foundFromCity < cityTarget && !(await cancelled()); bi += BATCH) {
-          const batch = bairros.slice(bi, bi + BATCH);
-
-          for (const bairro of batch) {
-            if (wasBlocked || foundFromCity >= cityTarget) break;
-            const br = await extractFromPlaywrightMaps(
-              null, keyword, `${bairro}, ${city}`,
-              bairroTarget, scrapedNames, 8, undefined, ctx,
-            ).catch(() => ({ leads: [] as SearchLead[], blocked: false }));
-            if (br.leads.length > 0) {
-              const added = processResults(br.leads, `PW:${city.split(',')[0]}/${bairro}`);
-              foundFromCity += added;
-            }
-            wasBlocked = br.blocked;
-            await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
-          }
-        }
-      }
-    }
-
-    return leadsByName.size - before;
-  }
-
   try {
+    // === CACHE CHECK ===
     const cacheKey = generateQueryCacheKey(keyword, location);
     const cachedLeads = getCachedQuery(cacheKey);
     if (cachedLeads && cachedLeads.length >= targetLimit) {
@@ -311,130 +245,44 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
       return finalize(getLeadsArray());
     }
 
-    console.log(`[EXTRACT] Starting: "${keyword}" in "${location}" limit=${targetLimit} broad=${isBroadRegion}`);
+    console.log(`[EXTRACT] Starting v2: "${keyword}" in "${location}" limit=${targetLimit} broad=${isBroadRegion}`);
+    notify(`Buscando "${keyword}" em ${location}...`);
 
-    if (isBroadRegion) {
-      notify(`Buscando "${keyword}" em todo o Brasil (${MAJOR_CITIES.length} cidades, variações de nicho + bairros)...`);
-
-      // Rodada 1: HTTP (rápido, garante resultado mesmo se Playwright falhar)
-      await runAllStrategies();
-      notify(`${leadsByName.size}/${targetLimit} leads (fontes HTTP)`);
-
-      // Rodada 2: Playwright com cidade × variação × bairro (aprofunda)
-      // Só as top cidades (peso >= 2 em CITY_WEIGHT) — 20 cidades com maior população
-      const TOP_CITIES = MAJOR_CITIES.filter(c => (CITY_WEIGHT as any)[c] >= 2 || MAJOR_CITIES.indexOf(c) < 20);
-      const targetCities = TOP_CITIES.slice(0, 30);
-      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
-        notify(`Reforçando com navegador em ${targetCities.length} cidades...`);
-        const { chromium } = await import('playwright');
-        const browser = await chromium.launch({
-          headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
-        });
-        try {
-          for (let i = 0; i < targetCities.length && leadsByName.size < targetLimit && Date.now() < hardDeadline; i++) {
-            if (await cancelled()) break;
-
-            const city = targetCities[i];
-            const citiesLeft = targetCities.length - i;
-            const remainingForBatch = targetLimit - leadsByName.size;
-            const cityTarget = getTargetPerCity(city, remainingForBatch, citiesLeft);
-
-            notify(`${leadsByName.size}/${targetLimit} leads — cidade ${i + 1}/${targetCities.length}: ${city.split(',')[0]}`);
-
-            // Cria UM contexto por cidade, reusa pra keyword + variações + bairros
-            const ctx = await browser.newContext({
-              userAgent: getRandomUserAgent(),
-              viewport: getRandomViewport(),
-              locale: 'pt-BR',
-              timezoneId: getRandomTimezone(),
-              geolocation: getRandomGeolocation(),
-              permissions: ['geolocation'],
-            });
-            await ctx.addInitScript(() => {
-              Object.defineProperty(navigator, 'webdriver', { get: () => false });
-              Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
-              Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-            });
-            await ctx.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}', (route: any) => route.fulfill({ status: 204, body: '' }));
-            await ctx.route('**/maps/vt**', (route: any) => route.fulfill({ status: 204, body: '' }));
-            await ctx.addCookies([{ name: 'CONSENT', value: 'YES+', domain: '.google.com', path: '/' }]);
-
-            try {
-              const added = await searchCity(ctx, city, cityTarget);
-              if (added > 0) citiesDone++;
-            } finally {
-              await ctx.close().catch(() => {});
-            }
-
-            notify(`${leadsByName.size}/${targetLimit} leads (${i + 1}/${targetCities.length} cidades)`);
-            await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
-          }
-        } finally {
-          await browser.close().catch(() => {});
-        }
-      }
-
-      // Rodada 3: HTTP round 2 (coleta o que sobrou)
-      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
-        notify(`Rodada final de refinamento...`);
-        await runAllStrategies();
-        notify(`${leadsByName.size}/${targetLimit} leads (após rodada final)`);
-      }
-    } else {
-      notify(`Buscando ${targetLimit} leads em ${location} com variações de nicho...`);
-
-      // Tenta HTTP primeiro (rápido, pode complementar)
-      await runAllStrategies();
-      notify(`${leadsByName.size}/${targetLimit} leads (fontes HTTP)`);
-
-      // Playwright com variações + bairros se precisar
-      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
-        notify(`Reforçando com navegador + variações...`);
-        try {
-          const { chromium } = await import('playwright');
-          const pwBrowser = await chromium.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
-          });
-          try {
-            const ctx = await pwBrowser.newContext({
-              userAgent: getRandomUserAgent(),
-              viewport: getRandomViewport(),
-              locale: 'pt-BR',
-              timezoneId: getRandomTimezone(),
-              geolocation: getRandomGeolocation(),
-              permissions: ['geolocation'],
-            });
-            await ctx.addInitScript(() => {
-              Object.defineProperty(navigator, 'webdriver', { get: () => false });
-              Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
-              Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-            });
-            await ctx.route('**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,eot}', (route: any) => route.fulfill({ status: 204, body: '' }));
-            await ctx.route('**/maps/vt**', (route: any) => route.fulfill({ status: 204, body: '' }));
-            await ctx.addCookies([{ name: 'CONSENT', value: 'YES+', domain: '.google.com', path: '/' }]);
-            try {
-              await searchCity(ctx, location, targetLimit - leadsByName.size);
-            } finally {
-              await ctx.close().catch(() => {});
-            }
-          } finally {
-            await pwBrowser.close().catch(() => {});
-          }
-        } catch (e: any) {
-          console.warn(`[EXTRACT] Playwright failed (non-critical):`, e?.message || e);
-        }
-      }
-
-      // Último recurso: HTTP round 2
-      if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
-        notify(`Rodada final de refinamento...`);
-        await runAllStrategies();
-        notify(`${leadsByName.size}/${targetLimit} leads (após rodada final)`);
-      }
+    // ==========================================
+    // RODADA 1: GOOGLE PLACES API (PRIMÁRIA)
+    // ==========================================
+    // API oficial — rápida, dados estruturados, telefone/site/avaliação
+    const placesResults = await extractFromGooglePlaces(keyword, location, targetLimit);
+    if (placesResults.length > 0) {
+      const leads = placesResults.map(r => placesResultToSearchLead(r));
+      const added = processResults(leads, 'PlacesAPI');
+      if (added > 0) citiesDone++;
+      notify(`${leadsByName.size}/${targetLimit} leads (Google Places API)`);
+      console.log(`[EXTRACT] Places API: ${added} novos leads (total: ${leadsByName.size})`);
     }
 
+    // ==========================================
+    // RODADA 2: FALLBACK HTTP (paralelo rápido)
+    // ==========================================
+    // Se Places API não atingiu o target, complementa com estratégias HTTP
+    if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+      notify(`Complementando com fontes alternativas...`);
+      await runHttpStrategies();
+      notify(`${leadsByName.size}/${targetLimit} leads (após fallback HTTP)`);
+    }
+
+    // ==========================================
+    // RODADA 3: HTTP REFINEMENT (se precisar)
+    // ==========================================
+    if (leadsByName.size < targetLimit && Date.now() < hardDeadline && !(await cancelled())) {
+      notify(`Rodada final de refinamento...`);
+      await runHttpStrategies();
+      notify(`${leadsByName.size}/${targetLimit} leads (após rodada final)`);
+    }
+
+    // ==========================================
+    // CACHE & FINALIZE
+    // ==========================================
     const finalCount = leadsByName.size;
     if (finalCount >= Math.max(3, Math.min(targetLimit, 5))) {
       const leadsToCache = getLeadsArray().filter(l => scoreLeadQuality(l).tier !== 'trash');

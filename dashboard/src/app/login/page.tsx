@@ -80,10 +80,11 @@ export default function Login() {
   };
 
   const loginWithGoogle = async () => {
+    const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + getRedirectPath(),
+        redirectTo: origin + '/auth/callback',
       },
     });
     if (error) {
@@ -99,8 +100,9 @@ export default function Login() {
     setLoading(true);
     setResetSent('');
     try {
+      const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/login',
+        redirectTo: origin + '/login',
       });
       if (error) throw error;
       setResetSent(t('login.forgotSent'));

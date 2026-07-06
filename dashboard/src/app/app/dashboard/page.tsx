@@ -174,10 +174,7 @@ export default function Home() {
   const getAuthedJsonHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    if (!token) {
-      router.push('/login');
-      return null;
-    }
+    if (!token) return null;
     return {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`
@@ -502,6 +499,13 @@ export default function Home() {
     };
     loadData();
 
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user);
+        refreshProfile(session.user.id);
+      }
+    });
+
     // Pending referral from signup
     let pendingRef: string | null = null;
     try { pendingRef = localStorage.getItem('pending_ref'); } catch { pendingRef = null; }
@@ -586,6 +590,7 @@ export default function Home() {
 
     return () => {
       cancelled = true;
+      authListener?.subscription.unsubscribe();
       timers.forEach(t => clearTimeout(t));
       if (batchPollRef.current) { clearInterval(batchPollRef.current); batchPollRef.current = null; }
     };

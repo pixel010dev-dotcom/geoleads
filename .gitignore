@@ -60,3 +60,9 @@ scripts/__pycache__/
 Mantenha-o
 Toda
 Arquivo
+
+# Agent data
+.hermes/
+
+# Token files
+youtube_token.pickle
