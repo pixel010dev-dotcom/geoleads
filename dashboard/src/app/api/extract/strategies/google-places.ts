@@ -1,6 +1,5 @@
 // Google Places API (New) — extração rápida, confiável, sem scraping
 // API Key SERVER-SIDE apenas. NUNCA prefixar com NEXT_PUBLIC_.
-// Documentação: https://developers.google.com/maps/documentation/places/web-service/overview
 
 const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchText';
 
@@ -16,13 +15,28 @@ export interface PlacesApiResult {
   placeUrl: string;
 }
 
+// Expande termos genéricos pra queries mais específicas
+const KEYWORD_EXPANSIONS: Record<string, string[]> = {
+  'clínica': ['clínica odontológica', 'clínica médica', 'clínica dermatológica'],
+  'salão': ['salão de beleza', 'salão de estética'],
+  'oficina': ['oficina mecânica', 'oficina de bicicleta'],
+  'loja': ['loja de roupas', 'loja de materiais'],
+  'academia': ['academia', 'crossfit', 'studio de pilates'],
+  'restaurante': ['restaurante', 'restaurante self-service'],
+  'pet': ['petshop', 'pet shop', 'veterinária'],
+  'hotel': ['hotel', 'pousada'],
+  'escola': ['escola', 'colégio', 'curso'],
+};
+
+function expandKeyword(keyword: string): string[] {
+  const lower = keyword.toLowerCase().trim();
+  const expansions = KEYWORD_EXPANSIONS[lower];
+  if (expansions) return expansions;
+  return [keyword];
+}
+
 /**
  * Busca lugares no Google Places API (New) por texto.
- * Retorna leads estruturados com nome, telefone, site, avaliação, endereço.
- *
- * @param keyword - Nicho de negócio (ex: "padarias", "dentistas")
- * @param location - Cidade/região (ex: "Foz do Iguaçu, PR")
- * @param targetLimit - Máximo de resultados desejados
  */
 export async function extractFromGooglePlaces(
   keyword: string,
@@ -37,11 +51,10 @@ export async function extractFromGooglePlaces(
 
   const results: PlacesApiResult[] = [];
   const seenIds = new Set<string>();
-  let pageToken: string | undefined;
 
-  const textQuery = `${keyword} ${location}`;
+  // Expande keyword genérica pra queries mais específicas
+  const keywords = expandKeyword(keyword);
 
-  // FieldMask mínimo — só o que precisamos (reduz latência e custo)
   const FIELD_MASK = [
     'places.id',
     'places.displayName',
@@ -54,67 +67,79 @@ export async function extractFromGooglePlaces(
     'places.googleMapsUri',
   ].join(',');
 
-  while (results.length < targetLimit) {
-    const body: Record<string, unknown> = {
-      textQuery,
-      pageSize: Math.min(20, targetLimit - results.length),
-    };
-    if (pageToken) body.pageToken = pageToken;
+  for (const kw of keywords) {
+    if (results.length >= targetLimit) break;
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': FIELD_MASK,
-    };
+    const textQuery = `${kw} ${location}`;
+    let pageToken: string | undefined;
+    let attempts = 0;
 
-    try {
-      const response = await fetch(PLACES_API_URL, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(10000),
-      });
+    while (results.length < targetLimit && attempts < 3) {
+      attempts++;
+      const body: Record<string, unknown> = {
+        textQuery,
+        pageSize: Math.min(20, targetLimit - results.length),
+      };
+      if (pageToken) body.pageToken = pageToken;
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        console.error(`[Places API] Erro HTTP ${response.status}: ${errorText.slice(0, 300)}`);
-        break; // Não insiste — se falhar, entrega o que já coletou
-      }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': FIELD_MASK,
+      };
 
-      const data = await response.json();
-      const places: any[] = data.places || [];
-
-      for (const place of places) {
-        if (seenIds.has(place.id)) continue;
-        seenIds.add(place.id);
-
-        results.push({
-          nome: place.displayName?.text || '',
-          telefone: place.internationalPhoneNumber || 'Não informado',
-          endereco: place.formattedAddress || '',
-          site: place.websiteUri || undefined,
-          avaliacao: place.rating ? String(place.rating) : 'N/A',
-          reviewCount: place.userRatingCount || 0,
-          categoria: place.primaryTypeDisplayName?.text || '',
-          placeId: place.id,
-          placeUrl: place.googleMapsUri || '',
+      try {
+        const response = await fetch(PLACES_API_URL, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(10000),
         });
-      }
 
-      pageToken = data.nextPageToken;
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          console.error(`[Places API] Erro HTTP ${response.status}: ${errorText.slice(0, 200)}`);
+          break;
+        }
 
-      // Se tem mais páginas, delay de ~2s (obrigatório — API processa nextPageToken async)
-      if (pageToken && results.length < targetLimit) {
-        await new Promise(resolve => setTimeout(resolve, 2500));
-      } else {
+        const data = await response.json();
+        const places: any[] = data.places || [];
+
+        for (const place of places) {
+          if (seenIds.has(place.id)) continue;
+          seenIds.add(place.id);
+
+          results.push({
+            nome: place.displayName?.text || '',
+            telefone: place.internationalPhoneNumber || 'Não informado',
+            endereco: place.formattedAddress || '',
+            site: place.websiteUri || undefined,
+            avaliacao: place.rating ? String(place.rating) : 'N/A',
+            reviewCount: place.userRatingCount || 0,
+            categoria: place.primaryTypeDisplayName?.text || '',
+            placeId: place.id,
+            placeUrl: place.googleMapsUri || '',
+          });
+        }
+
+        pageToken = data.nextPageToken;
+        if (pageToken && results.length < targetLimit) {
+          await new Promise(resolve => setTimeout(resolve, 2500));
+        } else {
+          break;
+        }
+      } catch (err: any) {
+        console.error('[Places API] Erro de rede:', err?.message || err);
         break;
       }
-    } catch (err: any) {
-      console.error('[Places API] Erro de rede:', err?.message || err);
-      break;
+    }
+
+    // Delay entre keywords
+    if (keywords.length > 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
-  console.log(`[Places API] Extraídos ${results.length} resultados para "${textQuery}"`);
+  console.log(`[Places API] Extraídos ${results.length} resultados para "${keyword} ${location}"`);
   return results.slice(0, targetLimit);
 }
