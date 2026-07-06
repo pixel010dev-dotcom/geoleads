@@ -41,6 +41,7 @@ function placeToLead(r: PlacesApiResult): SearchLead {
     tiktok: '',
     linkedin: '',
     cnpj: '',
+    isMobile: r.isMobile,
   };
 }
 
@@ -69,7 +70,6 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   const { keyword, location, targetLimit, existingLeadKeys, onProgress, onDone, shouldCancel } = config;
 
   const startTime = Date.now();
-  const MAX_TOTAL_MS = 60000; // 60 segundos máximo
   let finalized = false;
 
   const notify = (msg: string) => {
@@ -99,9 +99,7 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
   try {
     notify(`Buscando "${keyword}" em ${location}...`);
 
-    // ==========================================
     // GOOGLE PLACES API — ÚNICA ESTRATÉGIA
-    // ==========================================
     const placesResults = await extractFromGooglePlaces(keyword, location, targetLimit);
 
     if (placesResults.length === 0) {
@@ -122,7 +120,8 @@ export async function runExtraction(config: RunnerConfig): Promise<SearchLead[]>
     leads = leads.slice(0, targetLimit);
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
-    console.log(`[RUNNER] ${leads.length} leads em ${elapsed}s`);
+    const withMobile = leads.filter(l => l.isMobile).length;
+    console.log(`[RUNNER] ${leads.length} leads em ${elapsed}s (${withMobile} com WhatsApp)`);
 
     return await finalize(leads);
 

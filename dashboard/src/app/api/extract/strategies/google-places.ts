@@ -13,9 +13,10 @@ export interface PlacesApiResult {
   categoria: string;
   placeId: string;
   placeUrl: string;
+  isMobile: boolean; // true = celular (WhatsApp funciona)
 }
 
-// FieldMask otimizada — pega TUDO que precisamos
+// FieldMask otimizada
 const FIELD_MASK = [
   'places.id',
   'places.displayName',
@@ -29,13 +30,28 @@ const FIELD_MASK = [
   'places.primaryTypeDisplayName',
   'places.types',
   'places.businessStatus',
-  'places.currentOpeningHours',
-  'places.regularOpeningHours',
 ].join(',');
 
 /**
+ * Detecta se telefone é celular (9 dígitos após DDD)
+ * Formato BR: +55 (XX) 9XXXX-XXXX = celular
+ * Formato BR: +55 (XX) XXXX-XXXX = fixo
+ */
+function isMobilePhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, '');
+  // Remove country code 55
+  const local = digits.startsWith('55') ? digits.slice(2) : digits;
+  // Celular BR tem 9 dígitos (começa com 9)
+  if (local.length === 11 && local.startsWith('9')) return true;
+  // Fixo tem 8 dígitos
+  if (local.length === 10) return false;
+  // Internacional: assume celular
+  if (local.length > 11) return true;
+  return false;
+}
+
+/**
  * Extração máxima de leads via Google Places API (New)
- * Returns: array de leads com dados completos
  */
 export async function extractFromGooglePlaces(
   keyword: string,
@@ -52,7 +68,7 @@ export async function extractFromGooglePlaces(
   const seenIds = new Set<string>();
   let pageToken: string | undefined;
   let pageCount = 0;
-  const MAX_PAGES = 3; // Máximo 3 páginas = até 60 resultados
+  const MAX_PAGES = 3;
 
   const textQuery = `${keyword} ${location}`;
 
@@ -61,7 +77,7 @@ export async function extractFromGooglePlaces(
 
     const body: Record<string, unknown> = {
       textQuery,
-      pageSize: Math.min(20, targetLimit * 2), // Pega mais pra ter margem
+      pageSize: Math.min(20, targetLimit * 2),
     };
     if (pageToken) body.pageToken = pageToken;
 
@@ -90,19 +106,12 @@ export async function extractFromGooglePlaces(
         if (seenIds.has(place.id)) continue;
         seenIds.add(place.id);
 
-        // Pega telefone:优先 international, fallback national
         const phone = place.internationalPhoneNumber
           || place.nationalPhoneNumber
           || '';
 
-        // Pega horários
-        const hours = place.currentOpeningHours || place.regularOpeningHours;
-        const horarios = hours?.weekdayDescriptions?.join('; ') || '';
-
-        // Business status check
         const isOpen = place.businessStatus !== 'CLOSED_PERMANENTLY';
-
-        if (!isOpen) continue; // Pula fechados permanentemente
+        if (!isOpen) continue;
 
         results.push({
           nome: place.displayName?.text || '',
@@ -114,13 +123,13 @@ export async function extractFromGooglePlaces(
           categoria: place.primaryTypeDisplayName?.text || place.types?.[0] || '',
           placeId: place.id,
           placeUrl: place.googleMapsUri || '',
+          isMobile: isMobilePhone(phone),
         });
       }
 
-      // Paginação
       pageToken = data.nextPageToken;
       if (pageToken && results.length < targetLimit && pageCount < MAX_PAGES) {
-        await new Promise(r => setTimeout(r, 2000)); // Delay obrigatório
+        await new Promise(r => setTimeout(r, 2000));
       } else {
         break;
       }

@@ -1,4 +1,4 @@
-export type PlanId = 'free' | 'starter' | 'pro' | 'agency';
+export type PlanId = 'free' | 'starter' | 'pro' | 'agency' | 'api';
 
 export type FeatureKey =
   | 'extractor'
@@ -12,7 +12,8 @@ export type FeatureKey =
   | 'autovendas'
   | 'prioritySupport'
   | 'cnpjEnrichment'
-  | 'facebook';
+  | 'facebook'
+  | 'apiAccess';
 
 export type Plan = {
   id: PlanId;
@@ -29,19 +30,17 @@ export type Plan = {
   featureKeys: FeatureKey[];
 };
 
-export const ANNUAL_DISCOUNT = 0.2; // 20% off
+export const ANNUAL_DISCOUNT = 0.2;
 
 export function getAnnualPrice(monthlyPrice: number): number {
   if (monthlyPrice <= 0) return 0;
   return Math.round(monthlyPrice * 12 * (1 - ANNUAL_DISCOUNT));
 }
 
-export const planOrder: PlanId[] = ['free', 'starter', 'pro', 'agency'];
+export const planOrder: PlanId[] = ['free', 'starter', 'pro', 'agency', 'api'];
 
-// Custo por lead via Google Places API:
-// - Free tier (10k calls/mês): ~R$0,017/lead
-// - Com crédito: ~R$0,017/lead
-// Margem de lucro: 50-70% por plano
+// Custo real por lead via Google Places API: ~R$0.017
+// Margem de lucro: 50-70%
 
 export const plans: Record<PlanId, Plan> = {
   free: {
@@ -56,7 +55,7 @@ export const plans: Record<PlanId, Plan> = {
     features: [
       '5 tokens iniciais',
       'Motor Google Places',
-      'Filtro por telefone e site',
+      'Dados: telefone, site, endereço',
       'Suporte padrão'
     ],
     featureKeys: ['extractor']
@@ -66,42 +65,41 @@ export const plans: Record<PlanId, Plan> = {
     nameKey: 'pricing.planNames.starter',
     shortNameKey: 'pricing.planNames.starter',
     descKey: 'pricing.planDescriptions.starter',
-    price: 29.90,
-    annualPrice: 287,
-    tokens: 500,
+    price: 9.90,
+    annualPrice: 95,
+    tokens: 300,
     ctaKey: 'pricing.cta.starter',
     features: [
-      '500 tokens de extração',
-      'CRM de leads completo',
-      'Exportação para CSV',
-      'Caçador de e-mails em sites oficiais',
-      'CNPJ quando encontrado no site'
+      '300 leads/mês',
+      'CRM completo',
+      'Exportação CSV',
+      'Telefone + Site + Endereço',
+      'Suporte padrão'
     ],
-    featureKeys: ['extractor', 'crm', 'export', 'emailEnrichment', 'cnpjEnrichment']
+    featureKeys: ['extractor', 'crm', 'export']
   },
   pro: {
     id: 'pro',
     nameKey: 'pricing.planNames.pro',
     shortNameKey: 'pricing.planNames.pro',
     descKey: 'pricing.planDescriptions.pro',
-    price: 67.90,
-    annualPrice: 652,
-    tokens: 2000,
+    price: 29.90,
+    annualPrice: 287,
+    tokens: 1000,
     ctaKey: 'pricing.cta.pro',
     badgeKey: 'pricing.badge',
     highlight: true,
     features: [
-      '2.000 tokens de extração',
-      'Tudo do plano Starter',
-      'Instagram, Facebook e TikTok',
-      'Disparador WhatsApp com fila inteligente',
+      '1.000 leads/mês',
+      'Tudo do Starter',
+      'Instagram + Facebook + TikTok',
+      'Disparador WhatsApp',
       'Gerador de mensagens com IA',
-      'AutoVendas — campanhas automáticas'
+      'AutoVendas automático'
     ],
     featureKeys: [
-      'extractor', 'crm', 'export', 'emailEnrichment',
-      'socialEnrichment', 'whatsappSender', 'aiCopy',
-      'autovendas', 'cnpjEnrichment'
+      'extractor', 'crm', 'export', 'socialEnrichment',
+      'whatsappSender', 'aiCopy', 'autovendas'
     ]
   },
   agency: {
@@ -109,28 +107,52 @@ export const plans: Record<PlanId, Plan> = {
     nameKey: 'pricing.planNames.agency',
     shortNameKey: 'pricing.planNames.agency',
     descKey: 'pricing.planDescriptions.agency',
-    price: 147,
-    annualPrice: 1411,
-    tokens: 5000,
+    price: 67.90,
+    annualPrice: 652,
+    tokens: 3000,
     ctaKey: 'pricing.cta.agency',
     features: [
-      '5.000 tokens de extração',
-      'Tudo do plano Pro',
-      'Chatbot WhatsApp por QR Code',
-      'Fluxos de resposta personalizáveis',
-      'Suporte prioritário humano',
+      '3.000 leads/mês',
+      'Tudo do Pro',
+      'Chatbot WhatsApp QR Code',
+      'Fluxos personalizados',
+      'Suporte prioritário',
       'Integração completa'
     ],
     featureKeys: [
-      'extractor', 'crm', 'export', 'emailEnrichment',
-      'socialEnrichment', 'whatsappSender', 'aiCopy',
-      'autovendas', 'chatbot', 'prioritySupport',
-      'cnpjEnrichment', 'facebook'
+      'extractor', 'crm', 'export', 'socialEnrichment',
+      'whatsappSender', 'aiCopy', 'autovendas', 'chatbot',
+      'prioritySupport'
+    ]
+  },
+  api: {
+    id: 'api',
+    nameKey: 'pricing.planNames.api',
+    shortNameKey: 'pricing.planNames.api',
+    descKey: 'pricing.planDescriptions.api',
+    price: 97,
+    annualPrice: 931,
+    tokens: 10000,
+    ctaKey: 'pricing.cta.api',
+    badgeKey: 'pricing.badgeApi',
+    features: [
+      '10.000 requisições/mês via API',
+      'Acesso completo à API REST',
+      'Webhooks em tempo real',
+      'Documentação completa',
+      'Rate limit alto',
+      'Suporte prioritário',
+      'Chave de API dedicada'
+    ],
+    featureKeys: [
+      'extractor', 'crm', 'export', 'socialEnrichment',
+      'whatsappSender', 'aiCopy', 'autovendas', 'chatbot',
+      'prioritySupport', 'apiAccess'
     ]
   }
 };
 
-export const paidPlanIds: PlanId[] = ['starter', 'pro', 'agency'];
+export const paidPlanIds: PlanId[] = ['starter', 'pro', 'agency', 'api'];
 
 export const getPlanById = (planId?: string | null) => (
   plans[(planId || 'free') as PlanId] || plans.free
@@ -144,11 +166,12 @@ export const hasFeature = (planId: PlanId, feature: FeatureKey) => (
 
 export const getRequiredPlanForFeature = (feature: FeatureKey): PlanId => {
   const match = planOrder.find(planId => plans[planId].featureKeys.includes(feature));
-  return match || 'agency';
+  return match || 'api';
 };
 
 export const getPlanIdFromTokens = (tokens?: number | null): PlanId => {
   if (typeof tokens !== 'number') return 'free';
+  if (tokens >= plans.api.tokens) return 'api';
   if (tokens >= plans.agency.tokens) return 'agency';
   if (tokens >= plans.pro.tokens) return 'pro';
   if (tokens >= plans.starter.tokens) return 'starter';
@@ -163,15 +186,15 @@ export const formatPlanPrice = (price: number) => (
 );
 
 export const getCostPerLeadLabel = (plan: Plan, t?: (key: string, vars?: Record<string, string | number>) => string) => {
-  if (!plan.tokens || !plan.price) return t ? t('pricing.includedInTrial') : 'Incluído no teste';
+  if (!plan.tokens || !plan.price) return t ? t('pricing.includedInTrial') : 'Grátis';
   const price = formatPlanPrice(plan.price / plan.tokens);
-  return t ? t('pricing.perLeadLabel', { price }) : `~ ${price} por lead`;
+  return t ? t('pricing.perLeadLabel', { price }) : `~${price}/lead`;
 };
 
 export const allFeatureKeys: FeatureKey[] = [
-  'extractor', 'crm', 'export', 'emailEnrichment', 'cnpjEnrichment',
-  'socialEnrichment', 'whatsappSender', 'aiCopy', 'chatbot',
-  'autovendas', 'prioritySupport', 'facebook'
+  'extractor', 'crm', 'export', 'socialEnrichment',
+  'whatsappSender', 'aiCopy', 'chatbot', 'autovendas',
+  'prioritySupport', 'apiAccess'
 ];
 
 export const featureLabels: Record<FeatureKey, string> = {
@@ -186,5 +209,6 @@ export const featureLabels: Record<FeatureKey, string> = {
   chatbot: 'pricing.features.chatbot',
   autovendas: 'pricing.features.autovendas',
   prioritySupport: 'pricing.features.prioritySupport',
-  facebook: 'pricing.features.facebook'
+  facebook: 'pricing.features.facebook',
+  apiAccess: 'pricing.features.apiAccess'
 };

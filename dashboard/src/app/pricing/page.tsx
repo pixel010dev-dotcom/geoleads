@@ -14,14 +14,16 @@ const planIcons: Record<PlanId, string> = {
   free: '🔎',
   starter: '⚡',
   pro: '🚀',
-  agency: '🏢'
+  agency: '🏢',
+  api: '🔌'
 };
 
 const planAccent: Record<PlanId, string> = {
   free: 'border-white/10',
   starter: 'border-blue-500/35',
   pro: 'border-indigo-500/60',
-  agency: 'border-cyan-500/35'
+  agency: 'border-cyan-500/35',
+  api: 'border-purple-500/60'
 };
 
 type PixSession = {

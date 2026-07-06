@@ -17,6 +17,7 @@ export interface SearchLead {
   cnpj: string;
   cidade?: string;
   hasWhatsApp?: boolean;
+  isMobile?: boolean; // true = celular (WhatsApp funciona)
 }
 
 export function createEmptySearchLead(): SearchLead {
