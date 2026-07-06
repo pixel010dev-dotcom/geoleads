@@ -1,6 +1,6 @@
 import type { CrmLead, CrmLeadRow } from '@/types/crm';
 
-export type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'referral' | 'ia' | 'support';
+export type DashboardTab = 'extractor' | 'crm' | 'whatsapp' | 'chatbot' | 'referral' | 'ia' | 'support' | 'api';
 
 export const tabFeatureMap: Record<DashboardTab, string | null> = {
   extractor: null,
@@ -10,6 +10,7 @@ export const tabFeatureMap: Record<DashboardTab, string | null> = {
   referral: null,
   ia: 'aiCopy',
   support: null,
+  api: 'apiAccess',
 };
 
 export const tabUpgradeCopy: Record<string, { titleKey: string; descKey: string }> = {
