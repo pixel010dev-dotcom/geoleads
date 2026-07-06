@@ -4,7 +4,7 @@ import json
 import random
 
 TOKEN = os.environ.get("PINTEREST_TOKEN", "")
-APP_URL = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL") or "https://geoleads-production-6583.up.railway.app"
+APP_URL = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL", "")
 
 PINS = [
     {"title": "Extracao de Leads no Google Maps", "desc": "Aprenda como extrair leads do Google Maps automaticamente. Ferramenta gratuita para gerar clientes.", "url": f"{APP_URL}/cidade/sao-paulo"},

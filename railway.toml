@@ -12,16 +12,16 @@ restartPolicyMaxRetries = 5
 
 [[cron.jobs]]
 schedule = "0 * * * *"
-command = "curl -s https://geoleads-production-6583.up.railway.app/api/drip/process"
+command = "curl -s ${{APP_URL}}/api/drip/process"
 
 [[cron.jobs]]
 schedule = "0 8 * * *"
-command = "curl -s https://geoleads-production-6583.up.railway.app/api/drip/process || true"
+command = "curl -s ${{APP_URL}}/api/drip/process || true"
 
 [[cron.jobs]]
 schedule = "*/10 * * * *"
-command = "curl -s https://geoleads-production-6583.up.railway.app/api/cron/process-campaigns?secret=${{CRON_SECRET}} || true"
+command = "curl -s ${{APP_URL}}/api/cron/process-campaigns?secret=${{CRON_SECRET}} || true"
 
 [[cron.jobs]]
 schedule = "*/15 * * * *"
-command = "curl -s https://geoleads-production-6583.up.railway.app/api/cron/process-followups?secret=${{CRON_SECRET}} || true"
+command = "curl -s ${{APP_URL}}/api/cron/process-followups?secret=${{CRON_SECRET}} || true"

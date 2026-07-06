@@ -133,7 +133,7 @@ class CredentialVault:
         
         # Railway URL tem fallback fixo
         if "RAILWAY_URL" not in self._values:
-            self._values["RAILWAY_URL"] = os.environ.get("RAILWAY_URL", "https://geoleads-production-6583.up.railway.app")
+            self._values["RAILWAY_URL"] = os.environ.get("RAILWAY_URL") or os.environ.get("APP_URL", "")
         
         self._loaded = True
         configured = sum(1 for k in self.cred_map if k in self._values)

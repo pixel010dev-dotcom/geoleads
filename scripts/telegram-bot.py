@@ -4,7 +4,7 @@ from bot_utils import generate_varied_content, generate_post_image, save_image_t
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
-APP_URL = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL") or "https://geoleads-production-6583.up.railway.app"
+APP_URL = os.environ.get("APP_URL") or os.environ.get("NEXT_PUBLIC_APP_URL", "")
 
 def send(text, photo=None):
     p = {"chat_id": CID, "text": text, "parse_mode": "HTML"}

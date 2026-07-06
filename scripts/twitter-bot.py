@@ -8,13 +8,10 @@ import hmac
 import time
 import urllib.parse
 
-CONSUMER_KEY = os.environ.get("TWITTER_CONSUMER_KEY", "")
-CONSUMER_SECRET = os.environ.get("TWITTER_CONSUMER_SECRET", "")
-ACCESS_TOKEN = os.environ.get("TWITTER_ACCESS_TOKEN", "")
-ACCESS_SECRET = os.environ.get("TWITTER_ACCESS_SECRET", "")
+TWITTER_BEARER_TOKEN = os.environ.get("TWITTER_BEARER_TOKEN", "")
 OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
-APP_URL = os.environ.get("APP_URL", "https://geoleads-production-6583.up.railway.app")
+APP_URL = os.environ.get("APP_URL", "") or os.environ.get("NEXT_PUBLIC_APP_URL", "")
 LOGIN_URL = f"{APP_URL}/login"
 
 TWEET_TEMPLATES = [
@@ -67,33 +64,15 @@ def generate_ai_tweet():
         pass
     return random.choice(TWEET_TEMPLATES)
 
-def make_oauth_header(method, url, params):
-    oauth = {
-        "oauth_consumer_key": CONSUMER_KEY,
-        "oauth_nonce": hashlib.md5(str(time.time()).encode()).hexdigest(),
-        "oauth_signature_method": "HMAC-SHA1",
-        "oauth_timestamp": str(int(time.time())),
-        "oauth_token": ACCESS_TOKEN,
-        "oauth_version": "1.0",
-    }
 
-    all_params = {**oauth, **params}
-    keys = sorted(all_params.keys())
-    sig_base = "&".join(f"{urllib.parse.quote(k, safe='')}={urllib.parse.quote(str(all_params[k]), safe='')}" for k in keys)
-    sig_string = f"{method}&{urllib.parse.quote(url, safe='')}&{urllib.parse.quote(sig_base, safe='')}"
-    sig_key = f"{urllib.parse.quote(CONSUMER_SECRET, safe='')}&{urllib.parse.quote(ACCESS_SECRET, safe='')}"
-    signature = base64.b64encode(hmac.new(sig_key.encode(), sig_string.encode(), hashlib.sha1).digest()).decode()
-    oauth["oauth_signature"] = signature
-
-    header = "OAuth " + ", ".join(f'{k}="{urllib.parse.quote(str(v), safe="")}"' for k, v in sorted(oauth.items()))
-    return header
 
 def tweet(text):
     url = "https://api.twitter.com/2/tweets"
     params = {"text": text}
     body = json.dumps(params)
     headers = {
-        "Authorization": make_oauth_header("POST", url, params),
+        "Authorization": f"Bearer {TWITTER_BEARER_TOKEN}",
+        "User-Agent": "GeoLeads (Python)",
         "Content-Type": "application/json",
     }
     resp = requests.post(url, headers=headers, data=body)
