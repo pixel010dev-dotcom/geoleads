@@ -1,6 +1,6 @@
 // POST /api/keys — Gera nova chave de API
 import { NextResponse } from 'next/server';
-import { getAuthUser, createAdminSupabaseClient } from '@/lib/server-auth';
+import { createAdminSupabaseClient } from '@/lib/server-auth';
 import crypto from 'crypto';
 
 function generateApiKey(): { key: string; prefix: string; lastChars: string } {
@@ -11,10 +11,26 @@ function generateApiKey(): { key: string; prefix: string; lastChars: string } {
   return { key, prefix, lastChars };
 }
 
+function getUserIdFromCookie(request: Request): string | null {
+  const cookie = request.headers.get('cookie') || '';
+  const matches = [...cookie.matchAll(/sb-[^-]+-auth-token=([^;]+)/g)];
+  if (!matches.length) return null;
+  try {
+    const tokenData = JSON.parse(decodeURIComponent(matches[0][1]));
+    const accessToken = tokenData.access_token;
+    if (!accessToken) return null;
+    const base64Payload = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString('utf8'));
+    return payload.sub;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    const auth = await getAuthUser(request);
-    if (!auth) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    const userId = getUserIdFromCookie(request);
+    if (!userId) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
     const { name } = await request.json();
     if (!name || typeof name !== 'string') {
@@ -25,7 +41,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminSupabaseClient();
     const { error: insertError } = await supabase.from('api_keys').insert({
-      user_id: auth.user.id,
+      user_id: userId,
       name: name.trim(),
       key,
       prefix,
@@ -48,14 +64,14 @@ export async function POST(request: Request) {
 // GET /api/keys — Lista chaves do usuário
 export async function GET(request: Request) {
   try {
-    const auth = await getAuthUser(request);
-    if (!auth) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    const userId = getUserIdFromCookie(request);
+    if (!userId) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
     const supabase = createAdminSupabaseClient();
     const { data, error } = await supabase
       .from('api_keys')
       .select('id, name, prefix, last_chars, created_at, last_used_at, revoked')
-      .eq('user_id', auth.user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -73,8 +89,8 @@ export async function GET(request: Request) {
 // DELETE /api/keys — Revoga chave
 export async function DELETE(request: Request) {
   try {
-    const auth = await getAuthUser(request);
-    if (!auth) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    const userId = getUserIdFromCookie(request);
+    if (!userId) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
     const { keyId } = await request.json();
     if (!keyId) return NextResponse.json({ error: 'ID da chave é obrigatório.' }, { status: 400 });
@@ -84,7 +100,7 @@ export async function DELETE(request: Request) {
       .from('api_keys')
       .update({ revoked: true, revoked_at: new Date().toISOString() })
       .eq('id', keyId)
-      .eq('user_id', auth.user.id);
+      .eq('user_id', userId);
 
     if (updateError) {
       console.error('[API KEYS] Revoke error:', updateError);

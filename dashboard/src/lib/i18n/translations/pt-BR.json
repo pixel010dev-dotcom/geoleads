@@ -25,8 +25,8 @@
     "badge": "Motor Online · {count} leads extraídos",
     "title": "Descubra clientes prontos pra vender em minutos",
     "titleHighlight": "clientes prontos pra vender",
-    "subtitle": "Digite um nicho. Escolha uma cidade. O GeoLeads encontra empresas com telefone, e-mail, CNPJ e redes sociais validados — tudo pronto pra você abordar.",
-    "cta": "Testar Grátis (10 leads)",
+    "subtitle": "Digite um nicho. Escolha uma cidade. O GeoLeads encontra empresas com telefone, WhatsApp, site e endereço — tudo pronto pra você abordar.",
+    "cta": "Testar Grátis (5 leads)",
     "ctaSecondary": "Ver Planos",
     "footnote": "Sem cartão de crédito · Conta gratuita · Ativação instantânea"
   },
@@ -39,7 +39,7 @@
     },
     "step2": {
       "title": "Receba leads prontos",
-      "desc": "Nome, telefone, e-mail, site, CNPJ, Instagram e Facebook — tudo que você precisa pra começar a vender. Sem digitar nada."
+      "desc": "Nome, telefone, WhatsApp, site e endereço — tudo que você precisa pra começar a vender. Sem digitar nada."
     },
     "step3": {
       "title": "Venda pelo WhatsApp",
@@ -108,11 +108,11 @@
     "title": "Dúvidas",
     "subtitle": "Perguntas frequentes",
     "q1": "Precisa de cartão de crédito para testar?",
-    "a1": "Não. São 10 tokens grátis sem cartão. Depois você paga com PIX, cartão ou boleto via Mercado Pago.",
+    "a1": "Não. São 5 tokens grátis sem cartão. Depois você paga com PIX, cartão ou boleto via Mercado Pago.",
     "q2": "Funciona em qualquer cidade do Brasil?",
     "a2": "Sim. O motor varre o Google Maps de qualquer cidade ou região que você escolher. Funciona também para outros países.",
     "q3": "Os leads são de empresas reais?",
-    "a3": "Sim. Os dados vêm diretamente do Google Maps — nome, telefone, site, endereço. O enriquecimento busca CNPJ, e-mail e redes sociais nas fontes oficiais.",
+    "a3": "Sim. Os dados vêm diretamente do Google Maps — nome, telefone, site, endereço e avaliação. Tudo verificado e atualizado.",
     "q4": "Posso usar pelo celular?",
     "a4": "Funciona direto do navegador no celular. O dashboard é responsivo e adaptado para telas pequenas.",
     "q5": "O que acontece se eu não usar todos os tokens do plano?",
@@ -122,7 +122,7 @@
   },
   "cta": {
     "title": "Pronto para começar?",
-    "subtitle": "10 leads grátis para testar. Sem compromisso. Em 2 minutos você já está extraindo.",
+    "subtitle": "5 leads grátis para testar. Sem compromisso. Em 2 minutos você já está extraindo.",
     "button": "Criar Conta Grátis",
     "login": "Já tem conta? Entrar"
   },
@@ -183,21 +183,25 @@
       "free": "Teste",
       "starter": "Inicial",
       "pro": "Profissional",
-      "agency": "Profissional Max"
+      "agency": "Profissional Max",
+      "api": "API"
     },
     "planDescriptions": {
       "free": "Para experimentar o motor antes de comprar créditos.",
       "starter": "Para começar a prospectar com CRM, exportação e dados essenciais.",
       "pro": "Para prospecção recorrente com redes sociais, WhatsApp e IA.",
-      "agency": "Para operação em volume com automação de atendimento e prioridade."
+      "agency": "Para operação em volume com automação de atendimento e prioridade.",
+      "api": "Para desenvolvedores que querem integrar a extração de leads em seus próprios sistemas."
     },
     "planHints": {
       "free": "Teste o motor",
       "starter": "Começo prático",
       "pro": "Melhor equilíbrio",
-      "agency": "Volume e automação"
+      "agency": "Volume e automação",
+      "api": "Para desenvolvedores"
     },
     "badge": "MAIS EQUILIBRADO",
+    "badgeApi": "API REST",
     "badgeLabel": "Melhor custo-benefício",
     "tokensIncluded": "Tokens inclusos",
     "summaryTitle": "Resumo da escolha",

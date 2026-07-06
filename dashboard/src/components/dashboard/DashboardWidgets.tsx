@@ -59,10 +59,10 @@ export function LeadGuideWidget({ user, currentPlan, tokens, onNavigate }: {
 
   const plans = [
     { name: 'Free', price: 'Grátis', tokens: '5', popular: false },
-    { name: 'Starter', price: 'R$ 9,90', tokens: '100', popular: false },
-    { name: 'Pro', price: 'R$ 29,90', tokens: '500', popular: true },
-    { name: 'Agency', price: 'R$ 67,90', tokens: '1.500', popular: false },
-    { name: 'API', price: 'R$ 97', tokens: 'Ilimitado', popular: false },
+    { name: 'Starter', price: 'R$ 9,90', tokens: '300', popular: false },
+    { name: 'Pro', price: 'R$ 29,90', tokens: '1.000', popular: true },
+    { name: 'Agency', price: 'R$ 67,90', tokens: '3.000', popular: false },
+    { name: 'API', price: 'R$ 97', tokens: '10.000', popular: false },
   ];
 
   return (

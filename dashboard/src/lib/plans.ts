@@ -69,6 +69,8 @@ export const plans: Record<PlanId, Plan> = {
     annualPrice: 95,
     tokens: 300,
     ctaKey: 'pricing.cta.starter',
+    badgeKey: 'pricing.badge',
+    highlight: true,
     features: [
       '300 leads/mês',
       'CRM completo',
@@ -87,8 +89,6 @@ export const plans: Record<PlanId, Plan> = {
     annualPrice: 287,
     tokens: 1000,
     ctaKey: 'pricing.cta.pro',
-    badgeKey: 'pricing.badge',
-    highlight: true,
     features: [
       '1.000 leads/mês',
       'Tudo do Starter',
