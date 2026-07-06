@@ -2,13 +2,11 @@ import requests
 import os
 import json
 import random
-import base64
-import hashlib
-import hmac
-import time
-import urllib.parse
 
-TWITTER_BEARER_TOKEN = os.environ.get("TWITTER_BEARER_TOKEN", "")
+CONSUMER_KEY = os.environ.get("TWITTER_CONSUMER_KEY", "")
+CONSUMER_SECRET = os.environ.get("TWITTER_CONSUMER_SECRET", "")
+ACCESS_TOKEN = os.environ.get("TWITTER_ACCESS_TOKEN", "")
+ACCESS_SECRET = os.environ.get("TWITTER_ACCESS_SECRET", "")
 OPENROUTER_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 
 APP_URL = os.environ.get("APP_URL", "") or os.environ.get("NEXT_PUBLIC_APP_URL", "")
@@ -64,18 +62,52 @@ def generate_ai_tweet():
         pass
     return random.choice(TWEET_TEMPLATES)
 
-
-
 def tweet(text):
+    """Posta tweet usando Twitter API v2 com OAuth 1.0a."""
+    import urllib.parse
+    import hmac
+    import hashlib
+    import base64
+    import time
+
     url = "https://api.twitter.com/2/tweets"
-    params = {"text": text}
-    body = json.dumps(params)
-    headers = {
-        "Authorization": f"Bearer {TWITTER_BEARER_TOKEN}",
-        "User-Agent": "GeoLeads (Python)",
-        "Content-Type": "application/json",
+    body = json.dumps({"text": text})
+
+    # OAuth 1.0a signature
+    oauth = {
+        "oauth_consumer_key": CONSUMER_KEY,
+        "oauth_nonce": hashlib.md5(str(time.time()).encode()).hexdigest(),
+        "oauth_signature_method": "HMAC-SHA1",
+        "oauth_timestamp": str(int(time.time())),
+        "oauth_token": ACCESS_TOKEN,
+        "oauth_version": "1.0",
     }
-    resp = requests.post(url, headers=headers, data=body)
+
+    # Signature only includes URL params (none for POST /2/tweets)
+    sig_base = "&".join(
+        f"{urllib.parse.quote(k, safe='')}={urllib.parse.quote(str(v), safe='')}"
+        for k, v in sorted(oauth.items())
+    )
+    sig_string = f"POST&{urllib.parse.quote(url, safe='')}&{urllib.parse.quote(sig_base, safe='')}"
+    sig_key = f"{urllib.parse.quote(CONSUMER_SECRET, safe='')}&{urllib.parse.quote(ACCESS_SECRET, safe='')}"
+    signature = base64.b64encode(
+        hmac.new(sig_key.encode(), sig_string.encode(), hashlib.sha1).digest()
+    ).decode()
+    oauth["oauth_signature"] = signature
+
+    header = "OAuth " + ", ".join(
+        f'{k}="{urllib.parse.quote(str(v), safe="")}"'
+        for k, v in sorted(oauth.items())
+    )
+
+    resp = requests.post(
+        url,
+        headers={
+            "Authorization": header,
+            "Content-Type": "application/json",
+        },
+        data=body,
+    )
     return resp.json()
 
 if __name__ == "__main__":
