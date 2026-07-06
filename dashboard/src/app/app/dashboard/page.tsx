@@ -8,7 +8,7 @@ import { getPlanById, getPlanIdFromTokens, getRequiredPlanForFeature, hasFeature
 import Globe from '@/components/Globe';
 import Toast, { showToast } from '@/components/Toast';
 import DashboardCharts from '@/components/DashboardCharts';
-import type { CrmLead, ExtractStats, WaSentMessage, BatchEnrichProgress, BatchResult, BatchPollResponse, AiCopyResult, ChatbotRule } from '@/types/crm';
+import type { CrmLead, ExtractStats, WaSentMessage, AiCopyResult, ChatbotRule } from '@/types/crm';
 import type { SearchLead } from '@/app/api/extract/lib/types';
 import { getLeadKey, normalizeCrmLead, crmLeadToRow, crmRowToLead, tabFeatureMap, sampleCrmLeads, defaultChatbotRules, filterOptions, type DashboardTab } from '@/components/dashboard/dashboard-constants';
 import { LockedFeaturePanel } from '@/components/dashboard/DashboardWidgets';
@@ -28,16 +28,7 @@ import { toWhatsAppNumber } from '@/lib/phone';
 import CommandPalette from '@/components/CommandPalette';
 import AIInsightPanel from '@/components/AIInsightPanel';
 
-function mergeEnrichmentIntoLead(lead: CrmLead, enriched: Record<string, any>): CrmLead {
-  const merged = { ...lead };
-  if (enriched.email && (!lead.email || lead.email === 'Não informado')) merged.email = enriched.email;
-  if (enriched.instagram && !lead.instagram) merged.instagram = enriched.instagram;
-  if (enriched.facebook && !lead.facebook) merged.facebook = enriched.facebook;
-  if (enriched.tiktok && !lead.tiktok) merged.tiktok = enriched.tiktok;
-  if (enriched.cnpj && !lead.cnpj) merged.cnpj = enriched.cnpj;
-  if (enriched.site_descoberto && (!merged.site || merged.site === 'Sem site')) merged.site = enriched.site_descoberto;
-  return merged;
-}
+
 
 export default function Home() {
   const { t, locale } = useTranslations();
@@ -134,7 +125,7 @@ export default function Home() {
   const pollCountRef = useRef(0);
   const pollStartTimeRef = useRef(0);
   const mountedRef = useRef(true);
-  const batchPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const isAddingAllToCRM = useRef(false);
   const crmLeadsRef = useRef<CrmLead[]>([]);
   const keywordRef = useRef('');
@@ -525,74 +516,13 @@ export default function Home() {
       setShowOnboarding(true);
     }
 
-    // Check for pending enrichment batches (retoma se o usuário saiu e voltou)
-    (async () => {
-      try {
-        const h = await getAuthedJsonHeaders();
-        if (!h) return;
-        const res = await fetch('/api/lead-enrich/batch', { headers: h });
-        const data = await res.json();
-        if (data.success && data.status === 'running' && data.batchId) {
-          setBatchEnrichProgress({
-            total: data.total, completed: data.completed,
-            failed: data.failed, percentage: data.percentage, status: data.status,
-          });
-          const appliedKeys = new Set<string>();
-          const poll = setInterval(async () => {
-            if (!mountedRef.current) { clearInterval(poll); return; }
-            try {
-              const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
-              const pollData: BatchPollResponse = await pollRes.json();
-              if (pollData.success) {
-                if (!mountedRef.current) { clearInterval(poll); return; }
-                setBatchEnrichProgress({
-                  total: pollData.total, completed: pollData.completed,
-                  failed: pollData.failed, percentage: pollData.percentage, status: pollData.status,
-                });
-                // Aplica resultados em tempo real
-                if (pollData.results) {
-                  const newEnrichments: Record<string, any> = {};
-                  pollData.results.forEach((r: BatchResult) => {
-                    const rKey = r.leadKey || r.nome;
-                    if (r.enriched && !appliedKeys.has(rKey)) {
-                      newEnrichments[rKey] = r.enriched;
-                      appliedKeys.add(rKey);
-                    }
-                  });
-                  if (Object.keys(newEnrichments).length > 0) {
-                    setCrmLeads(prev => {
-                      return prev.map(l => {
-                        const key = getLeadKey(l);
-                        return newEnrichments[key] ? mergeEnrichmentIntoLead(l, newEnrichments[key]) : l;
-                      });
-                    });
-                    const latestCrm = crmLeadsRef.current;
-                    const merged = latestCrm.map(l => {
-                      const key = getLeadKey(l);
-                      return newEnrichments[key] ? mergeEnrichmentIntoLead(l, newEnrichments[key]) : l;
-                    });
-                    try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
-                    syncCrmToCloud(merged);
-                  }
-                }
-                if (pollData.status === 'completed' || pollData.status === 'failed') {
-                  clearInterval(poll);
-                  if (pollData.completed > 0) showToast(`${pollData.completed} leads enriquecidos!`, 'success');
-                  setTimeout(() => setBatchEnrichProgress(null), 8000);
-                }
-              }
-            } catch { clearInterval(poll); setBatchEnrichProgress(null); }
-          }, 1200);
-          batchPollRef.current = poll;
-        }
-      } catch (e) { console.warn('[CRM] Pending enrich recovery:', e); }
-    })();
+
 
     return () => {
       cancelled = true;
       authListener?.subscription.unsubscribe();
       timers.forEach(t => clearTimeout(t));
-      if (batchPollRef.current) { clearInterval(batchPollRef.current); batchPollRef.current = null; }
+
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -627,48 +557,12 @@ export default function Home() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (batchPollRef.current) {
-        clearInterval(batchPollRef.current);
-        batchPollRef.current = null;
-      }
     };
   }, []);
 
-  const enrichedLeadKeysRef = useRef(new Set<string>());
-  const isEnrichingRef = useRef(false);
 
-  useEffect(() => {
-    if (!mountedRef.current || crmLeads.length === 0) return;
-    if (isEnrichingRef.current) return;
-    const needsEnrichment = crmLeads.filter(l => {
-      if (enrichedLeadKeysRef.current.has(getLeadKey(l))) return false;
-      if (l.email || l.instagram || l.facebook || l.tiktok) return false;
-      if (!l.site || l.site === 'Sem site') return false;
-      return true;
-    });
-    if (needsEnrichment.length === 0) return;
-    for (const l of needsEnrichment) enrichedLeadKeysRef.current.add(getLeadKey(l));
-    isEnrichingRef.current = true;
-    const enrichUserId = user?.id;
-    startBatchEnrichment(needsEnrichment, (enrichments) => {
-      isEnrichingRef.current = false;
-      setCrmLeads(prev => {
-        return prev.map(l => {
-          const key = getLeadKey(l);
-          return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
-        });
-      });
-      // Usa crmLeadsRef pra ter o valor mais recente (evita stale closure)
-      const latestCrm = crmLeadsRef.current;
-      const merged = latestCrm.map(l => {
-        const key = getLeadKey(l);
-        return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
-      });
-      try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { }
-      syncCrmToCloud(merged, enrichUserId);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [crmLeads, user]);
+
+
 
   const saveCrm = (updatedCrm: CrmLead[]) => {
     const normalized = updatedCrm.map(normalizeCrmLead);
@@ -689,22 +583,7 @@ export default function Home() {
     if (newCrmLead.telefone && newCrmLead.telefone !== 'Não informado') {
       setSelectedWaLeads(prev => prev.includes(crmLeadKey) ? prev : [crmLeadKey, ...prev]);
     }
-    showToast(`"${lead.nome}" salvo no CRM! Enriquecendo dados...`, 'success');
-    // Auto-enriquecimento em background
-    (async () => {
-      try {
-        const headers = await getAuthedJsonHeaders();
-        if (!headers) return;
-        const res = await fetch('/api/lead-enrich', {
-          method: 'POST', headers,
-          body: JSON.stringify({ nome: lead.nome, site: lead.site, cidade: leadCidade, cnpj: lead.cnpj })
-        });
-        const data = await res.json();
-        if (data.success && data.enriched) {
-          setCrmLeads(prev => prev.map(l => getLeadKey(l) === crmLeadKey ? mergeEnrichmentIntoLead(l, data.enriched) : l));
-        }
-      } catch (e) { console.warn('[ENRICH] handleAddToCRM:', e); }
-    })();
+    showToast(`"${lead.nome}" salvo no CRM!`, 'success');
   };
 
   const handleAddAllToCRM = () => {
@@ -733,110 +612,13 @@ export default function Home() {
     if (addedCount > 0) {
       saveCrm(updated);
       if (newDispatchableKeys.length > 0) setSelectedWaLeads(prev => Array.from(new Set([...newDispatchableKeys, ...prev])));
-      showToast(`${addedCount} leads adicionados ao CRM! Enriquecendo...`, 'success');
-      startBatchEnrichment(newlyAdded, (enrichments) => {
-        setCrmLeads(prev => {
-          return prev.map(l => {
-            const key = getLeadKey(l);
-            return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
-          });
-        });
-        const latestCrm = crmLeadsRef.current;
-        const merged = latestCrm.map(l => {
-          const key = getLeadKey(l);
-          return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
-        });
-        try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
-        syncCrmToCloud(merged);
-      });
+      showToast(`${addedCount} leads adicionados ao CRM!`, 'success');
     } else showToast('Todos esses leads já existem no CRM.', 'info');
   };
 
-  const [batchEnrichProgress, setBatchEnrichProgress] = useState<BatchEnrichProgress | null>(null);
 
-  const startBatchEnrichment = async (leadsToEnrich: (SearchLead | CrmLead)[], onLeadUpdate?: (results: Record<string, any>) => void) => {
-    if (leadsToEnrich.length === 0) return;
-    const h = await getAuthedJsonHeaders();
-    if (!h) return;
-    const CHUNK_SIZE = 100;
-    const chunks: (SearchLead | CrmLead)[][] = [];
-    for (let i = 0; i < leadsToEnrich.length; i += CHUNK_SIZE) {
-      chunks.push(leadsToEnrich.slice(i, i + CHUNK_SIZE));
-    }
-    setBatchEnrichProgress({ total: leadsToEnrich.length, completed: 0, failed: 0, percentage: 0, status: 'running' });
-    showToast(`Enriquecendo ${leadsToEnrich.length} leads${chunks.length > 1 ? ` (${chunks.length} lotes)` : ''}...`, 'info');
-    const appliedKeys = new Set<string>();
-    let totalCompleted = 0;
-    let totalFailed = 0;
-    for (const chunk of chunks) {
-      if (!mountedRef.current) break;
-      try {
-        const res = await fetch('/api/lead-enrich/batch', {
-          method: 'POST', headers: h,
-          body: JSON.stringify({
-            leads: chunk.map((l) => ({
-              nome: l.nome, site: l.site, cidade: l.cidade,
-              cnpj: l.cnpj, email: l.email, instagram: l.instagram,
-              facebook: l.facebook, tiktok: l.tiktok,
-              leadKey: getLeadKey(l),
-            }))
-          }),
-        });
-        const data = await res.json();
-        if (data.success && data.batchId) {
-          await new Promise<void>((resolve) => {
-            const MAX_POLL_MS = 300000;
-            const pollStart = Date.now();
-            let pollFailCount = 0;
-            const poll = setInterval(async () => {
-              if (!mountedRef.current) { clearInterval(poll); resolve(); return; }
-              if (Date.now() - pollStart > MAX_POLL_MS) { clearInterval(poll); resolve(); return; }
-              try {
-                const pollRes = await fetch(`/api/lead-enrich/batch?batchId=${data.batchId}`, { headers: h });
-                pollFailCount = 0;
-                const pollData = await pollRes.json();
-                if (pollData.success) {
-                  if (!mountedRef.current) { clearInterval(poll); resolve(); return; }
-                  const chunkCompleted = totalCompleted + (pollData.completed || 0);
-                  const chunkFailed = totalFailed + (pollData.failed || 0);
-                  setBatchEnrichProgress({
-                    total: leadsToEnrich.length, completed: chunkCompleted, failed: chunkFailed,
-                    percentage: Math.round(((chunkCompleted + chunkFailed) / leadsToEnrich.length) * 100),
-                    status: pollData.status,
-                  });
-                  if (pollData.results?.length > 0) {
-                    const newEnrichments: Record<string, any> = {};
-                    pollData.results.forEach((r: BatchResult) => {
-                      const rKey = r.leadKey || r.nome;
-                      if (r.enriched && !appliedKeys.has(rKey)) {
-                        newEnrichments[rKey] = r.enriched;
-                        appliedKeys.add(rKey);
-                      }
-                    });
-                    if (Object.keys(newEnrichments).length > 0) onLeadUpdate?.(newEnrichments);
-                  }
-                  if (pollData.status === 'completed' || pollData.status === 'failed') {
-                    clearInterval(poll);
-                    totalCompleted += pollData.completed || 0;
-                    totalFailed += pollData.failed || 0;
-                    resolve();
-                  }
-                }
-              } catch {
-                pollFailCount++;
-                if (pollFailCount >= 5) { clearInterval(poll); resolve(); }
-              }
-            }, 1200);
-          });
-        }
-      } catch { continue; }
-    }
-    if (mountedRef.current) {
-      setTimeout(() => setBatchEnrichProgress(null), 8000);
-      if (totalCompleted > 0) showToast(`${totalCompleted} leads enriquecidos!`, 'success');
-      if (totalFailed > 0) showToast(`${totalFailed} leads falharam.`, 'info');
-    }
-  };
+
+
 
   const handleRemoveFromCRM = (nome: string, telefone?: string, cidade?: string) => {
     const targetKey = `${nome}|${telefone || ''}|${cidade || ''}`;
@@ -1499,28 +1281,7 @@ export default function Home() {
 
         {activeTab === 'crm' && !activeTabLocked && (
           <>
-          {batchEnrichProgress?.status === 'running' && (
-            <div className="mb-4 bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.6)]" />
-                  <span className="text-sm font-bold text-purple-300">Enriquecendo dados...</span>
-                </div>
-                <span className="text-xs text-gray-400 font-mono">
-                  {batchEnrichProgress.completed + batchEnrichProgress.failed}/{batchEnrichProgress.total} ({batchEnrichProgress.percentage}%)
-                </span>
-              </div>
-              <div className="w-full h-3 bg-black/40 rounded-full overflow-hidden border border-white/5">
-                <div className="h-full bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${batchEnrichProgress.percentage}%` }} />
-              </div>
-              <div className="flex gap-4 mt-2 text-xs">
-                <span className="text-green-400 font-medium">✓ {batchEnrichProgress.completed} concluídos</span>
-                {batchEnrichProgress.failed > 0 && <span className="text-red-400 font-medium">✕ {batchEnrichProgress.failed} falhas</span>}
-                <span className="text-gray-500">{batchEnrichProgress.total - batchEnrichProgress.completed - batchEnrichProgress.failed} pendentes</span>
-              </div>
-            </div>
-          )}
+
           <CRMSection
             crmLeads={crmLeads} crmSearch={crmSearch} setCrmSearch={setCrmSearch}
             crmFilterStage={crmFilterStage} setCrmFilterStage={setCrmFilterStage}
@@ -1532,7 +1293,7 @@ export default function Home() {
             handleToggleSelectAllCrmLeads={handleToggleSelectAllCrmLeads} handleRemoveSelectedFromCRM={handleRemoveSelectedFromCRM}
             handleBulkStageChange={handleBulkStageChange} handleUpdateCRMLead={handleUpdateCRMLead} openWhatsApp={openWhatsApp}
             waSentMessages={waSentMessages}
-            batchEnrichProgress={batchEnrichProgress}
+
             onImportLeads={async (importedLeads) => {
               const currentCrmLeads = crmLeadsRef.current;
               const currentKeyword = keywordRef.current;
@@ -1552,21 +1313,7 @@ export default function Home() {
               const skipped = importedLeads.length - newLeads.length;
               const msg = skipped > 0 ? `${newLeads.length} importados, ${skipped} duplicados ignorados` : `${formatted.length} leads importados!`;
               showToast(msg, 'success');
-              startBatchEnrichment(formatted, (enrichments) => {
-                setCrmLeads(prev => {
-                  return prev.map((l: CrmLead) => {
-                    const key = getLeadKey(l);
-                    return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
-                  });
-                });
-                const latestCrm = crmLeadsRef.current;
-                const merged = latestCrm.map((l: CrmLead) => {
-                  const key = getLeadKey(l);
-                  return enrichments[key] ? mergeEnrichmentIntoLead(l, enrichments[key]) : l;
-                });
-                try { localStorage.setItem('geoleads_crm', JSON.stringify(merged.map(normalizeCrmLead))); } catch { /* ignore */ }
-                syncCrmToCloud(merged);
-              });
+
             }}
           />
           </>

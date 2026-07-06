@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { CrmLead, WaSentMessage, BatchEnrichProgress } from '@/types/crm';
+import type { CrmLead, WaSentMessage } from '@/types/crm';
 
 import { showToast } from '@/components/Toast';
 import { LeadScoreBadge } from '@/components/LeadScore';
@@ -77,7 +77,7 @@ export interface CRMSectionProps {
   openWhatsApp: (lead: CrmLead) => void;
   waSentMessages?: WaSentMessage[];
   onImportLeads?: (leads: CrmLead[]) => void;
-  batchEnrichProgress?: BatchEnrichProgress | null;
+
 }
 
 const CRM_PAGE_SIZE = 25;
@@ -145,7 +145,7 @@ export default function CRMSection({
   openWhatsApp,
   waSentMessages,
   onImportLeads,
-  batchEnrichProgress,
+
 }: CRMSectionProps) {
   const { t } = useTranslations();
   const waSentNames = new Set((waSentMessages || []).map((m: WaSentMessage) => m.lead_name).filter(Boolean));
@@ -339,30 +339,7 @@ export default function CRMSection({
         )}
       </div>
 
-      {/* BATCH ENRICHMENT PROGRESS BAR */}
-      {batchEnrichProgress?.status === 'running' && (
-        <div className="mb-4 bg-purple-500/5 border border-purple-500/15 rounded-xl p-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-              <span className="text-xs font-bold text-purple-300">Enriquecendo leads...</span>
-            </div>
-            <span className="text-xs text-gray-400 font-mono">
-              {batchEnrichProgress.completed + batchEnrichProgress.failed}/{batchEnrichProgress.total} ({batchEnrichProgress.percentage}%)
-            </span>
-          </div>
-          <div className="w-full h-2 bg-black/30 rounded-full overflow-hidden border border-white/5">
-            <div
-              className="h-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${batchEnrichProgress.percentage}%` }}
-            />
-          </div>
-          <div className="flex gap-3 mt-1.5 text-[10px]">
-            <span className="text-green-400">{batchEnrichProgress.completed} concluídos</span>
-            {batchEnrichProgress.failed > 0 && <span className="text-red-400">{batchEnrichProgress.failed} falhas</span>}
-          </div>
-        </div>
-      )}
+
 
       {/* TABLE / CARDS CONTAINER */}
       {crmViewMode === 'table' && (
