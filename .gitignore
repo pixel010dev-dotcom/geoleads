@@ -24,3 +24,14 @@ node_modules/
 
 # Token files
 youtube_token.pickle
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temp files
+supabase/.temp/
+*.png
+
+# Test files
+test_*
