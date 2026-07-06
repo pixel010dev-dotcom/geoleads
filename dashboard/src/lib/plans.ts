@@ -38,6 +38,11 @@ export function getAnnualPrice(monthlyPrice: number): number {
 
 export const planOrder: PlanId[] = ['free', 'starter', 'pro', 'agency'];
 
+// Custo por lead via Google Places API:
+// - Free tier (10k calls/mês): ~R$0,017/lead
+// - Com crédito: ~R$0,017/lead
+// Margem de lucro: 50-70% por plano
+
 export const plans: Record<PlanId, Plan> = {
   free: {
     id: 'free',
@@ -46,11 +51,11 @@ export const plans: Record<PlanId, Plan> = {
     descKey: 'pricing.planDescriptions.free',
     price: 0,
     annualPrice: 0,
-    tokens: 10,
+    tokens: 5,
     ctaKey: 'pricing.cta.free',
     features: [
-      '10 tokens iniciais',
-      'Motor Maps básico',
+      '5 tokens iniciais',
+      'Motor Google Places',
       'Filtro por telefone e site',
       'Suporte padrão'
     ],
@@ -61,16 +66,16 @@ export const plans: Record<PlanId, Plan> = {
     nameKey: 'pricing.planNames.starter',
     shortNameKey: 'pricing.planNames.starter',
     descKey: 'pricing.planDescriptions.starter',
-    price: 9.9,
-    annualPrice: 95,
-    tokens: 300,
+    price: 29.90,
+    annualPrice: 287,
+    tokens: 500,
     ctaKey: 'pricing.cta.starter',
     features: [
-      '300 tokens de extração',
+      '500 tokens de extração',
       'CRM de leads completo',
       'Exportação para CSV',
       'Caçador de e-mails em sites oficiais',
-      'CNPJ quando encontrado no site ou Receita Federal'
+      'CNPJ quando encontrado no site'
     ],
     featureKeys: ['extractor', 'crm', 'export', 'emailEnrichment', 'cnpjEnrichment']
   },
@@ -79,30 +84,24 @@ export const plans: Record<PlanId, Plan> = {
     nameKey: 'pricing.planNames.pro',
     shortNameKey: 'pricing.planNames.pro',
     descKey: 'pricing.planDescriptions.pro',
-    price: 24.9,
-    annualPrice: 239,
-    tokens: 1000,
+    price: 67.90,
+    annualPrice: 652,
+    tokens: 2000,
     ctaKey: 'pricing.cta.pro',
     badgeKey: 'pricing.badge',
     highlight: true,
     features: [
-      '1.000 tokens de extração',
-      'Tudo do plano Inicial',
-      'Instagram, Facebook e TikTok quando encontrados',
-      'Disparador WhatsApp assistido com fila inteligente',
-      'Gerador de mensagens de vendas com IA',
-      'AutoVendas — campanhas automáticas de lead gen'
+      '2.000 tokens de extração',
+      'Tudo do plano Starter',
+      'Instagram, Facebook e TikTok',
+      'Disparador WhatsApp com fila inteligente',
+      'Gerador de mensagens com IA',
+      'AutoVendas — campanhas automáticas'
     ],
     featureKeys: [
-      'extractor',
-      'crm',
-      'export',
-      'emailEnrichment',
-      'socialEnrichment',
-      'whatsappSender',
-      'aiCopy',
-      'autovendas',
-      'cnpjEnrichment'
+      'extractor', 'crm', 'export', 'emailEnrichment',
+      'socialEnrichment', 'whatsappSender', 'aiCopy',
+      'autovendas', 'cnpjEnrichment'
     ]
   },
   agency: {
@@ -110,31 +109,23 @@ export const plans: Record<PlanId, Plan> = {
     nameKey: 'pricing.planNames.agency',
     shortNameKey: 'pricing.planNames.agency',
     descKey: 'pricing.planDescriptions.agency',
-    price: 47,
-    annualPrice: 451,
-    tokens: 2000,
+    price: 147,
+    annualPrice: 1411,
+    tokens: 5000,
     ctaKey: 'pricing.cta.agency',
     features: [
-      '2.000 tokens de extração',
-      'Tudo do plano Profissional',
-      'AutoVendas — campanhas automáticas de lead gen',
-      'Chatbot WhatsApp por QR Code com regras automáticas',
+      '5.000 tokens de extração',
+      'Tudo do plano Pro',
+      'Chatbot WhatsApp por QR Code',
       'Fluxos de resposta personalizáveis',
-      'Suporte prioritário com atendimento humano'
+      'Suporte prioritário humano',
+      'Integração completa'
     ],
     featureKeys: [
-      'extractor',
-      'crm',
-      'export',
-      'emailEnrichment',
-      'socialEnrichment',
-      'whatsappSender',
-      'aiCopy',
-      'autovendas',
-      'chatbot',
-      'prioritySupport',
-      'cnpjEnrichment',
-      'facebook'
+      'extractor', 'crm', 'export', 'emailEnrichment',
+      'socialEnrichment', 'whatsappSender', 'aiCopy',
+      'autovendas', 'chatbot', 'prioritySupport',
+      'cnpjEnrichment', 'facebook'
     ]
   }
 };
@@ -178,18 +169,9 @@ export const getCostPerLeadLabel = (plan: Plan, t?: (key: string, vars?: Record<
 };
 
 export const allFeatureKeys: FeatureKey[] = [
-  'extractor',
-  'crm',
-  'export',
-  'emailEnrichment',
-  'cnpjEnrichment',
-  'socialEnrichment',
-  'whatsappSender',
-  'aiCopy',
-  'chatbot',
-  'autovendas',
-  'prioritySupport',
-  'facebook'
+  'extractor', 'crm', 'export', 'emailEnrichment', 'cnpjEnrichment',
+  'socialEnrichment', 'whatsappSender', 'aiCopy', 'chatbot',
+  'autovendas', 'prioritySupport', 'facebook'
 ];
 
 export const featureLabels: Record<FeatureKey, string> = {

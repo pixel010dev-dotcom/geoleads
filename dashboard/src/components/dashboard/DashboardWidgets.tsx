@@ -91,7 +91,7 @@ export function LeadGuideWidget({ user, currentPlan, tokens, onNavigate }: {
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-500">{t('widget.balance')}</p>
-            <p className="font-bold text-blue-300">{tokens !== null ? tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR') : '10'} {t('widget.tokens')}</p>
+            <p className="font-bold text-blue-300">{tokens !== null ? tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR') : '5'} {t('widget.tokens')}</p>
           </div>
         </div>
       </div>

@@ -66,7 +66,7 @@ export async function getAuthUser(request: Request): Promise<AuthResult | null> 
     .eq('id', data.user.id)
     .maybeSingle();
 
-  const tokens = typeof profile?.tokens === 'number' ? profile.tokens : 10;
+  const tokens = typeof profile?.tokens === 'number' ? profile.tokens : 5;
   const savedPlanId = (profile?.plan_id as PlanId) || 'free';
   const inferredPlanId = getPlanIdFromTokens(tokens);
 

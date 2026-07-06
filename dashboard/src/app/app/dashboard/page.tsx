@@ -387,7 +387,7 @@ export default function Home() {
   const applyProfileData = (profileData: Record<string, any>) => {
     const profileTokens = typeof profileData?.tokens === 'number'
       ? profileData.tokens
-      : Number(profileData?.tokens || 10);
+      : Number(profileData?.tokens || 5);
     setTokens(profileTokens);
     const savedPlanId = getPlanById(profileData?.planId || profileData?.plan_id).id;
     const inferredPlanId = getPlanIdFromTokens(profileTokens);

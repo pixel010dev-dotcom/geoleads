@@ -58,7 +58,7 @@ export async function sendWelcomeEmail(toEmail: string, name: string) {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">Bem-vindo ao GeoLeads, ${name}! 🎉</h2>
-          <p>Seus <strong>10 tokens gratis</strong> ja estao disponiveis para voce testar a ferramenta.</p>
+          <p>Seus <strong>5 tokens gratis</strong> ja estao disponiveis para voce testar a ferramenta.</p>
           <p>Com o GeoLeads voce pode:</p>
           <ul>
             <li>Extrair leads do Google Maps em 140 cidades</li>
@@ -158,7 +158,7 @@ const DRIP_TEMPLATES: Record<number, { subject: string; html: (name: string) => 
     html: (name: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Bem-vindo ao GeoLeads, ${name}!</h2>
-        <p>Seus <strong>10 tokens gratuitos</strong> ja estao na sua conta. Aqui vai um guia rapido para comecar:</p>
+        <p>Seus <strong>5 tokens gratuitos</strong> ja estao na sua conta. Aqui vai um guia rapido para comecar:</p>
         <ol>
           <li><strong>Escolha um nicho</strong> — ex: "dentista", "advogado", "pizzaria"</li>
           <li><strong>Escolha uma cidade</strong> — qualquer uma das 140 cidades disponiveis</li>
@@ -222,7 +222,7 @@ const DRIP_TEMPLATES: Record<number, { subject: string; html: (name: string) => 
     subject: '🎁 Oferta especial — seus tokens estao acabando',
     html: (name: string) => `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Seus 10 tokens gratuitos estao quase no fim, ${name}</h2>
+        <h2 style="color: #2563eb;">Seus 5 tokens gratuitos estao quase no fim, ${name}</h2>
         <p>Nosso plano <strong>Profissional</strong> e o favorito dos usuarios:</p>
         <ul>
           <li>🔥 1.000 tokens de extracao</li>

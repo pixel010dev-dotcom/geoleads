@@ -231,7 +231,7 @@ export default function Account() {
           </div>
           <ShareButtons
             url={`${typeof window !== 'undefined' ? window.location.origin : ''}/login?ref=${user?.id || ''}`}
-            text="Use o GeoLeads para extrair leads do Google Maps! Ganhe 10 tokens gratis ao se cadastrar."
+            text="Use o GeoLeads para extrair leads do Google Maps! Ganhe 5 tokens gratis ao se cadastrar."
           />
         </div>
       </main>
