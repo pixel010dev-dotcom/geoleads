@@ -1,5 +1,5 @@
-// Google Places API (New) — extração rápida, confiável, sem scraping
-// API Key SERVER-SIDE apenas. NUNCA prefixar com NEXT_PUBLIC_.
+// Google Places API (New) — Extração primária de leads
+// Otimizada para MÁXIMA performance e dados completos
 
 const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchText';
 
@@ -7,7 +7,7 @@ export interface PlacesApiResult {
   nome: string;
   telefone: string;
   endereco: string;
-  site?: string;
+  site: string;
   avaliacao: string;
   reviewCount: number;
   categoria: string;
@@ -15,28 +15,27 @@ export interface PlacesApiResult {
   placeUrl: string;
 }
 
-// Expande termos genéricos pra queries mais específicas
-const KEYWORD_EXPANSIONS: Record<string, string[]> = {
-  'clínica': ['clínica odontológica', 'clínica médica', 'clínica dermatológica'],
-  'salão': ['salão de beleza', 'salão de estética'],
-  'oficina': ['oficina mecânica', 'oficina de bicicleta'],
-  'loja': ['loja de roupas', 'loja de materiais'],
-  'academia': ['academia', 'crossfit', 'studio de pilates'],
-  'restaurante': ['restaurante', 'restaurante self-service'],
-  'pet': ['petshop', 'pet shop', 'veterinária'],
-  'hotel': ['hotel', 'pousada'],
-  'escola': ['escola', 'colégio', 'curso'],
-};
-
-function expandKeyword(keyword: string): string[] {
-  const lower = keyword.toLowerCase().trim();
-  const expansions = KEYWORD_EXPANSIONS[lower];
-  if (expansions) return expansions;
-  return [keyword];
-}
+// FieldMask otimizada — pega TUDO que precisamos
+const FIELD_MASK = [
+  'places.id',
+  'places.displayName',
+  'places.formattedAddress',
+  'places.internationalPhoneNumber',
+  'places.nationalPhoneNumber',
+  'places.websiteUri',
+  'places.googleMapsUri',
+  'places.rating',
+  'places.userRatingCount',
+  'places.primaryTypeDisplayName',
+  'places.types',
+  'places.businessStatus',
+  'places.currentOpeningHours',
+  'places.regularOpeningHours',
+].join(',');
 
 /**
- * Busca lugares no Google Places API (New) por texto.
+ * Extração máxima de leads via Google Places API (New)
+ * Returns: array de leads com dados completos
  */
 export async function extractFromGooglePlaces(
   keyword: string,
@@ -45,101 +44,93 @@ export async function extractFromGooglePlaces(
 ): Promise<PlacesApiResult[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
-    console.warn('[Places API] GOOGLE_PLACES_API_KEY não configurada — pulando');
+    console.error('[Places API] GOOGLE_PLACES_API_KEY não configurada!');
     return [];
   }
 
   const results: PlacesApiResult[] = [];
   const seenIds = new Set<string>();
+  let pageToken: string | undefined;
+  let pageCount = 0;
+  const MAX_PAGES = 3; // Máximo 3 páginas = até 60 resultados
 
-  // Expande keyword genérica pra queries mais específicas
-  const keywords = expandKeyword(keyword);
+  const textQuery = `${keyword} ${location}`;
 
-  const FIELD_MASK = [
-    'places.id',
-    'places.displayName',
-    'places.formattedAddress',
-    'places.internationalPhoneNumber',
-    'places.websiteUri',
-    'places.rating',
-    'places.userRatingCount',
-    'places.primaryTypeDisplayName',
-    'places.googleMapsUri',
-  ].join(',');
+  while (results.length < targetLimit && pageCount < MAX_PAGES) {
+    pageCount++;
 
-  for (const kw of keywords) {
-    if (results.length >= targetLimit) break;
+    const body: Record<string, unknown> = {
+      textQuery,
+      pageSize: Math.min(20, targetLimit * 2), // Pega mais pra ter margem
+    };
+    if (pageToken) body.pageToken = pageToken;
 
-    const textQuery = `${kw} ${location}`;
-    let pageToken: string | undefined;
-    let attempts = 0;
+    try {
+      const response = await fetch(PLACES_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': FIELD_MASK,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
+      });
 
-    while (results.length < targetLimit && attempts < 3) {
-      attempts++;
-      const body: Record<string, unknown> = {
-        textQuery,
-        pageSize: Math.min(20, targetLimit - results.length),
-      };
-      if (pageToken) body.pageToken = pageToken;
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': FIELD_MASK,
-      };
-
-      try {
-        const response = await fetch(PLACES_API_URL, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(10000),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => '');
-          console.error(`[Places API] Erro HTTP ${response.status}: ${errorText.slice(0, 200)}`);
-          break;
-        }
-
-        const data = await response.json();
-        const places: any[] = data.places || [];
-
-        for (const place of places) {
-          if (seenIds.has(place.id)) continue;
-          seenIds.add(place.id);
-
-          results.push({
-            nome: place.displayName?.text || '',
-            telefone: place.internationalPhoneNumber || 'Não informado',
-            endereco: place.formattedAddress || '',
-            site: place.websiteUri || undefined,
-            avaliacao: place.rating ? String(place.rating) : 'N/A',
-            reviewCount: place.userRatingCount || 0,
-            categoria: place.primaryTypeDisplayName?.text || '',
-            placeId: place.id,
-            placeUrl: place.googleMapsUri || '',
-          });
-        }
-
-        pageToken = data.nextPageToken;
-        if (pageToken && results.length < targetLimit) {
-          await new Promise(resolve => setTimeout(resolve, 2500));
-        } else {
-          break;
-        }
-      } catch (err: any) {
-        console.error('[Places API] Erro de rede:', err?.message || err);
+      if (!response.ok) {
+        const err = await response.text().catch(() => '');
+        console.error(`[Places API] HTTP ${response.status}: ${err.slice(0, 200)}`);
         break;
       }
-    }
 
-    // Delay entre keywords
-    if (keywords.length > 1) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const data = await response.json();
+      const places: any[] = data.places || [];
+
+      for (const place of places) {
+        if (seenIds.has(place.id)) continue;
+        seenIds.add(place.id);
+
+        // Pega telefone:优先 international, fallback national
+        const phone = place.internationalPhoneNumber
+          || place.nationalPhoneNumber
+          || '';
+
+        // Pega horários
+        const hours = place.currentOpeningHours || place.regularOpeningHours;
+        const horarios = hours?.weekdayDescriptions?.join('; ') || '';
+
+        // Business status check
+        const isOpen = place.businessStatus !== 'CLOSED_PERMANENTLY';
+
+        if (!isOpen) continue; // Pula fechados permanentemente
+
+        results.push({
+          nome: place.displayName?.text || '',
+          telefone: phone || 'Não informado',
+          endereco: place.formattedAddress || '',
+          site: place.websiteUri || '',
+          avaliacao: place.rating ? String(place.rating) : 'N/A',
+          reviewCount: place.userRatingCount || 0,
+          categoria: place.primaryTypeDisplayName?.text || place.types?.[0] || '',
+          placeId: place.id,
+          placeUrl: place.googleMapsUri || '',
+        });
+      }
+
+      // Paginação
+      pageToken = data.nextPageToken;
+      if (pageToken && results.length < targetLimit && pageCount < MAX_PAGES) {
+        await new Promise(r => setTimeout(r, 2000)); // Delay obrigatório
+      } else {
+        break;
+      }
+
+    } catch (err: any) {
+      console.error(`[Places API] Erro:`, err?.message || err);
+      break;
     }
   }
 
-  console.log(`[Places API] Extraídos ${results.length} resultados para "${keyword} ${location}"`);
+  console.log(`[Places API] ${results.length} leads em ${pageCount} páginas para "${textQuery}"`);
   return results.slice(0, targetLimit);
 }

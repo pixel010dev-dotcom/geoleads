@@ -4,7 +4,6 @@ import { type FeatureKey } from '@/lib/plans';
 import { runExtraction } from './runner';
 import { smartNormalizeQuery, isBroadLocation } from './lib/normalizers';
 import { checkExtractionRateLimit } from '@/lib/rate-limit';
-import { enrichLead } from './enrichment/website';
 import type { SearchLead } from './lib/types';
 
 export const runtime = 'nodejs';
@@ -29,12 +28,11 @@ async function updateJob(jobId: string, updates: Record<string, any>): Promise<v
   try {
     const { error } = await Promise.race([
       supabase.from('extraction_jobs').update(updates).eq('id', jobId),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout after 30s')), 30000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('updateJob timeout')), 15000)),
     ]);
     if (error) throw error;
   } catch (e: any) {
-    console.error(`[EXTRACT] updateJob: FAILED for job ${jobId}:`, e?.message || e);
-    throw e; // Propagar erro para que as retentativas funcionem
+    console.error(`[EXTRACT] updateJob FAILED:`, e?.message || e);
   }
 }
 
@@ -56,7 +54,7 @@ export async function POST(request: Request) {
   try {
     auth = await getAuthUser(request);
     if (!auth) {
-      return NextResponse.json({ error: 'Não autenticado. Faça login para extrair leads.' }, { status: 401 });
+      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
     }
     const authedUser = auth;
 
@@ -85,14 +83,14 @@ export async function POST(request: Request) {
         const requiredFeature = featureMap[rule];
         if (requiredFeature && !requireFeature(auth.planId, requiredFeature)) {
           return NextResponse.json({
-            error: `Filtro "${rule}" exige plano superior. Faça upgrade para usar.`
+            error: `Filtro "${rule}" exige plano superior.`
           }, { status: 403 });
         }
       }
     }
 
     if (auth.tokens <= 0) {
-      return NextResponse.json({ error: 'Sem tokens disponíveis. Compre mais tokens para continuar extraindo.' }, { status: 402 });
+      return NextResponse.json({ error: 'Sem tokens disponíveis.' }, { status: 402 });
     }
 
     const { correctedKeyword, correctedLocation } = smartNormalizeQuery(rawKeyword, rawLocation);
@@ -100,42 +98,44 @@ export async function POST(request: Request) {
     const location = correctedLocation;
     const isBroadRegion = isBroadLocation(rawLocation) || isBroadLocation(correctedLocation);
     const requestedLimit = Math.max(1, Number(limit) || 10);
-    // Sem limite maximo alem dos tokens do usuario
-    // O motor rapido consegue processar grandes quantidades
     const targetLimit = Math.min(requestedLimit, auth.tokens);
     if (targetLimit === 0) {
-      return NextResponse.json({ error: 'Saldo insuficiente. Compre mais tokens.' }, { status: 402 });
+      return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 402 });
     }
 
     const current = activeExtractions.get(auth.user.id) || 0;
     if (current >= MAX_CONCURRENT_PER_USER) {
       return NextResponse.json({
-        error: `Você já tem ${current} extrações em andamento. Aguarde uma finalizar antes de iniciar outra.`
+        error: `Você já tem ${current} extrações em andamento.`
       }, { status: 429 });
     }
     if (getGlobalConcurrent() >= MAX_GLOBAL_CONCURRENT) {
-      return NextResponse.json({
-        error: 'Sistema sobrecarregado. Tente novamente em alguns segundos.'
-      }, { status: 503 });
+      return NextResponse.json({ error: 'Sistema sobrecarregado.' }, { status: 503 });
     }
     activeExtractions.set(auth.user.id, current + 1);
 
+    // Cria job no banco
     const { data: jobData, error: jobError } = await requestSupabase.from('extraction_jobs').insert({
-      user_id: auth.user.id, status: 'running',
-      keyword, location, filter_rule: filterRule || '',
-      leads_count: 0, scanned: 0, cities_scanned: 0, search_time_seconds: 0,
+      user_id: auth.user.id,
+      status: 'running',
+      keyword, location,
+      filter_rule: filterRule || '',
+      leads_count: 0, scanned: 0, cities_scanned: 0,
+      search_time_seconds: 0,
       started_at: new Date().toISOString(),
     }).select('id').single();
 
     if (jobError || !jobData) {
       done();
-      console.error('Falha ao criar job:', jobError);
-      return NextResponse.json({ error: 'Falha ao iniciar extração. Tente novamente.' }, { status: 500 });
+      return NextResponse.json({ error: 'Falha ao iniciar extração.' }, { status: 500 });
     }
 
     const jobId = jobData.id;
     const extractionStartTime = Date.now();
 
+    // ==========================================
+    // EXTRAÇÃO SIMPLIFICADA — SEM ENRIQUECIMENTO
+    // ==========================================
     runExtraction({
       keyword, location, targetLimit,
       filterRule: filterRule || '',
@@ -145,86 +145,18 @@ export async function POST(request: Request) {
         updateJob(jobId, {
           leads: leads.slice(0, targetLimit),
           leads_count: leads.length,
-          scanned,
-          cities_scanned: citiesDone,
+          scanned, cities_scanned: citiesDone,
           message,
           search_time_seconds: Math.round((Date.now() - extractionStartTime) / 1000),
-        }).catch((e: any) => {
-          console.warn('[EXTRACT] onProgress update failed (non-critical):', e?.message || e);
-        });
+        }).catch(() => {});
       },
       onDone: async (result) => {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
-        // ENRIQUECE ANTES DE MARCAR COMO ENTREGUE
-        // Timeout de 8s por lead, 30s total — dados enriquecidos chegam junto com os leads
-        const enrichedLeads = await Promise.race([
-          (async (): Promise<SearchLead[]> => {
-            const enriched: SearchLead[] = [];
-            for (const lead of result.leads) {
-              try {
-                if (lead.site && lead.site !== 'Sem site' && (!lead.email || !lead.instagram || !lead.facebook || !lead.tiktok)) {
-                  const enrichedLead = await Promise.race([
-                    enrichLead({ ...lead }),
-                    new Promise<SearchLead>(r => setTimeout(() => { r(lead); }, 8000)),
-                  ]);
-                  if (enrichedLead.email) lead.email = enrichedLead.email;
-                  if (enrichedLead.instagram) lead.instagram = enrichedLead.instagram;
-                  if (enrichedLead.facebook) lead.facebook = enrichedLead.facebook;
-                  if (enrichedLead.tiktok) lead.tiktok = enrichedLead.tiktok;
-                }
-                enriched.push(lead);
-              } catch { enriched.push(lead); }
-            }
-            return enriched;
-          })(),
-          new Promise<SearchLead[]>(r => setTimeout(() => r(result.leads), 30000)),
-        ]);
+        // SEM ENRIQUECIMENTO — dados já vêm completos do Places API
 
-        // VERIFICA WHATSAPP (se bot session ativa do usuario)
-        let whatsappChecked = false;
-        try {
-          const waSessions = (globalThis as any).__geoleadsChatbotSessions as Map<string, any> | undefined;
-          const waSession = waSessions?.get(authedUser.user.id);
-          if (waSession?.socket && waSession.status === 'connected') {
-            const phones = enrichedLeads
-              .filter(l => l.telefone && l.telefone !== 'Não informado')
-              .map(l => l.telefone.replace(/\D/g, ''));
-            if (phones.length > 0) {
-              const waResults = await waSession.socket.onWhatsApp(phones);
-              const waPhoneSet = new Set(
-                waResults.filter((r: any) => r.exists).map((r: any) => r.jid.replace('@s.whatsapp.net', ''))
-              );
-              for (const lead of enrichedLeads) {
-                const phone = lead.telefone?.replace(/\D/g, '');
-                if (phone) lead.hasWhatsApp = waPhoneSet.has(phone);
-              }
-              const totalWa = enrichedLeads.filter(l => l.hasWhatsApp).length;
-              console.log(`[EXTRACT] WhatsApp OK: ${totalWa}/${phones.length} leads com WhatsApp`);
-              whatsappChecked = true;
-            }
-          } else {
-            console.log('[EXTRACT] WhatsApp check skipped: no active bot session');
-          }
-        } catch (e: any) {
-          console.warn('[EXTRACT] WhatsApp check error (non-critical):', e?.message || e);
-        }
-
-        // Filtra leads sem WhatsApp apenas se a verificacao rodou
-        if (whatsappChecked) {
-          const totalWa = enrichedLeads.filter(l => l.hasWhatsApp).length;
-          if (totalWa > 0) {
-            const before = enrichedLeads.length;
-            const filtrados = enrichedLeads.filter(l => !l.telefone || l.telefone === 'Não informado' || l.hasWhatsApp);
-            enrichedLeads.splice(0, enrichedLeads.length, ...filtrados);
-            const removidos = before - enrichedLeads.length;
-            if (removidos > 0) console.log(`[EXTRACT] ${removidos} leads sem WhatsApp removidos`);
-          }
-        }
-
-        // Deduz tokens ANTES de marcar como entregue
-        // Se falhar, NÃO entrega os leads — evita free leads
+        // Deduz tokens
         let deductFailed = false;
         if (gastos > 0) {
           try {
@@ -232,14 +164,11 @@ export async function POST(request: Request) {
             const { error: deductError } = await adminSupabase.rpc('deduct_tokens', {
               p_user_id: authedUser.user.id, p_amount: gastos
             });
-            if (deductError) { console.error('[EXTRACT] RPC deduct_tokens failed:', deductError); deductFailed = true; }
-          } catch (e: any) {
-            console.error('[EXTRACT] token deduct failed:', e);
-            deductFailed = true;
-          }
+            if (deductError) { console.error('[EXTRACT] deduct_tokens failed:', deductError); deductFailed = true; }
+          } catch { deductFailed = true; }
         }
 
-        // Salva histórico (via admin pra evitar RLS)
+        // Salva histórico
         try {
           const adminSupabase = createAdminSupabaseClient();
           await adminSupabase.from('extraction_history').insert({
@@ -250,68 +179,43 @@ export async function POST(request: Request) {
             tokens_spent: gastos,
             search_time_seconds: totalTimeSec,
           });
-        } catch (e: any) { console.error('[EXTRACT] history insert failed:', e); }
+        } catch { /* non-critical */ }
 
+        // Atualiza job
         const jobUpdate = {
           status: deductFailed ? 'payment_failed' : (result.error ? 'failed' : 'completed'),
-          error: deductFailed ? 'Falha ao debitar tokens. Tente novamente ou contate o suporte.' : (result.error || undefined),
-          leads: enrichedLeads,
-          leads_count: enrichedLeads.length,
+          error: deductFailed ? 'Falha ao debitar tokens.' : (result.error || undefined),
+          leads: result.leads,
+          leads_count: result.leads.length,
           scanned: result.scanned,
           cities_scanned: result.citiesDone,
-          message: deductFailed ? 'Pagamento não confirmado.' : (result.error || `Extração concluída: ${enrichedLeads.length} leads em ${totalTimeSec}s`),
+          message: `Extração concluída: ${result.leads.length} leads em ${totalTimeSec}s`,
           search_time_seconds: totalTimeSec,
           completed_at: new Date().toISOString(),
           delivered: !deductFailed,
         };
 
-        const doFinalUpdate = async (retries = 3) => {
-          try {
-            await updateJob(jobId, jobUpdate);
-          } catch (e: any) {
-            console.error(`[EXTRACT] Final update failed for job ${jobId}, retries=${retries}:`, e?.message || e);
-            if (retries > 0) {
-              await new Promise(r => setTimeout(r, 2000));
-              return doFinalUpdate(retries - 1);
-            }
-            console.error(`[EXTRACT] All retries exhausted for job ${jobId}, trying minimal update...`);
-            try {
-              await updateJob(jobId, {
-                status: result.error ? 'failed' : 'completed',
-                delivered: true,
-                completed_at: new Date().toISOString(),
-                error: result.error || `Leads salvos parcialmente. Tente atualizar a página.`,
-              });
-            } catch (e2: any) {
-              console.error(`[EXTRACT] Even minimal update FAILED for job ${jobId}:`, e2?.message || e2);
-            }
-          }
-        };
-
-        // Marca como entregue (com leads já enriquecidos)
         try {
-          await doFinalUpdate(3);
-          // Notifica Telegram em tempo real (DM pro admin)
+          await updateJob(jobId, jobUpdate);
+          // Notifica Telegram
           try {
             const tgToken = process.env.TELEGRAM_BOT_TOKEN;
             const tgAdminId = process.env.TELEGRAM_ADMIN_ID;
-            if (tgToken && tgAdminId && enrichedLeads.length > 0) {
-              const withPhone = enrichedLeads.filter(l => l.telefone && l.telefone !== 'Não informado').length;
-              const withSite = enrichedLeads.filter(l => l.site && l.site !== 'Sem site').length;
-              const withEmail = enrichedLeads.filter(l => l.email).length;
-              const msg = `🎯 <b>Extração Concluída</b>\n\n` +
-                `<b>${keyword}</b> em ${location}\n` +
-                `${enrichedLeads.length} leads em ${totalTimeSec}s\n\n` +
-                `📱 Tel: ${withPhone} | 🌐 Site: ${withSite} | ✉️ Email: ${withEmail}`;
+            if (tgToken && tgAdminId && result.leads.length > 0) {
+              const withPhone = result.leads.filter(l => l.telefone && l.telefone !== 'Não informado').length;
               fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: tgAdminId, text: msg, parse_mode: 'HTML' }),
+                body: JSON.stringify({
+                  chat_id: tgAdminId,
+                  text: `🎯 <b>${result.leads.length} leads</b> | ${keyword} em ${location}\n📱 Tel: ${withPhone} | ⏱️ ${totalTimeSec}s`,
+                  parse_mode: 'HTML'
+                }),
               }).catch(() => {});
             }
-          } catch { /* telegram notification is non-critical */ }
+          } catch {}
         } catch (e: any) {
-          console.error(`[EXTRACT] onDone: all updates failed for job ${jobId}:`, e?.message || e);
+          console.error(`[EXTRACT] Final update failed:`, e?.message || e);
         } finally {
           done();
         }
@@ -328,19 +232,17 @@ export async function POST(request: Request) {
       console.error('[EXTRACT] Background extraction failed:', err);
       updateJob(jobId, {
         status: 'failed',
-        error: err?.message || 'Erro inesperado na extração',
+        error: err?.message || 'Erro inesperado',
         completed_at: new Date().toISOString(),
         delivered: false,
       });
       done();
     });
 
-    return NextResponse.json({ success: true, jobId, message: 'Extração iniciada em segundo plano.' });
+    return NextResponse.json({ success: true, jobId, message: 'Extração iniciada.' });
 
   } catch (error: any) {
     done();
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error('ERRO AO CRIAR JOB:', msg);
-    return NextResponse.json({ error: 'Erro ao iniciar extração. Tente novamente.' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao iniciar extração.' }, { status: 500 });
   }
 }
