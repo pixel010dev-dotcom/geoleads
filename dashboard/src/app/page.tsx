@@ -55,6 +55,28 @@ export default function LandingPage() {
   const [proofIndex, setProofIndex] = useState(0);
   const [proofVisible, setProofVisible] = useState(true);
   const [exitVisible, setExitVisible] = useState(false);
+  const [liveFeed, setLiveFeed] = useState<{ name: string; city: string; qty: string } | null>(null);
+
+  // Live lead extraction feed (mock, cycles through realistic examples)
+  useEffect(() => {
+    const feedItems = [
+      { name: 'Carlos M.', city: 'São Paulo', qty: '47 leads' },
+      { name: 'Ana J.', city: 'Rio de Janeiro', qty: '32 leads' },
+      { name: 'Lucas F.', city: 'Belo Horizonte', qty: '28 leads' },
+      { name: 'Patrícia L.', city: 'Curitiba', qty: '53 leads' },
+      { name: 'Ricardo T.', city: 'Brasília', qty: '19 leads' },
+      { name: 'Fernanda R.', city: 'Salvador', qty: '41 leads' },
+    ];
+    let idx = 0;
+    const showFeed = () => {
+      setLiveFeed(feedItems[idx % feedItems.length]);
+      idx++;
+      setTimeout(() => setLiveFeed(null), 5000);
+    };
+    showFeed();
+    const interval = setInterval(showFeed, 12000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Social proof cycling
   useEffect(() => {
@@ -105,6 +127,16 @@ export default function LandingPage() {
     }
     fetchTestimonials();
   }, []);
+
+  // Auto-rotate testimonials
+  useEffect(() => {
+    if (testimonialsList.length <= 3) return;
+    const maxPage = Math.ceil(testimonialsList.length / 3) - 1;
+    const interval = setInterval(() => {
+      setTestimonialPage(p => (p >= maxPage ? 0 : p + 1));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [testimonialsList.length]);
 
   const faq = [
     { q: t('faq.q1'), a: t('faq.a1') },
@@ -207,16 +239,21 @@ export default function LandingPage() {
         {/* EXIT INTENT POPUP */}
         {exitVisible && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => { setExitVisible(false); try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}>
-            <div className="w-full max-w-md p-6 sm:p-8 rounded-2xl bg-zinc-900 border border-blue-500/30 shadow-2xl relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-md p-6 sm:p-8 rounded-2xl bg-zinc-900 border border-blue-500/30 shadow-2xl relative overflow-hidden text-center animate-scale-in" onClick={e => e.stopPropagation()}>
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-red-500" />
-              <span className="text-4xl mb-3 block">⏳</span>
-              <h2 className="text-xl font-bold mb-2">Espera! Nao va ainda.</h2>
-              <p className="text-sm text-gray-400 mb-5">Teste o GeoLeads gratuitamente agora mesmo. Sao <b>10 tokens</b> para extrair seus primeiros leads sem pagar nada.</p>
-              <Button href="/login" size="lg" className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none" onClick={() => { try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}>
-                Quero Testar Gratis
+              <span className="text-4xl mb-3 block">🔥</span>
+              <h2 className="text-xl font-bold mb-2">Nao vai perder essa oportunidade!</h2>
+              <p className="text-sm text-gray-400 mb-3">Teste o GeoLeads agora mesmo e receba <b className="text-blue-300">10 tokens gratuitos</b> para extrair seus primeiros leads.</p>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-bold mb-5">
+                🛡️ Risco zero — cancele quando quiser
+              </div>
+              <Button href="/login" size="lg" className="w-full relative overflow-hidden group/btn" onClick={() => { try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}>
+                <span className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_100%] animate-gradient-x transition-opacity" style={{ animationDuration: '4s' }} />
+                <span className="relative">Quero meus 10 Leads Gratis</span>
               </Button>
               <button onClick={() => { setExitVisible(false); try { localStorage.setItem('geoleads_exit_dismissed', 'true'); } catch {} }}
-                className="mt-3 text-xs text-gray-500 hover:text-gray-400 cursor-pointer">Nao, obrigado</button>
+                className="mt-3 text-xs text-gray-600 hover:text-gray-400 cursor-pointer transition-colors">Nao, obrigado. Talvez depois.</button>
+              <p className="text-[10px] text-gray-700 mt-2">Sem cartao de credito • Ativacao instantanea • 7 dias de garantia</p>
             </div>
           </div>
         )}
@@ -239,7 +276,7 @@ export default function LandingPage() {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
                   </span>
                   {t('hero.badge').split('{count}')[0]}
-                  <span className="text-blue-200 font-extrabold tabular-nums">4.200+</span>
+                  <span className="text-blue-200 font-extrabold tabular-nums">{(LIVE_LEADS).toLocaleString()}+</span>
                   {t('hero.badge').split('{count}')[1]}
                 </div>
 
@@ -267,6 +304,15 @@ export default function LandingPage() {
                     {t('hero.ctaSecondary')}
                   </Button>
                 </div>
+
+                {/* Urgency microcopy */}
+                <p className="text-xs sm:text-sm text-emerald-400/70 mt-3 flex items-center justify-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  </span>
+                  <span><b className="text-emerald-300">{LIVE_LEADS.toLocaleString()}+</b> leads extraídos hoje</span>
+                </p>
 
                 {/* Trust badges */}
                 <div className="flex items-center justify-center gap-4 sm:gap-6 mt-6 text-xs sm:text-sm text-gray-500">
@@ -309,7 +355,7 @@ export default function LandingPage() {
         </section>
 
         {/* ===== HOW IT WORKS ===== */}
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24" id="como-funciona">
           <ScrollReveal>
             <div className="max-w-5xl mx-auto">
               {/* Section header */}
@@ -321,6 +367,28 @@ export default function LandingPage() {
                 <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-4 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
                   {t('howItWorks.subtitle')}
                 </h2>
+                <p className="text-gray-500 text-sm sm:text-base mt-3 max-w-lg mx-auto">Do Google Maps ao WhatsApp em menos de 5 minutos. Sem planilhas, sem complicação.</p>
+              </div>
+
+              {/* Desktop progress line */}
+              <div className="hidden sm:flex items-center justify-between mb-10 max-w-2xl mx-auto relative">
+                <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-gradient-to-r from-blue-500/20 via-blue-500/40 to-indigo-500/20 -translate-y-1/2" />
+                {steps.map((_, i) => (
+                  <div key={i} className="relative z-10 flex flex-col items-center gap-2">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-500 ${
+                      i === 0 ? 'bg-blue-500/20 border-blue-400 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.3)]' :
+                      i === 1 ? 'bg-indigo-500/20 border-indigo-400 text-indigo-300' :
+                      'bg-purple-500/20 border-purple-400 text-purple-300'
+                    }`}>
+                      {i + 1}
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                      i === 0 ? 'text-blue-400' : i === 1 ? 'text-indigo-400' : 'text-purple-400'
+                    }`}>
+                      {i === 0 ? 'Busca' : i === 1 ? 'Extrai' : 'Vende'}
+                    </span>
+                  </div>
+                ))}
               </div>
 
               {/* Steps grid */}
@@ -331,29 +399,40 @@ export default function LandingPage() {
                       {/* Hover glow */}
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-blue-500/0 via-blue-500/0 to-blue-500/0 group-hover:from-blue-500/[0.02] group-hover:via-blue-500/[0.02] transition-all duration-500 pointer-events-none" />
 
-                      {/* Connector line (desktop) */}
-                      {i < steps.length - 1 && (
-                        <div className="hidden sm:block absolute top-1/2 -right-3 w-6 h-px bg-gradient-to-r from-blue-500/40 to-transparent" />
-                      )}
-
                       <div className="relative">
-                        {/* Step number */}
-                        <div className="flex items-center justify-between mb-5">
+                        {/* Step icon + number */}
+                        <div className="flex items-center gap-3 mb-5">
                           <span className="text-4xl">{step.icon}</span>
-                          <span className="text-3xl font-black text-white/[0.04]">{step.number}</span>
-                        </div>
-
-                        {/* Step number badge */}
-                        <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold mb-4">
-                          {i + 1}
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                            i === 0 ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                            i === 1 ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' :
+                            'bg-purple-500/10 border-purple-500/20 text-purple-400'
+                          }`}>
+                            Passo {i + 1}
+                          </span>
                         </div>
 
                         <h3 className="text-lg sm:text-xl font-bold text-white mb-2">{step.title}</h3>
-                        <p className="text-sm text-gray-400 leading-relaxed">{step.desc}</p>
+                        <p className="text-sm text-gray-400 leading-relaxed mb-4">{step.desc}</p>
+
+                        {/* Time estimate per step */}
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {i === 0 ? '~30 segundos' : i === 1 ? '~2 minutos' : '~1 minuto'}
+                        </div>
                       </div>
                     </div>
                   </ScrollReveal>
                 ))}
+              </div>
+
+              {/* Mobile CTA in how-it-works */}
+              <div className="text-center mt-10 sm:hidden">
+                <Button href="/login" size="md" className="w-full max-w-xs">
+                  {t('hero.cta')}
+                </Button>
               </div>
             </div>
           </ScrollReveal>
@@ -704,6 +783,7 @@ export default function LandingPage() {
               <div className="font-semibold text-sm text-gray-300 mb-4">{t('footer.links')}</div>
               <div className="flex flex-col gap-2">
                 <Link href="/pricing" className="hover:text-gray-300 transition-colors">{t('footer.pricing')}</Link>
+                <Link href="/afiliados" className="hover:text-gray-300 transition-colors">Indique e Ganhe</Link>
                 <Link href="/privacy" className="hover:text-gray-300 transition-colors">{t('footer.privacy')}</Link>
                 <Link href="/terms" className="hover:text-gray-300 transition-colors">{t('footer.terms')}</Link>
                 <Link href="/login" className="hover:text-gray-300 transition-colors">{t('nav.login')}</Link>
@@ -724,6 +804,39 @@ export default function LandingPage() {
         </div>
       </footer>
       <SocialProofWidget proofIndex={proofIndex} proofVisible={proofVisible} />
+
+      {/* Mobile sticky CTA bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-gradient-to-t from-black via-black/95 to-transparent pt-8 pb-4 px-4 pointer-events-none">
+        <div className="pointer-events-auto">
+          <Button href="/login" size="md" className="w-full shadow-2xl shadow-blue-600/20">
+            <span className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 bg-[length:200%_100%] animate-gradient-x" style={{ animationDuration: '4s' }} />
+            <span className="relative">{t('hero.cta')}</span>
+          </Button>
+        </div>
+      </div>
+      
+      {/* Live feed notification */}
+      {liveFeed && (
+        <div className="fixed bottom-20 right-6 z-50 max-w-xs animate-slide-up">
+          <div className="px-4 py-3 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/20 rounded-xl backdrop-blur-xl shadow-2xl flex items-center gap-3">
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                {liveFeed.name.charAt(0)}
+              </div>
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 animate-ping" />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-300 font-medium leading-snug">
+                <span className="text-white font-bold">{liveFeed.name}</span> acabou de extrair{' '}
+                <span className="text-emerald-400 font-bold">{liveFeed.qty}</span>
+              </p>
+              <p className="text-[10px] text-gray-500">📍 {liveFeed.city} · agora mesmo</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <LeadCaptureModal />
     </div>
   );
