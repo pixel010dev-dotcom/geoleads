@@ -1,4 +1,4 @@
-// GET /api/v1/extract — API pública para extração via API Key
+// GET /api/v1/extract — API pública para extração via API Key (armazenada em profiles)
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/server-auth';
 import { extractFromGooglePlaces } from '@/app/api/extract/strategies/google-places';
@@ -6,7 +6,7 @@ import { extractFromGooglePlaces } from '@/app/api/extract/strategies/google-pla
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const RATE_LIMIT_WINDOW = 60000; // 1 minuto
+const RATE_LIMIT_WINDOW = 60000;
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(key: string, maxReq: number): boolean {
@@ -19,6 +19,25 @@ function checkRateLimit(key: string, maxReq: number): boolean {
   if (entry.count >= maxReq) return false;
   entry.count++;
   return true;
+}
+
+async function findUserByApiKey(supabase: any, apiKey: string): Promise<{ userId: string } | null> {
+  // Get all profiles with api_keys (limit to avoid scanning all users)
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, api_keys')
+    .not('api_keys', 'is', null)
+    .limit(100);
+
+  if (!profiles) return null;
+
+  for (const profile of profiles) {
+    const keys = (profile.api_keys || []) as any[];
+    const match = keys.find((k: any) => k.key === apiKey && !k.revoked);
+    if (match) return { userId: profile.id };
+  }
+
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -38,19 +57,10 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminSupabaseClient();
 
-    // Verifica API key
-    const { data: keyData, error: keyError } = await supabase
-      .from('api_keys')
-      .select('id, user_id, revoked')
-      .eq('key', apiKey)
-      .single();
-
-    if (keyError || !keyData) {
+    // Find user by API key
+    const keyUser = await findUserByApiKey(supabase, apiKey);
+    if (!keyUser) {
       return NextResponse.json({ error: 'API key inválida.' }, { status: 401 });
-    }
-
-    if (keyData.revoked) {
-      return NextResponse.json({ error: 'API key revogada.' }, { status: 401 });
     }
 
     // Rate limit
@@ -58,35 +68,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Muitas requisições. Limite: 30/min.' }, { status: 429 });
     }
 
-    // Atualiza last_used_at
-    try { await supabase.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', keyData.id); } catch {}
-
-    // Verifica tokens do usuário
+    // Mark as used - update the key's last_used_at in the profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('tokens')
-      .eq('id', keyData.user_id)
+      .select('api_keys')
+      .eq('id', keyUser.userId)
       .single();
 
-    const availableTokens = profile?.tokens || 0;
+    if (profile?.api_keys) {
+      const updatedKeys = (profile.api_keys as any[]).map((k: any) =>
+        k.key === apiKey ? { ...k, last_used_at: new Date().toISOString() } : k
+      );
+      await supabase.from('profiles').update({ api_keys: updatedKeys }).eq('id', keyUser.userId);
+    }
+
+    // Get user tokens
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('tokens')
+      .eq('id', keyUser.userId)
+      .single();
+
+    const availableTokens = userProfile?.tokens || 0;
     const toSpend = Math.min(limit, availableTokens);
 
     if (toSpend <= 0) {
       return NextResponse.json({ error: 'Saldo de tokens insuficiente.' }, { status: 402 });
     }
 
-    // Extrai
+    // Extract
     const places = await extractFromGooglePlaces(keyword, location, toSpend);
 
     if (places.length === 0) {
       return NextResponse.json({ leads: [], message: 'Nenhum resultado encontrado.' }, { status: 200 });
     }
 
-    // Deduz tokens
-    try { await supabase.rpc('deduct_tokens', {
-      p_user_id: keyData.user_id,
-      p_amount: places.length,
-    }); } catch {}
+    // Deduct tokens
+    try {
+      await supabase.rpc('deduct_tokens', {
+        p_user_id: keyUser.userId,
+        p_amount: places.length,
+      });
+    } catch {}
 
     return NextResponse.json({
       success: true,
