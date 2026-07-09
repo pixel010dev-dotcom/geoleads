@@ -37,13 +37,6 @@ const posts = [
     readTime: '7 min',
   },
   {
-    slug: 'enriquecimento-de-leads',
-    title: 'O Que e Enriquecimento de Leads e Por Que Voce Precisa',
-    excerpt: 'So ter o telefone nao basta. Saiba como enriquecer seus leads com email, CNPJ, Instagram e Facebook para aumentar suas chances de venda.',
-    date: '28/05/2026',
-    readTime: '4 min',
-  },
-  {
     slug: 'extracao-automatica-leads',
     title: 'Extracao Automatica de Leads: Como Economizar Horas por Semana',
     excerpt: 'Automatize a extracao de leads do Google Maps e economize dezenas de horas por semana. Ferramentas, roteiros e melhores praticas.',
