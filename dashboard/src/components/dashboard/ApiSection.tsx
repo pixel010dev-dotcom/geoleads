@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/Button';
 import { showToast } from '@/components/Toast';
+import { supabase } from '@/lib/supabase';
 
 interface ApiKey {
   id: string;
@@ -23,7 +24,10 @@ export default function ApiSection() {
 
   const fetchKeys = useCallback(async () => {
     try {
-      const res = await fetch('/api/keys');
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch('/api/keys', { headers });
       const data = await res.json();
       setKeys(data.keys || []);
     } catch (e) {
@@ -42,9 +46,12 @@ export default function ApiSection() {
     }
     setCreating(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
       const res = await fetch('/api/keys', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ name: newKeyName.trim() }),
       });
       const data = await res.json();
@@ -66,9 +73,12 @@ export default function ApiSection() {
   const revokeKey = async (keyId: string) => {
     if (!confirm('Revogar esta chave? Esta ação não pode ser desfeita.')) return;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
       await fetch('/api/keys', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ keyId }),
       });
       fetchKeys();

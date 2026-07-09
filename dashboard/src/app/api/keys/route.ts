@@ -27,6 +27,23 @@ function getUserIdFromCookie(request: Request): string | null {
   }
 }
 
+function getUserIdFromAuthHeader(request: Request): string | null {
+  const auth = request.headers.get('authorization') || '';
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+  try {
+    const base64Payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString('utf8'));
+    return payload.sub;
+  } catch {
+    return null;
+  }
+}
+
+function getUserId(request: Request): string | null {
+  return getUserIdFromAuthHeader(request) || getUserIdFromCookie(request);
+}
+
 export async function POST(request: Request) {
   try {
     const userId = getUserIdFromCookie(request);
