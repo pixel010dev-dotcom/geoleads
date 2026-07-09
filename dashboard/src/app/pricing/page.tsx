@@ -10,20 +10,45 @@ import { Button } from '@/components/Button';
 import { getCostPerLeadLabel, paidPlanIds, plans, formatPlanPrice, allFeatureKeys, featureLabels, type PlanId } from '@/lib/plans';
 import { useTranslations } from '@/lib/i18n';
 
-const planIcons: Record<PlanId, string> = {
-  free: '🔎',
-  starter: '⚡',
-  pro: '🚀',
-  agency: '🏢',
-  api: '🔌'
+const planMeta: Record<PlanId, { icon: string; color: string; gradient: string; glow: string }> = {
+  free: {
+    icon: '🔎',
+    color: 'border-white/10 hover:border-white/20',
+    gradient: 'from-white/5 to-transparent',
+    glow: 'shadow-none',
+  },
+  starter: {
+    icon: '⚡',
+    color: 'border-blue-500/30 hover:border-blue-400/50',
+    gradient: 'from-blue-500/8 to-transparent',
+    glow: 'shadow-blue-500/5',
+  },
+  pro: {
+    icon: '🚀',
+    color: 'border-indigo-500/40 hover:border-indigo-400/60',
+    gradient: 'from-indigo-500/10 to-transparent',
+    glow: 'shadow-indigo-500/10',
+  },
+  agency: {
+    icon: '🏢',
+    color: 'border-cyan-500/30 hover:border-cyan-400/50',
+    gradient: 'from-cyan-500/8 to-transparent',
+    glow: 'shadow-cyan-500/5',
+  },
+  api: {
+    icon: '🔌',
+    color: 'border-purple-500/30 hover:border-purple-400/50',
+    gradient: 'from-purple-500/8 to-transparent',
+    glow: 'shadow-purple-500/5',
+  },
 };
 
-const planAccent: Record<PlanId, string> = {
-  free: 'border-white/10',
-  starter: 'border-blue-500/35',
-  pro: 'border-indigo-500/60',
-  agency: 'border-cyan-500/35',
-  api: 'border-purple-500/60'
+const planHighlights: Record<PlanId, string | null> = {
+  free: null,
+  starter: null,
+  pro: 'Mais popular',
+  agency: null,
+  api: null,
 };
 
 type PixSession = {
@@ -33,6 +58,19 @@ type PixSession = {
   amount: number;
   planId: PlanId;
 };
+
+function PlanCardSvg({ planId }: { planId: PlanId }) {
+  if (planId === 'pro') {
+    return (
+      <svg className="absolute -top-24 -right-20 w-48 h-48 opacity-[0.08] pointer-events-none" viewBox="0 0 200 200" fill="none">
+        <circle cx="100" cy="100" r="80" stroke="currentColor" strokeWidth="0.5" className="text-indigo-400" />
+        <circle cx="100" cy="100" r="50" stroke="currentColor" strokeWidth="0.5" className="text-indigo-300" />
+        <circle cx="100" cy="100" r="20" stroke="currentColor" strokeWidth="0.5" className="text-indigo-200" />
+      </svg>
+    );
+  }
+  return null;
+}
 
 export default function Pricing() {
   const { t, locale } = useTranslations();
@@ -190,47 +228,48 @@ export default function Pricing() {
     : '';
 
   return (
-    <div className="app-shell min-h-screen text-white py-5 sm:py-8 relative overflow-hidden">
+    <div className="min-h-screen text-white py-6 sm:py-10 relative overflow-hidden">
       <Toast />
-      <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-35" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(760px,92vw)] h-[280px] bg-blue-700/10 blur-[90px] rounded-full pointer-events-none" />
 
+      {/* BG effects */}
+      <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-25" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 left-1/3 w-[500px] h-[250px] bg-blue-600/8 blur-[100px] rounded-full pointer-events-none" />
+
+      {/* PIX MODAL */}
       {pixSession && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={closePixModal}>
           <div
-            className="pix-checkout-modal app-card w-full max-w-md p-6 sm:p-8 rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-[#0b1a15] to-[#0b1220] shadow-2xl shadow-emerald-500/10 animate-bounce-in"
+            className="w-full max-w-md p-6 sm:p-8 rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-[#0b1a15] to-[#0b1220] shadow-2xl shadow-emerald-500/10 animate-bounce-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 mb-5">
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold mb-3">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {t('pricing.pixTitle')}
+                  PIX
                 </div>
                 <h3 className="text-xl font-bold">{t('pricing.planNames.' + pixSession.planId)}</h3>
                 <p className="text-2xl font-extrabold mt-1 text-emerald-300">
                   {formatPlanPrice(pixSession.amount)}
                 </p>
               </div>
-              <Button
+              <button
                 onClick={closePixModal}
-                variant="ghost"
-                size="sm"
-                aria-label={t('pricing.close')}
-                icon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                }
-              ></Button>
+                className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             <div className="text-center mb-5">
-              <p className="text-xs text-gray-400 mb-2">{t('pricing.scanQr')}</p>
+              <p className="text-xs text-gray-400 mb-2">Escaneie o QR Code abaixo com seu banco</p>
             </div>
 
             {qrImageSrc ? (
-              <div className="mx-auto w-fit p-4 rounded-2xl bg-white shadow-[0_0_30px_rgba(16,185,129,0.15)] mb-4 transition-all hover:scale-105 duration-300 relative">
+              <div className="relative mx-auto w-fit p-4 rounded-2xl bg-white mb-4 transition-all duration-300">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl blur opacity-30" />
                 <div className="relative bg-white rounded-xl p-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -245,17 +284,19 @@ export default function Pricing() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                 </div>
-                <p className="text-gray-400 text-sm">{t('pricing.generatingQr')}</p>
+                <p className="text-gray-400 text-sm">Gerando QR Code...</p>
               </div>
             )}
 
-            <Button onClick={copyPixCode} variant="success" size="lg" className="w-full mb-3" icon={
+            <button
+              onClick={copyPixCode}
+              className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center justify-center gap-2 mb-3"
+            >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
-            }>
-              {t('pricing.copyPixCode')}
-            </Button>
+              Copiar código PIX
+            </button>
 
             {pixMessage && (
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 mb-3 text-center">
@@ -266,7 +307,7 @@ export default function Pricing() {
             <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mb-2">
               <span>Status:</span>
               <span className={`font-bold ${pixStatus === 'approved' ? 'text-green-400' : 'text-emerald-300'}`}>
-                {pixStatus === 'pending' ? t('pricing.awaitingPayment') : pixStatus === 'approved' ? t('pricing.paid') : pixStatus}
+                {pixStatus === 'pending' ? 'Aguardando pagamento...' : pixStatus === 'approved' ? 'Pago ✓' : pixStatus}
               </span>
               {pixStatus === 'pending' && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
@@ -274,66 +315,86 @@ export default function Pricing() {
             </div>
 
             <p className="text-[11px] text-center text-gray-500 mt-4 leading-relaxed border-t border-white/5 pt-4">
-              {t('pricing.afterPayment')}
+              Tokens liberados após confirmação do pagamento.
             </p>
           </div>
         </div>
       )}
 
-      <div className="app-container relative z-10">
-        <div className="flex items-center justify-between gap-3 mb-7">
-          <Link href="/app/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+      <div className="max-w-6xl mx-auto px-4 relative z-10">
+        {/* TOP BAR */}
+        <div className="flex items-center justify-between gap-3 mb-8">
+          <Link href="/app/dashboard" className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group">
             <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            {t('pricing.backToEngine')}
+            Voltar ao Motor
           </Link>
-          <span className={`hidden sm:inline-flex px-3 py-1.5 rounded-full border text-xs font-bold ${user ? 'bg-green-500/10 border-green-500/20 text-green-300' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'}`}>
-            {user ? t('pricing.accountConnected') : t('pricing.loginToBuy')}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`hidden sm:inline-flex px-3 py-1.5 rounded-full border text-xs font-bold ${user ? 'bg-green-500/10 border-green-500/20 text-green-300' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'}`}>
+              {user ? 'Conta conectada' : 'Faça login para comprar'}
+            </span>
+          </div>
         </div>
 
-        <section className="pricing-hero mb-8 sm:mb-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs sm:text-sm font-bold mb-5">
-              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              {t('pricing.title')}
-            </div>
-            <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight mb-4 max-w-3xl">
-              {t('pricing.subtitle')}
-            </h1>
-            <p className="text-gray-400 text-sm sm:text-lg leading-relaxed max-w-2xl">
-              {t('pricing.paymentInfo')}
-            </p>
+        {/* HERO */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs sm:text-sm font-bold mb-5">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            Planos prontos para vender mais
           </div>
-
-          <div className="pricing-steps">
-            <div><b>1</b><span>{t('pricing.steps.1')}</span></div>
-            <div><b>2</b><span>{t('pricing.steps.2')}</span></div>
-            <div><b>3</b><span>{t('pricing.steps.3')}</span></div>
-          </div>
-        </section>
-
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <span className={`text-sm font-medium ${!annual ? 'text-white' : 'text-gray-500'}`}>Mensal</span>
-          <button
-            type="button"
-            onClick={() => setAnnual(!annual)}
-            className={`relative w-14 h-7 rounded-full transition-colors cursor-pointer active:scale-95 ${annual ? 'bg-blue-600' : 'bg-white/20'}`}
-          >
-            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${annual ? 'translate-x-7' : 'translate-x-0'}`} />
-          </button>
-          <span className={`text-sm font-medium ${annual ? 'text-white' : 'text-gray-500'}`}>
-            Anual
-            <span className="ml-1 text-[10px] text-green-400 font-bold">-20%</span>
-          </span>
+          <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight mb-4">
+            Escolha o volume do seu <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-blue-400">motor comercial</span>
+          </h1>
+          <p className="text-gray-400 text-sm sm:text-lg leading-relaxed max-w-2xl mx-auto">
+            Pague com PIX aqui mesmo: QR Code e copia e cola na tela. Cartão e boleto pelo Mercado Pago.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-5 lg:gap-7 items-start max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* STEPS + TOGGLE */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 max-w-4xl mx-auto">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {[
+              { n: '1', label: 'Escolha o plano' },
+              { n: '2', label: 'Pague com PIX' },
+              { n: '3', label: 'Receba tokens' },
+            ].map((step, i) => (
+              <div key={step.n} className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-xs font-bold text-indigo-300">
+                  {step.n}
+                </div>
+                <span className="text-xs sm:text-sm font-semibold text-gray-300 whitespace-nowrap">{step.label}</span>
+                {i < 2 && <div className="hidden sm:block w-6 h-px bg-white/10" />}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium transition-colors ${!annual ? 'text-white' : 'text-gray-500'}`}>Mensal</span>
+            <button
+              type="button"
+              onClick={() => setAnnual(!annual)}
+              className={`relative w-14 h-7 rounded-full transition-colors cursor-pointer active:scale-95 ${annual ? 'bg-indigo-600' : 'bg-white/20'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${annual ? 'translate-x-7' : 'translate-x-0'}`} />
+            </button>
+            <span className={`text-sm font-medium transition-colors ${annual ? 'text-white' : 'text-gray-500'}`}>
+              Anual
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-green-500/15 text-green-400 text-[10px] font-bold">-20%</span>
+            </span>
+          </div>
+        </div>
+
+        {/* PLAN CARDS + CHECKOUT */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-6 lg:gap-8 items-start max-w-6xl mx-auto">
+          {/* CARDS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {(['free', ...paidPlanIds] as PlanId[]).map((planId) => {
               const plan = plans[planId];
               const isSelected = selectedPlanId === plan.id;
+              const meta = planMeta[planId];
+              const highlight = planHighlights[planId];
+              const isPro = planId === 'pro';
 
               return (
                 <div
@@ -344,47 +405,86 @@ export default function Pricing() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') setSelectedPlanId(plan.id);
                   }}
-                  className={`pricing-plan-card app-card p-5 sm:p-6 rounded-2xl border cursor-pointer transition-all duration-200 ${planAccent[plan.id]} ${
-                    isSelected
-                      ? 'is-selected bg-blue-600/10 shadow-[0_0_0_1px_rgba(96,165,250,0.45),0_20px_60px_rgba(37,99,235,0.18)]'
-                      : 'bg-white/[0.035] hover:bg-white/[0.055]'
-                  }`}
+                  className={`
+                    relative rounded-2xl border p-5 cursor-pointer transition-all duration-200
+                    ${meta.color}
+                    ${isSelected
+                      ? `is-selected bg-gradient-to-b ${meta.gradient} ${
+                          isPro
+                            ? 'shadow-[0_0_0_1px_rgba(99,102,241,0.5),0_20px_60px_rgba(99,102,241,0.15)]'
+                            : 'shadow-[0_0_0_1px_rgba(96,165,250,0.35),0_20px_60px_rgba(37,99,235,0.12)]'
+                        }`
+                      : 'bg-white/[0.03] hover:bg-white/[0.06]'
+                    }
+                    ${isPro ? 'ring-1 ring-indigo-500/20' : ''}
+                  `}
                 >
-                  <div className="flex items-start justify-between gap-3 mb-5">
-                    <div>
-                      <div className="text-3xl mb-3">{planIcons[plan.id]}</div>
-                      <span className="inline-flex px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-gray-300 font-bold">
-                        {t('pricing.planHints.' + plan.id)}
-                      </span>
-                    </div>
-                    <span className={`pricing-radio ${isSelected ? 'is-selected' : ''}`} />
-                  </div>
+                  <PlanCardSvg planId={planId} />
 
-                  {plan.badgeKey && (
-                    <div className="mb-3 w-fit bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded-full text-[11px] font-bold shadow-lg shadow-indigo-500/20">
+                  {/* BADGE */}
+                  {highlight && (
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/25 whitespace-nowrap z-10">
+                      {highlight}
+                    </div>
+                  )}
+                  {plan.badgeKey && !highlight && (
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/25 whitespace-nowrap z-10">
                       {t(plan.badgeKey)}
                     </div>
                   )}
 
-                  <h3 className="text-2xl font-bold mb-1">{t('pricing.planNames.' + plan.id)}</h3>
-                  <p className="text-gray-400 text-sm mb-5 min-h-[3rem]">{t('pricing.planDescriptions.' + plan.id)}</p>
-
-                  <div className="mb-1 text-4xl font-extrabold tracking-tight">
-                    {formatPlanPrice(annual && plan.annualPrice > 0 ? plan.annualPrice : plan.price)}
-                    {annual && plan.annualPrice > 0 && <span className="text-xs text-green-400 font-medium align-super ml-1">/ano</span>}
-                    {annual && plan.annualPrice > 0 && <span className="block text-xs text-gray-500 font-normal mt-1"><s>{formatPlanPrice(plan.price * 12)}</s> {t('pricing.annualSavings')}</span>}
+                  {/* HEADER */}
+                  <div className="flex items-start justify-between gap-3 mb-4 mt-1">
+                    <div>
+                      <span className="text-2xl mb-2 block">{meta.icon}</span>
+                      <h3 className="text-lg font-bold">{t('pricing.planNames.' + plan.id)}</h3>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 transition-all ${
+                      isSelected
+                        ? isPro ? 'border-indigo-400 bg-indigo-400' : 'border-blue-400 bg-blue-400'
+                        : 'border-white/20'
+                    }`}>
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-green-400 mb-5">{getCostPerLeadLabel(plan, t)}</p>
 
-                  <div className="rounded-xl bg-black/25 border border-white/8 p-3 mb-5">
-                    <p className="text-xs text-gray-500">{t('pricing.tokensIncluded')}</p>
+                  <p className="text-xs text-gray-400 mb-4 min-h-[2.5rem] leading-relaxed">{t('pricing.planDescriptions.' + plan.id)}</p>
+
+                  {/* PRICE */}
+                  <div className="mb-3">
+                    <span className="text-3xl font-extrabold tracking-tight">
+                      {formatPlanPrice(annual && plan.annualPrice > 0 ? plan.annualPrice : plan.price)}
+                    </span>
+                    {annual && plan.annualPrice > 0 && (
+                      <span className="text-xs text-green-400 font-medium ml-1">/ano</span>
+                    )}
+                    {!annual && plan.price > 0 && (
+                      <span className="text-xs text-gray-500 ml-1">/mês</span>
+                    )}
+                    {annual && plan.annualPrice > 0 && (
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        <s>{formatPlanPrice(plan.price * 12)}</s> economia de 20%
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-green-400 font-medium mb-4">{getCostPerLeadLabel(plan, t)}</p>
+
+                  {/* TOKENS */}
+                  <div className="rounded-xl bg-black/30 border border-white/[0.06] p-3 mb-4">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Tokens inclusos</p>
                     <p className="text-xl font-bold text-white">{plan.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}</p>
                   </div>
 
-                  <ul className="space-y-2.5 text-sm">
+                  {/* FEATURES */}
+                  <ul className="space-y-2 text-xs">
                     {plan.features.slice(0, 5).map((feature) => (
-                      <li key={feature} className="flex items-start gap-2.5">
-                        <span className="text-green-400 mt-0.5">✓</span>
+                      <li key={feature} className="flex items-start gap-2">
+                        <span className={`mt-0.5 flex-shrink-0 ${isPro ? 'text-indigo-400' : 'text-green-400'}`}>✓</span>
                         <span className="text-gray-300">{feature}</span>
                       </li>
                     ))}
@@ -394,101 +494,126 @@ export default function Pricing() {
             })}
           </div>
 
-          <aside className="checkout-summary app-card p-5 sm:p-6 rounded-2xl border border-white/10 bg-black/35">
-            <span className="text-xs text-blue-300 font-bold uppercase tracking-wide">{t('pricing.summaryTitle')}</span>
+          {/* CHECKOUT SIDEBAR */}
+          <aside className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-black/30 p-5 sm:p-6 sticky top-24">
+            <span className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">Resumo da escolha</span>
             <div className="mt-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-2xl font-bold">{t('pricing.planNames.' + selectedPlan.id)}</h2>
-                <p className="text-sm text-gray-400 mt-1">{t('pricing.leadsToUse', { count: selectedPlan.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR') })}</p>
+                <h2 className="text-xl font-bold">{t('pricing.planNames.' + selectedPlan.id)}</h2>
+                <p className="text-xs text-gray-400 mt-1">{selectedPlan.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')} leads para usar no motor</p>
               </div>
-              <span className="text-3xl">{planIcons[selectedPlan.id]}</span>
+              <span className="text-2xl">{planMeta[selectedPlan.id].icon}</span>
             </div>
 
-            <div className="my-5 rounded-2xl bg-white/[0.04] border border-white/10 p-4">
+            <div className="my-5 rounded-xl bg-white/[0.04] border border-white/[0.06] p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs text-gray-500">{annual ? t('pricing.totalYear') : t('pricing.totalToday')}</p>
-                  <p className="text-3xl font-extrabold">{formatPlanPrice(annual && selectedPlan.annualPrice > 0 ? selectedPlan.annualPrice : selectedPlan.price)}</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                    {annual ? 'Total no ano' : 'Total hoje'}
+                  </p>
+                  <p className="text-2xl font-extrabold mt-1">
+                    {formatPlanPrice(annual && selectedPlan.annualPrice > 0 ? selectedPlan.annualPrice : selectedPlan.price)}
+                  </p>
                   {annual && selectedPlan.annualPrice > 0 && (
-                    <p className="text-[10px] text-gray-500 mt-1"><s>{formatPlanPrice(selectedPlan.price * 12)}</s> {t('pricing.annualSavings')}</p>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      <s>{formatPlanPrice(selectedPlan.price * 12)}</s> economia de 20%
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-green-400 font-bold text-right">{getCostPerLeadLabel(selectedPlan, t)}</p>
+                <p className="text-[10px] text-green-400 font-bold text-right leading-tight">
+                  {getCostPerLeadLabel(selectedPlan, t)}
+                </p>
               </div>
             </div>
 
-            <Button
+            <button
               onClick={() => buyWithPix(selectedPlan.id)}
-              loading={loadingPlan === selectedPlan.id}
-              variant="success"
-              size="lg"
-              className="w-full shadow-[0_0_22px_rgba(16,185,129,0.25)]"
+              disabled={loadingPlan !== null}
+              className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
             >
-              {loadingPlan === selectedPlan.id ? t('pricing.generatingPix') : user ? t('pricing.payWithPix') : t('pricing.enterToBuy')}
-            </Button>
+              {loadingPlan === selectedPlan.id ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Gerando PIX...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Pagar com PIX (QR Code)
+                </>
+              )}
+            </button>
 
-            <Button
+            <button
               onClick={() => !user ? router.push(`/login?next=/pricing&plan=${selectedPlanId}`) : buyWithCard(selectedPlan.id)}
               disabled={loadingPlan !== null && !!user}
-              variant="secondary"
-              size="md"
-              className="w-full mt-3"
-              title={!user ? t('pricing.loginForCard') : ''}
+              className="w-full py-2.5 px-4 rounded-xl font-bold text-sm bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-gray-200 transition-all flex items-center justify-center gap-2 mt-2"
             >
-              {!user ? t('pricing.loginForCard') : loadingPlan === selectedPlan.id ? t('pricing.generatingPix') : t('pricing.payWithCard')}
-            </Button>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              {!user ? 'Faça login para pagar com cartão' : 'Pagar com cartão / boleto (Mercado Pago)'}
+            </button>
 
-            <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3">
-              <p className="text-xs font-bold text-emerald-300 mb-1">{t('pricing.pixOnTheSpot')}</p>
-              <p className="text-[11px] text-gray-300 leading-relaxed">
-                {t('pricing.pixDescription')}
+            <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+              <p className="text-xs font-bold text-emerald-300 mb-1">PIX na hora</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                O QR Code abre aqui no GeoLeads. Você também pode copiar o código e colar no app do banco.
               </p>
             </div>
 
             {nextPlan && (
-              <Button onClick={() => setSelectedPlanId(nextPlan.id)} variant="ghost" size="sm" className="w-full mt-4">
-                {t('pricing.needMoreVolume', { name: t('pricing.planNames.' + nextPlan.id) })}
-              </Button>
+              <button onClick={() => setSelectedPlanId(nextPlan.id)} className="w-full text-xs text-gray-400 hover:text-white transition-colors mt-4">
+                Precisa de mais volume? <span className="text-blue-400 font-semibold hover:underline">{t('pricing.planNames.' + nextPlan.id)}</span>
+              </button>
             )}
 
-            <p className="mt-4 text-xs text-gray-500 leading-relaxed">
-              {t('pricing.tokensAfterPayment')}
+            <p className="mt-4 text-[10px] text-gray-500 leading-relaxed text-center border-t border-white/[0.04] pt-4">
+              Tokens liberados após confirmação do pagamento. Compre logado na sua conta GeoLeads.
             </p>
           </aside>
         </div>
 
         {/* COMPARISON TABLE */}
-        <section className="mt-12 sm:mt-16 max-w-5xl mx-auto">
+        <section className="mt-16 sm:mt-20 max-w-5xl mx-auto">
           <div className="text-center mb-8">
-            <span className="badge-blue mb-3">{t('pricing.compare')}</span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-3">{t('pricing.compareSubtitle')}</h2>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold mb-4">
+              Comparação completa
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Veja o que cada plano oferece</h2>
           </div>
-          <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
+
+          <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-black/20">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.03]">
-                  <th className="text-left px-4 py-3.5 text-gray-400 font-semibold">{t('pricing.featureColumn')}</th>
+                <tr className="border-b border-white/[0.06] bg-white/[0.03]">
+                  <th className="text-left px-4 py-3.5 text-gray-400 font-semibold text-xs uppercase tracking-wider">Funcionalidade</th>
                   {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
                     const p = plans[pid];
                     return (
-                      <th key={pid} className={`px-4 py-3.5 text-center font-bold ${p.highlight ? 'text-blue-400' : 'text-gray-300'}`}>
+                      <th key={pid} className={`px-4 py-3.5 text-center font-bold text-xs ${p.highlight ? 'text-indigo-400' : 'text-gray-300'}`}>
                         {t('pricing.planNames.' + pid)}
                       </th>
                     );
                   })}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-white/[0.04]">
                 {allFeatureKeys.map((fk) => {
                   return (
                     <tr key={fk} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3 text-gray-300 font-medium">{t(featureLabels[fk])}</td>
+                      <td className="px-4 py-3 text-gray-300 text-xs">{t(featureLabels[fk])}</td>
                       {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
                         const included = plans[pid].featureKeys.includes(fk);
                         return (
                           <td key={pid} className="px-4 py-3 text-center">
                             {included ? (
-                              <span className="text-green-400 text-lg">✓</span>
+                              <span className="text-green-400 text-base">✓</span>
                             ) : (
                               <span className="text-gray-600">—</span>
                             )}
@@ -498,12 +623,12 @@ export default function Pricing() {
                     </tr>
                   );
                 })}
-                <tr className="border-t border-white/10 bg-white/[0.02]">
-                  <td className="px-4 py-3 text-gray-300 font-medium">Tokens de extração</td>
+                <tr className="border-t border-white/[0.06] bg-white/[0.02]">
+                  <td className="px-4 py-3 text-gray-300 text-xs font-semibold">Tokens de extração</td>
                   {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
                     const p = plans[pid];
                     return (
-                      <td key={pid} className="px-4 py-3 text-center font-bold text-white">
+                      <td key={pid} className="px-4 py-3 text-center font-bold text-white text-sm">
                         {p.tokens.toLocaleString(locale === 'en' ? 'en-US' : 'pt-BR')}
                       </td>
                     );
@@ -512,8 +637,8 @@ export default function Pricing() {
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-gray-500 text-center mt-4">
-            {t('pricing.allPlansInclude')}
+          <p className="text-[11px] text-gray-500 text-center mt-4 leading-relaxed">
+            Todos os planos incluem acesso ao Motor Extrator e suporte padrão. Upgrade a qualquer momento.
           </p>
         </section>
       </div>
