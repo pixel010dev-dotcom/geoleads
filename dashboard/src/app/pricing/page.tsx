@@ -389,7 +389,7 @@ export default function Pricing() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-6 lg:gap-8 items-start max-w-6xl mx-auto">
           {/* CARDS */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {(['free', ...paidPlanIds] as PlanId[]).map((planId) => {
+            {(paidPlanIds as PlanId[]).map((planId) => {
               const plan = plans[planId];
               const isSelected = selectedPlanId === plan.id;
               const meta = planMeta[planId];
@@ -593,7 +593,7 @@ export default function Pricing() {
               <thead>
                 <tr className="border-b border-white/[0.06] bg-white/[0.03]">
                   <th className="text-left px-4 py-3.5 text-gray-400 font-semibold text-xs uppercase tracking-wider">Funcionalidade</th>
-                  {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
+                  {(paidPlanIds as PlanId[]).map((pid) => {
                     const p = plans[pid];
                     return (
                       <th key={pid} className={`px-4 py-3.5 text-center font-bold text-xs ${p.highlight ? 'text-indigo-400' : 'text-gray-300'}`}>
@@ -608,7 +608,7 @@ export default function Pricing() {
                   return (
                     <tr key={fk} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3 text-gray-300 text-xs">{t(featureLabels[fk])}</td>
-                      {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
+                      {(paidPlanIds as PlanId[]).map((pid) => {
                         const included = plans[pid].featureKeys.includes(fk);
                         return (
                           <td key={pid} className="px-4 py-3 text-center">
@@ -625,7 +625,7 @@ export default function Pricing() {
                 })}
                 <tr className="border-t border-white/[0.06] bg-white/[0.02]">
                   <td className="px-4 py-3 text-gray-300 text-xs font-semibold">Tokens de extração</td>
-                  {(['free', ...paidPlanIds] as PlanId[]).map((pid) => {
+                  {(paidPlanIds as PlanId[]).map((pid) => {
                     const p = plans[pid];
                     return (
                       <td key={pid} className="px-4 py-3 text-center font-bold text-white text-sm">
