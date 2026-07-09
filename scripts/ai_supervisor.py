@@ -1095,7 +1095,7 @@ class AutoFixer:
                 with open(patterns_file, encoding="utf-8") as pf:
                     data = json.load(pf)
                 if data:
-                    patterns = "\n".join(f"- {p.get("module", "?")}: {p.get("fix", "")[:200]}" for p in data[-5:])
+                    patterns = "\n".join(f"- {p.get('module', '?')}: {p.get('fix', '')[:200]}" for p in data[-5:])
         except Exception:
             pass
 
