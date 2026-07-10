@@ -157,9 +157,21 @@ export function ChatbotSection({
             </div>
           ) : chatbotSession.pairingCode ? (
             <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-5 text-center">
-              <p className="text-xs text-emerald-300 font-semibold mb-1">{t('chatbot.pairingCode')}</p>
-              <p className="text-2xl font-mono font-bold text-white tracking-widest select-all">{chatbotSession.pairingCode}</p>
-              <p className="text-[10px] text-emerald-400/70 mt-2">{t('whatsapp.pairingSteps')}</p>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <p className="text-xs text-emerald-300 font-semibold">{t('chatbot.pairingCode')}</p>
+              </div>
+              <p className="text-2xl font-mono font-bold text-white tracking-widest select-all mt-2 mb-3">{chatbotSession.pairingCode}</p>
+              <div className="text-[10px] text-emerald-400/70 leading-relaxed">
+                <p className="font-bold text-emerald-300 mb-1">📲 Passo a passo:</p>
+                <p className="mb-0.5">1. Abra o WhatsApp no seu celular</p>
+                <p className="mb-0.5">2. Toque nos 3 pontos ⋮ &gt; Dispositivos Conectados</p>
+                <p className="mb-0.5">3. Toque em "Conectar Dispositivo"</p>
+                <p className="mb-0.5">4. Na tela do QR Code, toque em <span className="text-emerald-300 font-bold">"Conectar por número"</span></p>
+                <p className="text-emerald-300 font-bold">5. Digite o código acima exatamente como aparece</p>
+                <p className="mt-2 text-yellow-400/80">⚠️ NÃO escaneie o QR Code, use a opção "Conectar por número"</p>
+                <p className="mt-1 text-gray-500">⏱ Código se renova automaticamente se expirar</p>
+              </div>
             </div>
           ) : (
             <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 leading-relaxed mb-5">

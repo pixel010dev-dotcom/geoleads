@@ -36,6 +36,8 @@ type BotSession = {
   qr?: string;
   qrDataUrl?: string;
   pairingCode?: string;
+  pairingPhone?: string;
+  pairingGeneratedAt?: number;
   lastError?: string;
   lastDisconnectCode?: string;
   lastIgnoredReason?: string;
@@ -890,8 +892,8 @@ export async function POST(request: Request) {
           return;
         }
 
-        const maxRetries = isRestartRequired ? 10 : 8;
-        const retryDelay = isRestartRequired ? 4000 : 2000;
+        const maxRetries = isRestartRequired ? 40 : 30;
+        const retryDelay = isRestartRequired ? 4000 : 3000;
 
         if (session.reconnectAttempts < maxRetries) {
           session.reconnectAttempts += 1;
@@ -902,6 +904,21 @@ export async function POST(request: Request) {
           setTimeout(async () => {
             try {
               await startBotSession(session);
+              // Se estávamos em modo pairing, re-gera o código com a nova sessão
+              if (session.pairingPhone && session.status !== 'connected') {
+                try {
+                  // Aguarda socket estabilizar
+                  await new Promise(r => setTimeout(r, 3000));
+                  if (session.socket && typeof session.socket.requestPairingCode === 'function') {
+                    const newCode = await session.socket.requestPairingCode(session.pairingPhone);
+                    session.pairingCode = newCode;
+                    session.pairingGeneratedAt = Date.now();
+                    console.log('[WAP] Novo código de pareamento gerado após reconexão:', newCode);
+                  }
+                } catch (regenErr: any) {
+                  console.error('[WAP] Falha ao re-gerar código de pareamento:', regenErr.message);
+                }
+              }
             } catch (e) { console.error(e); }
           }, retryDelay);
         } else {
@@ -916,10 +933,12 @@ export async function POST(request: Request) {
 
     // Request pairing code
     // Aguarda socket inicializar antes de pedir código
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 2500));
     try {
       const code = await socket.requestPairingCode(phoneNumber);
       session.pairingCode = code;
+      session.pairingPhone = phoneNumber;
+      session.pairingGeneratedAt = Date.now();
     } catch (pairError: any) {
       console.error('[WAP] Falha ao solicitar codigo de pareamento:', pairError.message);
       session.status = 'error';
