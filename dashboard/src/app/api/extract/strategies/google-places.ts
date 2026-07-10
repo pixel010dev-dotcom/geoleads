@@ -39,19 +39,80 @@ const FIELD_MASK = [
  */
 function isMobilePhone(phone: string): boolean {
   const digits = phone.replace(/\D/g, '');
-  // Remove country code 55
   const local = digits.startsWith('55') ? digits.slice(2) : digits;
-  // Celular BR tem 9 dígitos (começa com 9)
   if (local.length === 11 && local.startsWith('9')) return true;
-  // Fixo tem 8 dígitos
   if (local.length === 10) return false;
-  // Internacional: assume celular
   if (local.length > 11) return true;
   return false;
 }
 
+/** Gera variações de busca pra maximizar resultados */
+function generateQueries(keyword: string, location: string): string[] {
+  const queries: string[] = [];
+
+  // 1. Original
+  queries.push(`${keyword} ${location}`);
+
+  // 2. Só a keyword (Google aplica geo-localização automática)
+  queries.push(keyword);
+
+  // 3. Com "melhor" — costuma trazer resultados diferentes
+  if (!keyword.toLowerCase().includes('melhor')) {
+    queries.push(`melhor ${keyword} ${location}`);
+  }
+
+  // 4. Sem location — busca ampla
+  if (keyword.split(' ').length <= 2) {
+    queries.push(keyword);
+  }
+
+  return queries;
+}
+
+/** Busca uma página da API do Google Places */
+async function fetchPage(
+  apiKey: string,
+  textQuery: string,
+  pageToken?: string,
+): Promise<{ places: any[]; nextPageToken?: string } | null> {
+  const body: Record<string, unknown> = {
+    textQuery,
+    maxResultCount: 20,
+  };
+  if (pageToken) body.pageToken = pageToken;
+
+  try {
+    const response = await fetch(PLACES_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': FIELD_MASK,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!response.ok) {
+      const err = await response.text().catch(() => '');
+      console.error(`[Places API] HTTP ${response.status}: ${err.slice(0, 200)}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return {
+      places: data.places || [],
+      nextPageToken: data.nextPageToken,
+    };
+  } catch (err: any) {
+    console.error(`[Places API] Network error:`, err?.message || err);
+    return null;
+  }
+}
+
 /**
  * Extração máxima de leads via Google Places API (New)
+ * Tenta múltiplas queries se a primeira não atingir o target
  */
 export async function extractFromGooglePlaces(
   keyword: string,
@@ -66,44 +127,33 @@ export async function extractFromGooglePlaces(
 
   const results: PlacesApiResult[] = [];
   const seenIds = new Set<string>();
-  let pageToken: string | undefined;
-  let pageCount = 0;
-  // Busca páginas até atingir targetLimit ou acabar resultados
-  const MAX_PAGES = Math.ceil(targetLimit / 20) + 2; // páginas suficientes + margem
+  const queries = generateQueries(keyword, location);
+  const MAX_PAGES = Math.ceil(targetLimit / 20) + 2;
+  let usedQueries = 0;
 
-  const textQuery = `${keyword} ${location}`;
+  for (const query of queries) {
+    if (results.length >= targetLimit) break;
+    usedQueries++;
+    let pageToken: string | undefined;
+    let pageCount = 0;
+    let emptyPages = 0;
 
-  while (results.length < targetLimit && pageCount < MAX_PAGES) {
-    pageCount++;
+    while (results.length < targetLimit && pageCount < MAX_PAGES) {
+      pageCount++;
 
-    const body: Record<string, unknown> = {
-      textQuery,
-      maxResultCount: 20,
-    };
-    if (pageToken) body.pageToken = pageToken;
-
-    try {
-      const response = await fetch(PLACES_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': FIELD_MASK,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (!response.ok) {
-        const err = await response.text().catch(() => '');
-        console.error(`[Places API] HTTP ${response.status}: ${err.slice(0, 200)}`);
-        break;
+      const fetched = await fetchPage(apiKey, query, pageToken);
+      if (!fetched) {
+        // Falha na página: espera um pouco e tenta de novo
+        if (pageCount > 1) break;
+        await new Promise(r => setTimeout(r, 1000));
+        const retry = await fetchPage(apiKey, query, pageToken);
+        if (!retry) break;
+        pageToken = retry.nextPageToken;
+        continue;
       }
 
-      const data = await response.json();
-      const places: any[] = data.places || [];
-
-      for (const place of places) {
+      let added = 0;
+      for (const place of fetched.places) {
         if (seenIds.has(place.id)) continue;
         seenIds.add(place.id);
 
@@ -126,21 +176,30 @@ export async function extractFromGooglePlaces(
           placeUrl: place.googleMapsUri || '',
           isMobile: isMobilePhone(phone),
         });
+        added++;
       }
 
-      pageToken = data.nextPageToken;
+      if (added === 0) emptyPages++;
+      else emptyPages = 0;
+
+      // 2 páginas consecutivas sem novos leads = acabou pra essa query
+      if (emptyPages >= 2) break;
+
+      pageToken = fetched.nextPageToken;
       if (pageToken && results.length < targetLimit && pageCount < MAX_PAGES) {
         await new Promise(r => setTimeout(r, 2000));
       } else {
         break;
       }
-
-    } catch (err: any) {
-      console.error(`[Places API] Erro:`, err?.message || err);
-      break;
     }
   }
 
-  console.log(`[Places API] ${results.length} leads em ${pageCount} páginas para "${textQuery}"`);
+  const stats = {
+    results: results.length,
+    target: targetLimit,
+    queriesUsed: usedQueries,
+    totalPages: 'multi',
+  };
+  console.log(`[Places API] ${results.length}/${targetLimit} leads (${usedQueries} quer${usedQueries === 1 ? 'y' : 'ies'})`);
   return results.slice(0, targetLimit);
 }
