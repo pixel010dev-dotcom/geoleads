@@ -369,6 +369,8 @@ const startBotSession = async (session: BotSession) => {
     printQRInTerminal: false,
     syncFullHistory: false,
     agent: proxyAgent,
+    connectTimeoutMs: 30_000,
+    keepAliveIntervalMs: 30_000,
   } as any);
 
   session.socket = socket;
@@ -847,6 +849,8 @@ export async function POST(request: Request) {
       printQRInTerminal: false,
       syncFullHistory: false,
       agent: proxyAgent,
+      connectTimeoutMs: 30_000,
+      keepAliveIntervalMs: 30_000,
     } as any);
 
     session.socket = socket;
