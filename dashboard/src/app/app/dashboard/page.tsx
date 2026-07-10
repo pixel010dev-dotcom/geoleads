@@ -17,7 +17,6 @@ import CRMSection from '@/components/dashboard/CRMSection';
 
 import { WhatsAppSection } from '@/components/dashboard/WhatsAppSection';
 import { ChatbotSection } from '@/components/dashboard/ChatbotSection';
-import { MultiSessionManager } from '@/components/dashboard/MultiSessionManager';
 import AICopySection from '@/components/dashboard/AICopySection';
 import SupportSection from '@/components/dashboard/SupportSection';
 import OnboardingOverlay from '@/components/dashboard/OnboardingOverlay';
@@ -1352,13 +1351,6 @@ export default function Home() {
 
         {activeTab === 'chatbot' && !activeTabLocked && (
           <div className="space-y-6 animate-slide-up">
-            <MultiSessionManager
-              user={user}
-              selectedSessionId={selectedSessionId}
-              onSelectSession={setSelectedSessionId}
-              onSessionUpdate={refreshChatbotStatus}
-            />
-            <div className="border-t border-white/10" />
             <ChatbotSection
               chatbotEnabled={chatbotEnabled} setChatbotEnabled={setChatbotEnabled}
               chatbotBusinessName={chatbotBusinessName} setChatbotBusinessName={setChatbotBusinessName}
