@@ -614,7 +614,7 @@
     "processingLead": "Processando lead {current} de {total}.",
     "nextChatIn": "Próximo chat abre em",
     "sendAndProceed": "Envie a mensagem no WhatsApp, volte aqui e avance.",
-    "pairingSteps": "WhatsApp > Dispositivos Conectados > Conectar"
+    "pairingSteps": "📌 Passo a passo: 1) Abra o WhatsApp no celular 2) Toque nos 3 pontos ⋮ > Dispositivos Conectados 3) Toque em 'Conectar Dispositivo' 4) Toque em 'CONECTAR POR NÚMERO' (NÃO escaneie QR Code) 5) Digite o código abaixo"
   },
   "multiSession": {
     "title": "📱 Números Conectados",
@@ -683,7 +683,7 @@
     "lastMessage": "Última mensagem",
     "lastReply": "Última resposta",
     "scanQr": "Escaneie com o WhatsApp",
-    "pairingCode": "Use o código de pareamento no WhatsApp: Aparadar dispositivos.",
+    "pairingCode": "🔑 Código de pareamento gerado! Siga os passos abaixo para conectar.",
     "connectPhone": "Conecte o WhatsApp para ativar a Auto-Resposta com IA.",
     "disconnect": "Desconectar Bot",
     "resetSession": "🔄 Resetar Sessão",

@@ -610,7 +610,7 @@
     "processingLead": "Processing lead {current} of {total}.",
     "nextChatIn": "Next chat opens in",
     "sendAndProceed": "Send the message in WhatsApp, come back and proceed.",
-    "pairingSteps": "WhatsApp > Linked Devices > Connect"
+    "pairingSteps": "📌 Steps: 1) Open WhatsApp on your phone 2) Tap 3 dots ⋮ > Linked Devices 3) Tap 'Link a Device' 4) Tap 'LINK USING PHONE NUMBER' (NOT QR Code) 5) Enter the code below"
   },
   "multiSession": {
     "title": "📱 Connected Numbers",
@@ -679,7 +679,7 @@
     "lastMessage": "Last message",
     "lastReply": "Last reply",
     "scanQr": "Scan with WhatsApp",
-    "pairingCode": "Use the pairing code in WhatsApp: Link devices.",
+    "pairingCode": "🔑 Pairing code generated! Follow the steps below to connect.",
     "connectPhone": "Connect WhatsApp to enable AI Auto-Reply.",
     "disconnect": "Disconnect Bot",
     "resetSession": "🔄 Reset Session",
