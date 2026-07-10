@@ -11,6 +11,11 @@ import { ChatbotExecutor } from '@/lib/chatbot-executor';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Proxy WhatsApp via env var (ex: socks5://user:pass@host:1080)
+const getWhatsAppProxyUrl = () => {
+  return process.env.WHATSAPP_PROXY_URL || '';
+};
+
 type ChatbotRule = {
   id: string;
   keyword: string;
@@ -347,17 +352,18 @@ const startBotSession = async (session: BotSession) => {
   const { state, saveCreds } = await makeSupabaseAuthState(session.userId, session.sessionId);
 
   let proxyAgent: any;
-  if (session.proxyUrl) {
+  const proxyUrl = session.proxyUrl || getWhatsAppProxyUrl();
+  if (proxyUrl) {
     const { SocksProxyAgent } = await import('socks-proxy-agent');
     const { HttpsProxyAgent } = await import('https-proxy-agent');
-    proxyAgent = session.proxyUrl.startsWith('socks')
-      ? new SocksProxyAgent(session.proxyUrl)
-      : new HttpsProxyAgent(session.proxyUrl);
+    proxyAgent = proxyUrl.startsWith('socks')
+      ? new SocksProxyAgent(proxyUrl)
+      : new HttpsProxyAgent(proxyUrl);
   }
 
   const socket = makeWASocket({
     auth: state,
-    browser: Browsers.ubuntu('GeoLeads Chatbot'),
+    browser: Browsers.ubuntu('GeoLeads'),
     logger: pino({ level: 'silent' }),
     markOnlineOnConnect: false,
     printQRInTerminal: false,
@@ -387,6 +393,9 @@ const startBotSession = async (session: BotSession) => {
       session.lastError = '';
       session.lastDisconnectCode = '';
       session.reconnectAttempts = 0;
+      // Limpa pairingCode ao conectar
+      session.pairingCode = '';
+      session.pairingPhone = '';
     }
 
     if (connection === 'close') {
@@ -821,17 +830,18 @@ export async function POST(request: Request) {
     const { state, saveCreds } = await makeSupabaseAuthState(session.userId, session.sessionId);
 
     let proxyAgent: any;
-    if (session.proxyUrl) {
+    const proxyUrl = session.proxyUrl || getWhatsAppProxyUrl();
+    if (proxyUrl) {
       const { SocksProxyAgent } = await import('socks-proxy-agent');
       const { HttpsProxyAgent } = await import('https-proxy-agent');
-      proxyAgent = session.proxyUrl.startsWith('socks')
-        ? new SocksProxyAgent(session.proxyUrl)
-        : new HttpsProxyAgent(session.proxyUrl);
+      proxyAgent = proxyUrl.startsWith('socks')
+        ? new SocksProxyAgent(proxyUrl)
+        : new HttpsProxyAgent(proxyUrl);
     }
 
     const socket = makeWASocket({
       auth: state,
-      browser: Browsers.ubuntu('GeoLeads Chatbot'),
+      browser: Browsers.ubuntu('GeoLeads'),
       logger: pino({ level: 'silent' }),
       markOnlineOnConnect: false,
       printQRInTerminal: false,

@@ -685,6 +685,7 @@
     "scanQr": "Escaneie com o WhatsApp",
     "pairingCode": "🔑 Código de pareamento gerado! Siga os passos abaixo para conectar.",
     "connectPhone": "Conecte o WhatsApp para ativar a Auto-Resposta com IA.",
+    "proxyHelp": "⚠️ Se a conexão falhar com erro 408, o Railway bloqueia o WhatsApp. Configure um proxy SOCKS5 na variável WHISHAPP_PROXY_URL do Railway.",
     "disconnect": "Desconectar Bot",
     "resetSession": "🔄 Resetar Sessão",
     "connectQr": "📱 Conectar via QR Code",
