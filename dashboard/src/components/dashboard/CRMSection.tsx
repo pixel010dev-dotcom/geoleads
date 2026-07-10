@@ -157,7 +157,10 @@ export default function CRMSection({
   // Modal de contato — escrever mensagem personalizada
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [contactLead, setContactLead] = useState<CrmLead | null>(null);
-  const [contactMessage, setContactMessage] = useState('');
+  const [contactMessage, setContactMessage] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('geoleads_contact_msg') || 'Olá! Tudo bem? Vi seu estabelecimento no Google e gostaria de saber mais sobre os serviços. Podemos conversar?';
+    return 'Olá! Tudo bem? Vi seu estabelecimento no Google e gostaria de saber mais sobre os serviços. Podemos conversar?';
+  });
 
   const [crmViewMode, setCrmViewMode] = useState<'table' | 'kanban' | 'map'>('table');
   const [showImport, setShowImport] = useState(false);
@@ -491,7 +494,6 @@ export default function CRMSection({
                       <button
                         onClick={() => {
                           setContactLead(lead);
-                          setContactMessage(`Olá! Vi o perfil da *${lead.nome}* no Google e gostaria de saber mais sobre os serviços de vocês. Podemos conversar?`);
                           setContactModalOpen(true);
                         }}
                         className={`p-2 rounded border transition-colors text-xs font-semibold cursor-pointer ${
@@ -666,7 +668,10 @@ export default function CRMSection({
                 )}
                 {lead.telefone && lead.telefone !== 'Não informado' && (
                   <button
-                    onClick={() => openWhatsApp(lead)}
+                    onClick={() => {
+                      setContactLead(lead);
+                      setContactModalOpen(true);
+                    }}
                     className="flex-1 py-2.5 rounded-xl bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 transition-colors text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     💬 {t('crm.contact')}
@@ -900,7 +905,11 @@ export default function CRMSection({
             <label style={{display:'block',fontSize:'0.75rem',color:'#aaa',marginBottom:'0.5rem'}}>{t('crm.yourMessage')}</label>
             <textarea
               value={contactMessage}
-              onChange={e => setContactMessage(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                setContactMessage(val);
+                localStorage.setItem('geoleads_contact_msg', val);
+              }}
               rows={5}
               style={{width:'100%',background:'rgba(0,0,0,0.4)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'0.75rem',padding:'0.75rem',fontSize:'0.8125rem',color:'#eee',resize:'vertical',outline:'none',boxSizing:'border-box'}}
               placeholder={t('crm.messagePlaceholder')}
