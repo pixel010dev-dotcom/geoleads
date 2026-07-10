@@ -68,7 +68,8 @@ export async function extractFromGooglePlaces(
   const seenIds = new Set<string>();
   let pageToken: string | undefined;
   let pageCount = 0;
-  const MAX_PAGES = 3;
+  // Busca páginas até atingir targetLimit ou acabar resultados
+  const MAX_PAGES = Math.ceil(targetLimit / 20) + 2; // páginas suficientes + margem
 
   const textQuery = `${keyword} ${location}`;
 
@@ -77,7 +78,7 @@ export async function extractFromGooglePlaces(
 
     const body: Record<string, unknown> = {
       textQuery,
-      pageSize: Math.min(20, targetLimit * 2),
+      maxResultCount: 20,
     };
     if (pageToken) body.pageToken = pageToken;
 
