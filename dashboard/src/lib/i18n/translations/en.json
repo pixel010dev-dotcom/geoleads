@@ -278,15 +278,42 @@
     "updated": "Last updated: May 23, 2026",
     "back": "← Back",
     "sections": {
-      "1": { "title": "1. Data We Collect", "text": "We collect information you provide when creating an account, such as name, email and phone number. During platform use, we collect browsing data, extraction history and information about searched leads (public data extracted from Google Maps)." },
-      "2": { "title": "2. How We Use Your Data", "text": "Your data is used to operate the platform, process payments, improve our services and send account-related communications. We do not sell your personal data to third parties." },
-      "3": { "title": "3. Storage and Security", "text": "Your data is stored on secure servers with encryption in transit and at rest. We maintain technical and organizational measures to protect your information against unauthorized access." },
-      "4": { "title": "4. Third-Party Sharing", "text": "We only share data with payment processors (Stripe/Mercado Pago) and infrastructure services (Supabase, Railway). We do not share extracted lead data with third parties." },
-      "5": { "title": "5. Your Rights", "text": "You may request access, correction or deletion of your data at any time via our support email. We respond within 15 business days." },
-      "6": { "title": "6. Cookies", "text": "We use essential cookies for platform operation. We do not use tracking or advertising cookies without your consent." },
-      "7": { "title": "7. Data Retention", "text": "We keep your data while your account is active. After account deletion, data is removed within 90 days." },
-      "8": { "title": "8. Changes to This Policy", "text": "We will notify material changes via email or dashboard notice. Continued use after changes implies acceptance." },
-      "9": { "title": "9. Contact", "text": "Questions about this policy: geoleads.pro@gmail.com" }
+      "1": {
+        "title": "1. Data We Collect",
+        "text": "We collect information you provide when creating an account, such as name, email and phone number. During platform use, we collect browsing data, extraction history and information about searched leads (public data extracted from Google Maps)."
+      },
+      "2": {
+        "title": "2. How We Use Your Data",
+        "text": "Your data is used to operate the platform, process payments, improve our services and send account-related communications. We do not sell your personal data to third parties."
+      },
+      "3": {
+        "title": "3. Storage and Security",
+        "text": "Your data is stored on secure servers with encryption in transit and at rest. We maintain technical and organizational measures to protect your information against unauthorized access."
+      },
+      "4": {
+        "title": "4. Third-Party Sharing",
+        "text": "We only share data with payment processors (Stripe/Mercado Pago) and infrastructure services (Supabase, Railway). We do not share extracted lead data with third parties."
+      },
+      "5": {
+        "title": "5. Your Rights",
+        "text": "You may request access, correction or deletion of your data at any time via our support email. We respond within 15 business days."
+      },
+      "6": {
+        "title": "6. Cookies",
+        "text": "We use essential cookies for platform operation. We do not use tracking or advertising cookies without your consent."
+      },
+      "7": {
+        "title": "7. Data Retention",
+        "text": "We keep your data while your account is active. After account deletion, data is removed within 90 days."
+      },
+      "8": {
+        "title": "8. Changes to This Policy",
+        "text": "We will notify material changes via email or dashboard notice. Continued use after changes implies acceptance."
+      },
+      "9": {
+        "title": "9. Contact",
+        "text": "Questions about this policy: geoleads.pro@gmail.com"
+      }
     }
   },
   "terms": {
@@ -294,15 +321,42 @@
     "updated": "Last updated: May 23, 2026",
     "back": "← Back",
     "sections": {
-      "1": { "title": "1. Acceptance of Terms", "text": "By creating an account and using GeoLeads, you agree to these terms. If you do not agree, do not use the platform." },
-      "2": { "title": "2. Service Description", "text": "GeoLeads is a B2B lead extraction and enrichment platform using public data from Google Maps. Data provided comes from public sources and the user is responsible for use in accordance with applicable law." },
-      "3": { "title": "3. Accounts and Responsibility", "text": "You are responsible for maintaining the confidentiality of your password and for all activities on your account. Notify us immediately of unauthorized use." },
-      "4": { "title": "4. Tokens and Payments", "text": "Tokens are non-refundable usage credits, except where required by law. Payments are processed by Mercado Pago/Stripe. Plans auto-renew." },
-      "5": { "title": "5. Acceptable Use", "text": "You agree to use the platform only for lawful purposes. Prohibited activities include: sending spam, violating data protection laws, or using data for illegal activities." },
-      "6": { "title": "6. Limitation of Liability", "text": "GeoLeads does not guarantee absolute accuracy of extracted data, as it comes from public sources. The platform is provided 'as is', without guarantees of uninterrupted availability." },
-      "7": { "title": "7. Termination", "text": "You may cancel your account at any time. GeoLeads may suspend or terminate accounts that violate these terms." },
-      "8": { "title": "8. Intellectual Property", "text": "The GeoLeads software, brand and design are the exclusive property of the company. Extracted data belongs to the user, subject to applicable laws." },
-      "9": { "title": "9. General Provisions", "text": "These terms are governed by Brazilian law. Questions: geoleads.pro@gmail.com" }
+      "1": {
+        "title": "1. Acceptance of Terms",
+        "text": "By creating an account and using GeoLeads, you agree to these terms. If you do not agree, do not use the platform."
+      },
+      "2": {
+        "title": "2. Service Description",
+        "text": "GeoLeads is a B2B lead extraction and enrichment platform using public data from Google Maps. Data provided comes from public sources and the user is responsible for use in accordance with applicable law."
+      },
+      "3": {
+        "title": "3. Accounts and Responsibility",
+        "text": "You are responsible for maintaining the confidentiality of your password and for all activities on your account. Notify us immediately of unauthorized use."
+      },
+      "4": {
+        "title": "4. Tokens and Payments",
+        "text": "Tokens are non-refundable usage credits, except where required by law. Payments are processed by Mercado Pago/Stripe. Plans auto-renew."
+      },
+      "5": {
+        "title": "5. Acceptable Use",
+        "text": "You agree to use the platform only for lawful purposes. Prohibited activities include: sending spam, violating data protection laws, or using data for illegal activities."
+      },
+      "6": {
+        "title": "6. Limitation of Liability",
+        "text": "GeoLeads does not guarantee absolute accuracy of extracted data, as it comes from public sources. The platform is provided 'as is', without guarantees of uninterrupted availability."
+      },
+      "7": {
+        "title": "7. Termination",
+        "text": "You may cancel your account at any time. GeoLeads may suspend or terminate accounts that violate these terms."
+      },
+      "8": {
+        "title": "8. Intellectual Property",
+        "text": "The GeoLeads software, brand and design are the exclusive property of the company. Extracted data belongs to the user, subject to applicable laws."
+      },
+      "9": {
+        "title": "9. General Provisions",
+        "text": "These terms are governed by Brazilian law. Questions: geoleads.pro@gmail.com"
+      }
     }
   },
   "dashboard": {
@@ -374,7 +428,24 @@
     "cityRegion": "City/region?",
     "cityPlaceholder": "eg: Sao Paulo, SP",
     "howManyLeads": "How many Leads? (-1 Token/Lead)",
-    "filters": "Filters (select one or more)",
+    "filters": {
+      "none": "No filter",
+      "noneDesc": "Returns all results",
+      "phone": "With Phone",
+      "phoneDesc": "Only leads with phone",
+      "cnpj": "With Tax ID",
+      "cnpjDesc": "Only leads with Tax ID",
+      "email": "With Email",
+      "emailDesc": "Only leads with email",
+      "insta": "With Instagram",
+      "instaDesc": "Only leads with Instagram",
+      "face": "With Facebook",
+      "faceDesc": "Only leads with Facebook",
+      "tiktok": "With TikTok",
+      "tiktokDesc": "Only leads with TikTok",
+      "site": "With Website",
+      "siteDesc": "Only leads with website"
+    },
     "filtersInfo": "You only consume tokens for leads that have the selected item.",
     "estimatedTime": "Estimated time: {time}",
     "estimatedTimeMinutes": "~{minutes}min (~{cities} cities in {states} states)",
@@ -427,24 +498,6 @@
       "dentists": "Dentists",
       "gyms": "Gyms",
       "restaurants": "Restaurants"
-    },
-    "filters": {
-      "none": "No filter",
-      "noneDesc": "Returns all results",
-      "phone": "With Phone",
-      "phoneDesc": "Only leads with phone",
-      "cnpj": "With Tax ID",
-      "cnpjDesc": "Only leads with Tax ID",
-      "email": "With Email",
-      "emailDesc": "Only leads with email",
-      "insta": "With Instagram",
-      "instaDesc": "Only leads with Instagram",
-      "face": "With Facebook",
-      "faceDesc": "Only leads with Facebook",
-      "tiktok": "With TikTok",
-      "tiktokDesc": "Only leads with TikTok",
-      "site": "With Website",
-      "siteDesc": "Only leads with website"
     }
   },
   "crm": {
@@ -521,7 +574,11 @@
     "importBack": "Back",
     "importUnrecognized": "Unrecognized columns:",
     "importLoginError": "Please login again.",
-    "importError": "Error: {message}"
+    "importError": "Error: {message}",
+    "yourMessage": "Your custom message",
+    "messagePlaceholder": "Type your message here...",
+    "sendViaWhatsapp": "📤 Send via WhatsApp",
+    "cancel": "Cancel"
   },
   "whatsapp": {
     "metrics": "📊 Send Metrics",

@@ -1109,7 +1109,6 @@ export default function Home() {
   };
 
   const openWhatsApp = (lead: CrmLead | SearchLead, customText?: string, options?: { markSent?: boolean; preferWeb?: boolean; target?: string }) => {
-    if (!requireFeature('whatsappSender')) { setActiveTab('whatsapp'); return; }
     if (!lead.telefone || lead.telefone === 'Não informado') { showToast('Lead sem telefone válido.', 'warning'); return; }
     const number = toWhatsAppNumber(lead.telefone);
     if (number.length < 10) { showToast('Número de telefone inválido.', 'warning'); return; }

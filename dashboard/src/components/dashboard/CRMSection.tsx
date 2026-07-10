@@ -74,7 +74,7 @@ export interface CRMSectionProps {
   handleRemoveSelectedFromCRM: () => void;
   handleBulkStageChange: () => Promise<void>;
   handleUpdateCRMLead: (nome: string, field: 'stage' | 'notes' | 'tags', value: string) => void;
-  openWhatsApp: (lead: CrmLead) => void;
+  openWhatsApp: (lead: CrmLead, customText?: string, options?: Record<string, any>) => void;
   waSentMessages?: WaSentMessage[];
   onImportLeads?: (leads: CrmLead[]) => void;
 
@@ -153,6 +153,11 @@ export default function CRMSection({
   const [crmSortField, setCrmSortField] = useState('nome');
   const [crmSortDir, setCrmSortDir] = useState<'asc' | 'desc'>('asc');
   const [tagInputs, setTagInputs] = useState<Record<string, string>>({});
+
+  // Modal de contato — escrever mensagem personalizada
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactLead, setContactLead] = useState<CrmLead | null>(null);
+  const [contactMessage, setContactMessage] = useState('');
 
   const [crmViewMode, setCrmViewMode] = useState<'table' | 'kanban' | 'map'>('table');
   const [showImport, setShowImport] = useState(false);
@@ -484,7 +489,11 @@ export default function CRMSection({
                     )}
                     {lead.telefone && lead.telefone !== 'Não informado' && (
                       <button
-                        onClick={() => openWhatsApp(lead)}
+                        onClick={() => {
+                          setContactLead(lead);
+                          setContactMessage(`Olá! Vi o perfil da *${lead.nome}* no Google e gostaria de saber mais sobre os serviços de vocês. Podemos conversar?`);
+                          setContactModalOpen(true);
+                        }}
                         className={`p-2 rounded border transition-colors text-xs font-semibold cursor-pointer ${
                           waSentNames.has(lead.nome)
                             ? 'bg-green-500/10 hover:bg-green-500/20 border-green-500/20 text-green-400'
@@ -871,6 +880,45 @@ export default function CRMSection({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* CONTACT MODAL — escrever mensagem personalizada antes de enviar */}
+      {contactModalOpen && contactLead && (
+        <div style={{position:'fixed',inset:0,zIndex:9999,display:'flex',alignItems:'flex-start',justifyContent:'center',background:'rgba(0,0,0,0.6)',padding:'1rem',overflowY:'auto'}}
+          onClick={() => setContactModalOpen(false)}>
+          <div style={{width:'100%',maxWidth:'28rem',maxHeight:'85vh',background:'#111',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'1.5rem',padding:'1.5rem',boxShadow:'0 25px 50px rgba(0,0,0,0.5)',overflow:'auto'}}
+            onClick={e => e.stopPropagation()}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'0.75rem'}}>
+              <h3 style={{fontSize:'1.125rem',fontWeight:700}}>💬 {t('crm.contact')}</h3>
+              <button onClick={() => setContactModalOpen(false)} style={{color:'#999',fontSize:'1.25rem',border:'none',background:'none',cursor:'pointer'}}>&times;</button>
+            </div>
+            <div style={{marginBottom:'1rem',padding:'0.75rem',borderRadius:'0.75rem',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)'}}>
+              <div style={{fontSize:'0.875rem',fontWeight:600,color:'#eee'}}>{contactLead.nome}</div>
+              <div style={{fontSize:'0.75rem',color:'#999',marginTop:'0.25rem'}}>📞 {contactLead.telefone}</div>
+            </div>
+            <label style={{display:'block',fontSize:'0.75rem',color:'#aaa',marginBottom:'0.5rem'}}>{t('crm.yourMessage')}</label>
+            <textarea
+              value={contactMessage}
+              onChange={e => setContactMessage(e.target.value)}
+              rows={5}
+              style={{width:'100%',background:'rgba(0,0,0,0.4)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'0.75rem',padding:'0.75rem',fontSize:'0.8125rem',color:'#eee',resize:'vertical',outline:'none',boxSizing:'border-box'}}
+              placeholder={t('crm.messagePlaceholder')}
+            />
+            <div style={{display:'flex',gap:'0.5rem',marginTop:'1rem'}}>
+              <button onClick={() => {
+                  openWhatsApp(contactLead, contactMessage);
+                  setContactModalOpen(false);
+                }}
+                disabled={!contactMessage.trim()}
+                style={{flex:1,padding:'0.75rem',borderRadius:'0.75rem',fontWeight:700,color:'#fff',border:'none',cursor:contactMessage.trim()?'pointer':'not-allowed',background:contactMessage.trim()?'linear-gradient(90deg,#25D366,#128C7E)':'rgba(255,255,255,0.05)',opacity:contactMessage.trim()?1:0.5}}>
+                📤 {t('crm.sendViaWhatsapp')}
+              </button>
+              <button onClick={() => setContactModalOpen(false)}
+                style={{padding:'0.75rem 1rem',borderRadius:'0.75rem',background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',color:'#ccc',cursor:'pointer',fontSize:'0.75rem'}}>
+                {t('crm.cancel')}
+              </button>
+            </div>
           </div>
         </div>
       )}

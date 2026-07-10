@@ -282,15 +282,42 @@
     "updated": "Última atualização: 23 de maio de 2026",
     "back": "← Voltar",
     "sections": {
-      "1": { "title": "1. Dados que Coletamos", "text": "Coletamos informações fornecidas por você ao criar uma conta, como nome, e-mail e número de telefone. Durante o uso da plataforma, coletamos dados de navegação, histórico de extrações e informações sobre os leads pesquisados (dados públicos extraídos do Google Maps)." },
-      "2": { "title": "2. Como Usamos seus Dados", "text": "Seus dados são usados para operar a plataforma, processar pagamentos, melhorar nossos serviços e enviar comunicações relacionadas à sua conta. Não vendemos seus dados pessoais para terceiros." },
-      "3": { "title": "3. Armazenamento e Segurança", "text": "Seus dados são armazenados em servidores seguros com criptografia em trânsito e em repouso. Mantemos medidas técnicas e organizacionais para proteger suas informações contra acesso não autorizado." },
-      "4": { "title": "4. Compartilhamento com Terceiros", "text": "Compartilhamos dados apenas com processadores de pagamento (Mercado Pago) e serviços de infraestrutura (Supabase, Railway). Não compartilhamos dados de leads extraídos com terceiros." },
-      "5": { "title": "5. Seus Direitos", "text": "Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento através do e-mail de suporte. Respondemos em até 15 dias úteis." },
-      "6": { "title": "6. Cookies", "text": "Utilizamos cookies essenciais para funcionamento da plataforma. Não utilizamos cookies de rastreamento ou publicidade sem seu consentimento." },
-      "7": { "title": "7. Retenção de Dados", "text": "Mantemos seus dados enquanto sua conta estiver ativa. Após exclusão da conta, os dados são removidos em até 90 dias." },
-      "8": { "title": "8. Alterações nesta Política", "text": "Notificaremos sobre alterações materiais por e-mail ou aviso no dashboard. O uso continuado após alterações implica aceitação." },
-      "9": { "title": "9. Contato", "text": "Dúvidas sobre esta política: geoleads.pro@gmail.com" }
+      "1": {
+        "title": "1. Dados que Coletamos",
+        "text": "Coletamos informações fornecidas por você ao criar uma conta, como nome, e-mail e número de telefone. Durante o uso da plataforma, coletamos dados de navegação, histórico de extrações e informações sobre os leads pesquisados (dados públicos extraídos do Google Maps)."
+      },
+      "2": {
+        "title": "2. Como Usamos seus Dados",
+        "text": "Seus dados são usados para operar a plataforma, processar pagamentos, melhorar nossos serviços e enviar comunicações relacionadas à sua conta. Não vendemos seus dados pessoais para terceiros."
+      },
+      "3": {
+        "title": "3. Armazenamento e Segurança",
+        "text": "Seus dados são armazenados em servidores seguros com criptografia em trânsito e em repouso. Mantemos medidas técnicas e organizacionais para proteger suas informações contra acesso não autorizado."
+      },
+      "4": {
+        "title": "4. Compartilhamento com Terceiros",
+        "text": "Compartilhamos dados apenas com processadores de pagamento (Mercado Pago) e serviços de infraestrutura (Supabase, Railway). Não compartilhamos dados de leads extraídos com terceiros."
+      },
+      "5": {
+        "title": "5. Seus Direitos",
+        "text": "Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento através do e-mail de suporte. Respondemos em até 15 dias úteis."
+      },
+      "6": {
+        "title": "6. Cookies",
+        "text": "Utilizamos cookies essenciais para funcionamento da plataforma. Não utilizamos cookies de rastreamento ou publicidade sem seu consentimento."
+      },
+      "7": {
+        "title": "7. Retenção de Dados",
+        "text": "Mantemos seus dados enquanto sua conta estiver ativa. Após exclusão da conta, os dados são removidos em até 90 dias."
+      },
+      "8": {
+        "title": "8. Alterações nesta Política",
+        "text": "Notificaremos sobre alterações materiais por e-mail ou aviso no dashboard. O uso continuado após alterações implica aceitação."
+      },
+      "9": {
+        "title": "9. Contato",
+        "text": "Dúvidas sobre esta política: geoleads.pro@gmail.com"
+      }
     }
   },
   "terms": {
@@ -298,15 +325,42 @@
     "updated": "Última atualização: 23 de maio de 2026",
     "back": "← Voltar",
     "sections": {
-      "1": { "title": "1. Aceitação dos Termos", "text": "Ao criar uma conta e usar o GeoLeads, você concorda com estes termos. Se não concordar, não utilize a plataforma." },
-      "2": { "title": "2. Descrição do Serviço", "text": "O GeoLeads é uma plataforma de extração e enriquecimento de leads B2B a partir de dados públicos do Google Maps. Os dados fornecidos são de fontes públicas e o usuário é responsável pelo uso conforme a legislação aplicável." },
-      "3": { "title": "3. Contas e Responsabilidade", "text": "Você é responsável por manter a confidencialidade de sua senha e por todas as atividades na sua conta. Notifique imediatamente sobre uso não autorizado." },
-      "4": { "title": "4. Tokens e Pagamentos", "text": "Tokens são créditos de uso não reembolsáveis, exceto onde exigido por lei. Pagamentos são processados pelo Mercado Pago. Planos são renovados automaticamente." },
-      "5": { "title": "5. Uso Aceitável", "text": "Você concorda em usar a plataforma apenas para fins legais. Não é permitido: enviar spam, violar leis de proteção de dados, ou usar os dados para atividades ilícitas." },
-      "6": { "title": "6. Limitação de Responsabilidade", "text": "O GeoLeads não garante precisão absoluta dos dados extraídos, pois estes vêm de fontes públicas. A plataforma é fornecida 'como está', sem garantias de disponibilidade ininterrupta." },
-      "7": { "title": "7. Cancelamento", "text": "Você pode cancelar sua conta a qualquer momento. O GeoLeads pode suspender ou encerrar contas que violem estes termos." },
-      "8": { "title": "8. Propriedade Intelectual", "text": "O software, marca e design do GeoLeads são propriedade exclusiva da empresa. Os dados extraídos pertencem ao usuário, respeitadas as leis aplicáveis." },
-      "9": { "title": "9. Disposições Gerais", "text": "Estes termos são regidos pela legislação brasileira. Dúvidas: geoleads.pro@gmail.com" }
+      "1": {
+        "title": "1. Aceitação dos Termos",
+        "text": "Ao criar uma conta e usar o GeoLeads, você concorda com estes termos. Se não concordar, não utilize a plataforma."
+      },
+      "2": {
+        "title": "2. Descrição do Serviço",
+        "text": "O GeoLeads é uma plataforma de extração e enriquecimento de leads B2B a partir de dados públicos do Google Maps. Os dados fornecidos são de fontes públicas e o usuário é responsável pelo uso conforme a legislação aplicável."
+      },
+      "3": {
+        "title": "3. Contas e Responsabilidade",
+        "text": "Você é responsável por manter a confidencialidade de sua senha e por todas as atividades na sua conta. Notifique imediatamente sobre uso não autorizado."
+      },
+      "4": {
+        "title": "4. Tokens e Pagamentos",
+        "text": "Tokens são créditos de uso não reembolsáveis, exceto onde exigido por lei. Pagamentos são processados pelo Mercado Pago. Planos são renovados automaticamente."
+      },
+      "5": {
+        "title": "5. Uso Aceitável",
+        "text": "Você concorda em usar a plataforma apenas para fins legais. Não é permitido: enviar spam, violar leis de proteção de dados, ou usar os dados para atividades ilícitas."
+      },
+      "6": {
+        "title": "6. Limitação de Responsabilidade",
+        "text": "O GeoLeads não garante precisão absoluta dos dados extraídos, pois estes vêm de fontes públicas. A plataforma é fornecida 'como está', sem garantias de disponibilidade ininterrupta."
+      },
+      "7": {
+        "title": "7. Cancelamento",
+        "text": "Você pode cancelar sua conta a qualquer momento. O GeoLeads pode suspender ou encerrar contas que violem estes termos."
+      },
+      "8": {
+        "title": "8. Propriedade Intelectual",
+        "text": "O software, marca e design do GeoLeads são propriedade exclusiva da empresa. Os dados extraídos pertencem ao usuário, respeitadas as leis aplicáveis."
+      },
+      "9": {
+        "title": "9. Disposições Gerais",
+        "text": "Estes termos são regidos pela legislação brasileira. Dúvidas: geoleads.pro@gmail.com"
+      }
     }
   },
   "dashboard": {
@@ -378,7 +432,24 @@
     "cityRegion": "Qual cidade/região?",
     "cityPlaceholder": "ex: São Paulo, SP",
     "howManyLeads": "Quantos Leads? (-1 Token/Lead)",
-    "filters": "Filtros (selecione um ou mais)",
+    "filters": {
+      "none": "Sem filtro",
+      "noneDesc": "Retorna todos os resultados",
+      "phone": "Com Telefone",
+      "phoneDesc": "Apenas leads com telefone",
+      "cnpj": "Com CNPJ",
+      "cnpjDesc": "Apenas leads com CNPJ",
+      "email": "Com E-mail",
+      "emailDesc": "Apenas leads com e-mail",
+      "insta": "Com Instagram",
+      "instaDesc": "Apenas leads com Instagram",
+      "face": "Com Facebook",
+      "faceDesc": "Apenas leads com Facebook",
+      "tiktok": "Com TikTok",
+      "tiktokDesc": "Apenas leads com TikTok",
+      "site": "Com Site",
+      "siteDesc": "Apenas leads com site"
+    },
     "filtersInfo": "Você só consome tokens pelos leads que possuírem o item escolhido.",
     "estimatedTime": "Tempo estimado: {time}",
     "estimatedTimeMinutes": "~{minutes}min (~{cities} cidades em {states} estados)",
@@ -431,24 +502,6 @@
       "dentists": "Dentistas",
       "gyms": "Academias",
       "restaurants": "Restaurantes"
-    },
-    "filters": {
-      "none": "Sem filtro",
-      "noneDesc": "Retorna todos os resultados",
-      "phone": "Com Telefone",
-      "phoneDesc": "Apenas leads com telefone",
-      "cnpj": "Com CNPJ",
-      "cnpjDesc": "Apenas leads com CNPJ",
-      "email": "Com E-mail",
-      "emailDesc": "Apenas leads com e-mail",
-      "insta": "Com Instagram",
-      "instaDesc": "Apenas leads com Instagram",
-      "face": "Com Facebook",
-      "faceDesc": "Apenas leads com Facebook",
-      "tiktok": "Com TikTok",
-      "tiktokDesc": "Apenas leads com TikTok",
-      "site": "Com Site",
-      "siteDesc": "Apenas leads com site"
     }
   },
   "crm": {
@@ -525,7 +578,11 @@
     "importBack": "Voltar",
     "importUnrecognized": "Colunas não reconhecidas:",
     "importLoginError": "Faça login novamente.",
-    "importError": "Erro: {message}"
+    "importError": "Erro: {message}",
+    "yourMessage": "Sua mensagem personalizada",
+    "messagePlaceholder": "Digite sua mensagem aqui...",
+    "sendViaWhatsapp": "📤 Enviar pra WhatsApp",
+    "cancel": "Cancelar"
   },
   "whatsapp": {
     "metrics": "📊 Métricas de Envio",
