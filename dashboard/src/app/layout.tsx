@@ -10,7 +10,7 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-const googleVerification = 'Hp8q0blbMExSdzZSqYjSS-cjEEUoxSEKCrKIVnqBb7M';
+const googleVerification = '2xD0DF7y2_22UwNCUufufnKH5OmElr2qv2faSiotQNw';
 
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies();
@@ -86,6 +86,7 @@ export default async function RootLayout({
   return (
     <html lang={locale === 'en' ? 'en' : 'pt-BR'} className={`h-full antialiased ${inter.variable}`}>
       <body className="min-h-full flex flex-col font-sans">
+        {/* Schema.org */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -109,6 +110,33 @@ export default async function RootLayout({
             }),
           }}
         />
+
+        {/* Analytics: Plausible (configurar NEXT_PUBLIC_PLAUSIBLE_DOMAIN no .env) */}
+        {process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN && (
+          <script
+            defer
+            data-domain={process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN}
+            src="https://plausible.io/js/script.js"
+          />
+        )}
+
+        {/* Analytics: Google (configurar NEXT_PUBLIC_GA_ID no .env) */}
+        {process.env.NEXT_PUBLIC_GA_ID && (
+          <>
+            <script async src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`} />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}');
+                `,
+              }}
+            />
+          </>
+        )}
+
         <I18nProvider>{children}</I18nProvider>
       </body>
     </html>

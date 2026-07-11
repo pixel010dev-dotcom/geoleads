@@ -1,6 +1,10 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/Button';
+import ShareButtons from '@/components/ShareButtons';
+import NewsletterSignup from '@/components/NewsletterSignup';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app';
 
 const POSTS: Record<string, { title: string; content: string[]; date: string; readTime: string; description: string }> = {
   'como-extrair-leads-google-maps': {
@@ -276,6 +280,322 @@ const POSTS: Record<string, { title: string; content: string[]; date: string; re
       'Com o disparador assistido, voce pode enviar mensagens em sequencia, com intervalos e templates personalizados. Tudo dentro da plataforma.',
     ],
   },
+  'extrator-leads-gratis-google-maps': {
+    title: 'Extrator de Leads Grátis do Google Maps: Como Usar em 2026',
+    description: 'Descubra como extrair leads do Google Maps gratuitamente. Ferramentas gratis, tecnicas manuais e automacao para gerar clientes sem gastar nada.',
+    date: '28/06/2026',
+    readTime: '7 min',
+    content: [
+      'Extrair leads do Google Maps e uma das estrategias mais eficientes para gerar clientes sem pagar por listas prontas. Mas e possivel fazer isso de graca?',
+      'A resposta e sim, mas com limitacoes. Neste guia, voce vai conhecer as opcoes gratuitas e pagas para extracao de leads.',
+      '',
+      '## Metodo manual: zero reais, mas demorado',
+      'Voce pode abrir o Google Maps, pesquisar "restaurantes em Sao Paulo" e copiar um por um os dados que aparecem. Vantagem: e 100% gratis. Desvantagem: para 100 leads, voce leva cerca de 50 minutos.',
+      'Para quem esta comecando e tem tempo, funciona. Mas nao escala.',
+      '',
+      '## Ferramentas gratuitas de extracao',
+      'Existem algumas ferramentas que oferecem planos gratuitos limitados. O GeoLeads, por exemplo, oferece 10 tokens gratis para testar. Cada token equivale a um lead completo com telefone, site e email.',
+      'Outras opcoes: extensoes de Chrome como "Scraper" e "Data Scraper" podem extrair dados basicos de paginas web, mas tem limitacoes.',
+      '',
+      '## O que voce consegue extrair de graca',
+      '- Nome do negocio',
+      '- Telefone e WhatsApp',
+      '- Site (quando disponivel)',
+      '- Endereco e CEP',
+      '- Avaliacao dos clientes',
+      '',
+      '## O limite do gratuito',
+      'Ferramentas gratuitas geralmente limitam a quantidade de leads, nao fazem enriquecimento (email, CNPJ, Instagram) e nao tem CRM integrado.',
+      'Para quem leva a prospeccao a serio, o investimento em uma ferramenta paga se paga no primeiro cliente fechado.',
+      '',
+      '## Conclusao',
+      'Comece com o plano gratuito do GeoLeads, extraia seus 10 primeiros leads e veja o potencial. Se fizer sentido, o plano Basico custa a partir de R$ 9,90 e ja oferece 300 leads por mes.',
+    ],
+  },
+  'extrair-numeros-whatsapp-google-maps': {
+    title: 'Como Extrair Números de WhatsApp do Google Maps',
+    description: 'Aprenda tecnicas para extrair numeros de WhatsApp de empresas cadastradas no Google Maps. Metodo manual e automatico para gerar leads quentes.',
+    date: '29/06/2026',
+    readTime: '5 min',
+    content: [
+      'O WhatsApp e o canal de comunicacao preferido dos brasileiros. Saber extrair numeros de WhatsApp de empresas do Google Maps pode transformar sua prospeccao.',
+      'Neste artigo, voce vai aprender as melhores tecnicas para conseguir numeros de WhatsApp validos de empresas no Google Maps.',
+      '',
+      '## Por que o WhatsApp e o melhor canal para prospeccao?',
+      'As taxas de abertura de mensagens no WhatsApp sao de 90% ou mais, comparado a 20-30% do email. As taxas de resposta tambem sao muito maiores.',
+      'Para negocios locais, o WhatsApp e muitas vezes o unico canal digital que eles acompanham diariamente.',
+      '',
+      '## Como saber se o numero e WhatsApp?',
+      'No Google Maps, nem todo telefone e WhatsApp. Mas existem indicios:',
+      '- Empresas que mencionam "WhatsApp" na descricao',
+      '- Negocios com selo de "WhatsApp" no perfil do Maps',
+      '- Telefones com codigo de regiao que comecam com 9 (celular)',
+      '',
+      '## Extracao manual',
+      '1. Pesquise o nicho + cidade no Google Maps',
+      '2. Clique em cada card de resultado',
+      '3. Veja se o telefone aparece com icone do WhatsApp',
+      '4. Copie e salve em uma planilha',
+      '',
+      '## Extracao automatica com GeoLeads',
+      'O GeoLeads identifica automaticamente numeros de WhatsApp durante a extracao. Cada lead ja vem com o campo "WhatsApp" preenchido quando disponivel. Isso economiza horas de trabalho manual.',
+      'Teste gratuitamente e veja a diferenca.',
+    ],
+  },
+  'scraping-google-maps-legal': {
+    title: 'Scraping do Google Maps é Crime? O que diz a Lei',
+    description: 'Entenda se extrair dados do Google Maps e legal. Aspectos juridicos, termos de servico, LGPD e como fazer extracao de leads dentro da lei.',
+    date: '30/06/2026',
+    readTime: '6 min',
+    content: [
+      'Uma das perguntas mais comuns sobre extracao de leads e: "Isso e legal? Posso ser processado?"',
+      'A resposta e complexa e depende de COMO voce faz a extracao e PARA QUE usa os dados. Vamos esclarecer os pontos principais.',
+      '',
+      '## Dados publicos vs dados privados',
+      'Informacoes que as proprias empresas disponibilizam publicamente no Google Maps — como nome, telefone, endereco e site — sao consideradas dados publicos. Extrair esses dados, por si so, nao configura crime.',
+      'O problema juridico surge quando voce:',
+      '- Viola os Termos de Servico do Google',
+      '- Coleta dados pessoais sem base legal (LGPD)',
+      '- Usa os dados para atividades ilegais (golpes, spam)',
+      '',
+      '## O que dizem os Termos de Servico do Google',
+      'Os Termos de Servico do Google proibem "acessar ou usar servicos do Google de qualquer forma que nao seja explicitamente permitida" e "coletar ou extrair conteudo dos servicos do Google por meio de scraping automatizado".',
+      'Na pratica, o Google raramente processa usuarios individuais. O maior risco e ter seu IP bloqueado ou sua conta Google suspensa.',
+      '',
+      '## LGPD e extracao de dados',
+      'A LGPD (Lei Geral de Protecao de Dados) regula o tratamento de dados pessoais. Quando voce extrai dados de PESSOAS FISICAS, precisa de base legal. Mas quando extrai dados de PESSOAS JURIDICAS (CNPJ, razao social), a LGPD nao se aplica diretamente.',
+      'O recomendado: extraia dados de empresas, nao de pessoas fisicas. E nunca use os dados para atividades ilicitas.',
+      '',
+      '## Boas praticas para extracao legal',
+      '- Extraia apenas dados publicos de negocios',
+      '- Nao use os dados para spam ou golpes',
+      '- Ofereça opcao de descadastro nas suas campanhas',
+      '- Respeite os limites de requisicoes (rate limiting)',
+      '',
+      '## Conclusao',
+      'Extrair dados de empresas do Google Maps para prospeccao comercial e uma pratica comum e geralmente aceita, desde que feita com bom senso e dentro dos limites legais. O GeoLeads foi desenvolvido seguindo essas boas praticas.',
+    ],
+  },
+  'ferramenta-extrair-dados-empresas': {
+    title: 'Ferramenta para Extrair Dados de Empresas: Comparativo 2026',
+    description: 'Compare as melhores ferramentas para extrair dados de empresas do Google Maps. Precos, funcionalidades e qual escolher para sua necessidade.',
+    date: '01/07/2026',
+    readTime: '8 min',
+    content: [
+      'O mercado de extracao de dados de empresas cresceu nos ultimos anos. Diversas ferramentas prometem extrair leads do Google Maps, mas qual escolher?',
+      'Neste comparativo, analisamos as principais opcoes disponiveis para o mercado brasileiro em 2026.',
+      '',
+      '## O que uma boa ferramenta deve oferecer',
+      '- Extracao por nicho e cidade',
+      '- Dados completos (telefone, site, email, redes sociais)',
+      '- Enriquecimento automatico',
+      '- CRM integrado',
+      '- Disparador de mensagens',
+      '- Preco acessivel em reais',
+      '',
+      '## Comparativo das ferramentas',
+      '',
+      '### GeoLeads',
+      'Preco: a partir de R$ 9,90/mes (plano Basico com 300 leads)',
+      'Funcionalidades: extracao por nicho+cidade, enriquecimento (email, CNPJ, Instagram, Facebook), CRM integrado, disparador assistido WhatsApp, 140+ cidades, 30+ nichos.',
+      'Diferencial: ferramenta brasileira, preco em real, suporte em portugues, plano gratis de 10 leads.',
+      '',
+      '### Apify',
+      'Preco: a partir de $5/mes (cerca de R$ 28) por 10.000 paginas',
+      'Funcionalidades: poderosa, mas complexa. Requer configuracao tecnica. Ideal para desenvolvedores.',
+      'Desvantagem: interface em ingles, sem CRM integrado, sem disparador WhatsApp.',
+      '',
+      '### Phantombuster',
+      'Preco: a partir de $20/mes (cerca de R$ 112)',
+      'Funcionalidades: diversas APIs de automacao, incluindo extracao do Maps.',
+      'Desvantagem: caro para o mercado brasileiro, sem foco em leads locais.',
+      '',
+      '## Qual escolher?',
+      'Para pequenas e medias empresas brasileiras, o GeoLeads oferece o melhor custo-beneficio. E o unico com preco em real, CRM integrado e disparador WhatsApp — tudo em um lugar so.',
+      'Para desenvolvedores que precisam de extracao em larga escala (10.000+ leads/dia), Apify e uma opcao viavel, mas requer conhecimento tecnico.',
+      'Teste o GeoLeads gratuitamente e veja se atende sua necessidade.',
+    ],
+  },
+  'como-montar-base-leads-clientes': {
+    title: 'Como Montar uma Base de Leads de Clientes do Zero',
+    description: 'Guia passo a passo para montar sua primeira base de leads qualificados. Fontes gratuitas, ferramentas e estrategias para nunca ficar sem clientes.',
+    date: '02/07/2026',
+    readTime: '6 min',
+    content: [
+      'Montar uma base de leads do zero parece dificil, mas com as ferramentas e estrategias certas, voce pode ter centenas de contatos qualificados em poucas horas.',
+      'Neste guia, voce vai aprender o passo a passo para construir sua base de leads.',
+      '',
+      '## Passo 1: Defina seu cliente ideal',
+      'Antes de comecar a coletar contatos, voce precisa saber exatamente quem quer atingir. Pergunte-se:',
+      '- Qual o nicho? (restaurantes, saloes, advogados, etc.)',
+      '- Qual a regiao? (cidade, bairro, estado)',
+      '- Qual o porte? (micro, pequeno, medio)',
+      '',
+      '## Passo 2: Escolha a fonte de dados',
+      'As melhores fontes gratuitas para montar base de leads sao:',
+      '- Google Maps: a maior base de negocios do Brasil',
+      '- Google My Business: perfis verificados com dados completos',
+      '- Sites de associacoes comerciais: listas de empresas por categoria',
+      '- Listas publicas da prefeitura: alvaras e licencas comerciais',
+      '',
+      '## Passo 3: Extraia os dados',
+      'Com o nicho e a fonte definidos, e hora de extrair. Se for fazer manualmente, espere gastar 30-50 minutos para cada 100 leads. Com ferramentas como o GeoLeads, o mesmo trabalho leva 5-10 minutos.',
+      '',
+      '## Passo 4: Enriqueça os leads',
+      'So ter telefone nao basta. Busque tambem: email, Instagram, site e CNPJ. Leads enriquecidos convertem ate 5x mais.',
+      '',
+      '## Passo 5: Organize no CRM',
+      'Nao adianta ter uma base enorme se voce nao organizar os leads. Use etapas como: Novo, Em Contato, Proposta, Fechado. O GeoLeads ja faz isso automaticamente.',
+      '',
+      '## Conclusao',
+      'Montar uma base de leads do zero e totalmente viavel. O segredo e usar as ferramentas certas para automatizar o processo e focar seu tempo no que realmente importa: vender.',
+    ],
+  },
+  'melhor-ferramenta-prospeccao-clientes': {
+    title: 'Melhor Ferramenta de Prospecção de Clientes para Pequenas Empresas',
+    description: 'Descubra qual a melhor ferramenta de prospeccao de clientes para pequenas empresas brasileiras. Comparativo completo com precos e funcionalidades.',
+    date: '03/07/2026',
+    readTime: '7 min',
+    content: [
+      'Pequenas empresas precisam prospectar clientes constantemente, mas nem sempre tem orcamento para ferramentas caras ou equipe dedicada.',
+      'A boa noticia: existem ferramentas acessiveis que automatizam a prospeccao e cabem no bolso do pequeno empreendedor.',
+      '',
+      '## O que uma ferramenta de prospeccao precisa ter',
+      '',
+      '### 1. Base de dados atualizada',
+      'De nada adianta uma ferramenta que usa dados antigos. O ideal e que ela extraia dados em tempo real do Google Maps, que e atualizado constantemente pelas proprias empresas.',
+      '',
+      '### 2. Segmentacao precisa',
+      'Poder filtrar por nicho, cidade e tipo de contato (so quem tem telefone, so quem tem site) faz toda a diferenca na qualidade dos leads.',
+      '',
+      '### 3. Custo acessivel em real',
+      'Ferramentas internacionais cobram em dolar e ficam caras para o brasileiro. GeoLeads e outras ferramentas nacionais oferecem precos em real e planos que cabem no bolso.',
+      '',
+      '### 4. Facilidade de uso',
+      'Nao adianta ter mil funcionalidades se voce precisa de um tecnico para configurar. A ferramenta ideal e aquela que voce comeca a usar em 5 minutos.',
+      '',
+      '## Comparativo',
+      '',
+      '| Ferramenta | Preco inicial | CRM | WhatsApp | Em Portugues |',
+      '|------------|--------------|-----|----------|-------------|',
+      '| GeoLeads | R$ 9,90 | Sim | Sim | Sim |',
+      '| Apify | ~R$ 28 | Nao | Nao | Nao |',
+      '| Phantombuster | ~R$ 112 | Nao | Nao | Nao |',
+      '| Leadster | ~R$ 197 | Sim | Nao | Sim |',
+      '',
+      '## Veredito',
+      'Para pequenas empresas brasileiras, o GeoLeads e a melhor opcao. Oferece o conjunto completo (extracao + CRM + WhatsApp) pelo menor preco. Teste os 10 leads gratis e comprove.',
+    ],
+  },
+  'como-conseguir-clientes-negocio': {
+    title: 'Como Conseguir Clientes para Meu Negócio: 7 Estrategias que Funcionam',
+    description: '7 estrategias praticas para conseguir clientes para seu negocio. Da prospeccao digital ao networking, tecnicas que geram resultados reais.',
+    date: '04/07/2026',
+    readTime: '8 min',
+    content: [
+      'Se voce tem um negocio e esta com dificuldade para conseguir clientes, saiba que nao esta sozinho. Essa e a maior dor de todo empreendedor.',
+      'A diferenca entre quem cresce e quem patina? Estrategia. E acao consistente.',
+      '',
+      '## 1. Prospeccao ativa no Google Maps',
+      'Em vez de esperar o cliente chegar, va ate ele. Use ferramentas como o GeoLeads para extrair dados de empresas do seu nicho e aborda-las diretamente no WhatsApp.',
+      'Funciona para: servicos B2B, vendas consultivas, parcerias comerciais.',
+      '',
+      '## 2. Marketing de conteudo local',
+      'Crie conteudo que ajude seu cliente ideal. Um corretor de imoveis pode escrever "Guia de bairros em Foz do Iguacu". Um marceneiro pode postar "Como escolher movel planejado".',
+      'Conteudo gratuito gera autoridade e atrai clientes que ja estao procurando solucoes.',
+      '',
+      '## 3. Indicacao e programa de referencias',
+      'Ofereca um desconto ou brinde para cada cliente que indicar outro. O custo de aquisicao por indicacao e muito menor que o de midia paga.',
+      '',
+      '## 4. Parcerias estrategicas',
+      'Encontre negocios que atendem o mesmo publico que voce, mas com servicos diferentes. Um designer pode fazer parceria com uma grafica. Um corretor com um arquiteto.',
+      '',
+      '## 5. Google Meu Negocio',
+      'Se voce ainda nao tem um perfil no Google Meu Negocio, crie hoje. E gratuito e aparece no topo das buscas locais. Peça avaliacoes para seus clientes.',
+      '',
+      '## 6. Redes sociais com consistencia',
+      'Melhor postar 3 vezes por semana com qualidade do que 10 vezes por semana sem planejamento. Escolha uma rede (Instagram ou LinkedIn) e seja consistente.',
+      '',
+      '## 7. Automacao de prospeccao',
+      'Use tecnologia para automatizar o que e repetitivo. Extracao de leads, envio de mensagens e acompanhamento podem ser automatizados. O GeoLeads faz tudo isso em uma plataforma.',
+      '',
+      '## Conclusao',
+      'Nao existe formula magica, mas existe estrategia certa. Combine prospeccao ativa com presenca digital e automacao. Teste, meca os resultados e ajuste.',
+    ],
+  },
+  'automacao-marketing-pequenas-empresas': {
+    title: 'Automação de Marketing para Pequenas Empresas: Guia Prático',
+    description: 'Implemente automacao de marketing na sua pequena empresa sem gastar fortunas. Ferramentas gratis e acessiveis para crescer seu negocio.',
+    date: '05/07/2026',
+    readTime: '6 min',
+    content: [
+      'Automacao de marketing parece coisa de grande empresa, mas nao e. Pequenos negocios tambem podem — e devem — automatizar processos repetitivos para focar no que realmente importa.',
+      'Neste guia, voce vai aprender como implementar automacao de marketing gastando pouco ou nada.',
+      '',
+      '## O que automatizar primeiro?',
+      '',
+      '### 1. Extracao de leads',
+      'Em vez de catar dados manualmente, use uma ferramenta que extraia automaticamente do Google Maps. O GeoLeads, por exemplo, faz isso em minutos.',
+      '',
+      '### 2. Primeiro contato',
+      'Automatize a primeira mensagem de contato. Com templates personalizados (nome, cidade, nicho), voce pode enviar dezenas de mensagens em sequencia com intervalos naturais.',
+      '',
+      '### 3. Acompanhamento',
+      'Configure lembretes para acompanhar leads que nao responderam. Um lead esquecido e uma venda perdida.',
+      '',
+      '## Ferramentas gratuitas para comecar',
+      '- GeoLeads: 10 leads gratis para extracao + CRM',
+      '- Mailchimp: ate 500 contatos e 1.000 envios/mes gratis para email marketing',
+      '- Meta Business Suite: agendamento gratuito de posts no Instagram e Facebook',
+      '- Google Meu Negocio: perfil gratuito que aparece no Google',
+      '',
+      '## O que evitar na automacao',
+      '- Nunca automatize o que requer toque humano (negociacao, objecoes)',
+      '- Nao envie mensagens identicas para todos os leads',
+      '- Respeite os limites das plataformas para nao ser bloqueado',
+      '',
+      '## Comece pequeno, escale rapido',
+      'Comece automatizando so a extracao de leads. Depois adicione o envio de mensagens. Depois o CRM. Um passo de cada vez.',
+      'O GeoLeads foi desenhado para crescer com seu negocio: comecando com 10 leads gratis, depois 300, depois ilimitado.',
+    ],
+  },
+  'planilha-leads-gratis-baixar': {
+    title: 'Planilha de Leads Grátis para Baixar: Organize suas Prospecções',
+    description: 'Baixe uma planilha gratuita de controle de leads. Organize suas prospeccoes, acompanhe etapas e nunca mais perca um cliente por falta de seguimento.',
+    date: '06/07/2026',
+    readTime: '4 min',
+    content: [
+      'Uma das maiores causas de perda de vendas e a falta de organizacao. O lead foi contactado, mas ninguem anotou. Dias depois, ninguem lembra do que foi combinado.',
+      'Uma simples planilha de controle de leads pode resolver isso. E o GeoLeads vai alem: oferece um CRM automatico integrado com a extracao.',
+      '',
+      '## O que uma planilha de leads deve ter',
+      '- Nome do contato/empresa',
+      '- Telefone / WhatsApp',
+      '- Email',
+      '- Nicho',
+      '- Cidade',
+      '- Data do primeiro contato',
+      '- Ultimo contato',
+      '- Etapa (Novo, Em Contato, Proposta, Fechado, Perdido)',
+      '- Observacoes',
+      '',
+      '## Baixe sua planilha gratuita',
+      'Preparamos uma planilha modelo no Google Sheets que voce pode copiar e comecar a usar hoje. Ela ja vem com:',
+      '- Formatacao condicional por etapa',
+      '- Filtros automaticos',
+      '- Calculadora de taxa de conversao',
+      '- grafico de funil simples',
+      'Use o link no final deste artigo para acessar.',
+      '',
+      '## E se voce quiser algo mais automatico?',
+      'Planilhas sao otimas para comecar, mas tem limitacoes: voce precisa preencher manualmente, nao tem lembretes automaticos, e dificil de compartilhar com equipe.',
+      'O CRM do GeoLeads faz tudo automaticamente: os leads extraidos ja caem no CRM organizados por etapa. Nada de preencher planilha.',
+      '',
+      '## Como acessar a planilha',
+      'A planilha modelo esta disponivel gratuitamente. Ao criar sua conta no GeoLeads, voce pode exportar seus leads para CSV e importar na planilha. Ou usar o CRM integrado e nao precisar de planilha nenhuma.',
+      'Teste gratuitamente e veja a diferenca.',
+    ],
+  },
 };
 
 export async function generateStaticParams() {
@@ -302,6 +622,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 export default function BlogPostPage({ params }: { params: { slug: string } }) {
   const post = POSTS[params.slug];
+  const postKeys = Object.keys(POSTS);
+  const currentIndex = postKeys.indexOf(params.slug);
+  const relatedPosts = postKeys
+    .filter(s => s !== params.slug)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+    .map(s => ({ slug: s, ...POSTS[s] }));
 
   if (!post) {
     return (
@@ -356,7 +683,41 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
             return <p key={i} className="text-gray-300 leading-relaxed">{line}</p>;
           })}
         </article>
-        <div className="mt-12 p-6 rounded-2xl bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/20 text-center">
+
+        {/* Compartilhar */}
+        <div className="mt-10 mb-8">
+          <p className="text-sm text-gray-500 mb-3">Compartilhe este artigo:</p>
+          <ShareButtons
+            url={`${APP_URL}/blog/${params.slug}`}
+            text={post.title}
+            platforms={['whatsapp', 'twitter', 'linkedin', 'telegram', 'copy']}
+          />
+        </div>
+
+        {/* Newsletter */}
+        <div className="mb-10">
+          <NewsletterSignup source={`blog-${params.slug}`} />
+        </div>
+
+        {/* Artigos relacionados */}
+        <div className="mb-10">
+          <h3 className="text-lg font-bold mb-4">📖 Artigos relacionados</h3>
+          <div className="grid gap-4">
+            {relatedPosts.map(r => (
+              <Link
+                key={r.slug}
+                href={`/blog/${r.slug}`}
+                className="block p-4 rounded-xl border border-white/10 hover:bg-white/[0.03] transition-colors"
+              >
+                <h4 className="font-bold text-sm mb-1">{r.title}</h4>
+                <p className="text-xs text-gray-500 line-clamp-2">{r.description}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA Final */}
+        <div className="p-6 rounded-2xl bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/20 text-center">
           <h3 className="text-xl font-bold mb-2">Quer extrair leads agora?</h3>
           <p className="text-gray-400 mb-4">Teste o GeoLeads gratuitamente. Sem cartao de credito.</p>
           <Button href="/login?next=/app/dashboard" className="bg-blue-500 hover:bg-blue-400 text-black shadow-none">
