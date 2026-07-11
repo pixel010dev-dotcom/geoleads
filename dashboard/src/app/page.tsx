@@ -787,6 +787,8 @@ export default function LandingPage() {
                 <Link href="/privacy" className="hover:text-gray-300 transition-colors">{t('footer.privacy')}</Link>
                 <Link href="/terms" className="hover:text-gray-300 transition-colors">{t('footer.terms')}</Link>
                 <Link href="/login" className="hover:text-gray-300 transition-colors">{t('nav.login')}</Link>
+                <Link href="/whatsai" className="hover:text-green-400 transition-colors text-green-500">🤖 WhatsAI</Link>
+                <Link href="/recursos/guia-extracao-leads" className="hover:text-blue-300 transition-colors">📘 Guia de Extração</Link>
               </div>
             </div>
             <div>

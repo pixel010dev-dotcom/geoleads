@@ -154,7 +154,7 @@ export default function NicheCityPage({ params }: { params: { nicho: string; cid
           <section className="mb-16">
             <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">{nicheName} em outras cidades</h2>
             <div className="flex flex-wrap justify-center gap-3">
-              {sameNicheCities.slice(0, 24).map(c => (
+              {sameNicheCities.map(c => (
                 <Link key={c.slug} href={`/nicho/${niche.slug}/${c.slug}`}
                   className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300 hover:text-white hover:border-blue-400 transition-colors">
                   {c.name}
@@ -214,14 +214,45 @@ export default function NicheCityPage({ params }: { params: { nicho: string; cid
           </div>
         </section>
 
+        {/* BLOG ARTICLES */}
+        <section className="mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">Artigos sobre prospecção</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {[
+              { slug: 'prospeccao-b2b-whatsapp', title: 'Prospecção B2B no WhatsApp' },
+              { slug: 'lead-generation-b2b-estrategias', title: 'Estratégias de Lead Generation' },
+              { slug: 'analise-concorrencia-google-maps', title: 'Análise de Concorrência no Google Maps' },
+            ].map(art => (
+              <Link key={art.slug} href={`/blog/${art.slug}`}
+                className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-xl p-5 hover:border-blue-400 transition-all">
+                <h3 className="font-bold text-sm mb-2">{art.title}</h3>
+                <p className="text-xs text-gray-500">Leia mais →</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* LEAD MAGNET */}
+        <section className="mb-16 text-center bg-gradient-to-b from-purple-500/10 to-transparent border border-purple-500/20 rounded-2xl p-8">
+          <div className="text-3xl mb-3">📘</div>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">Baixe o Guia Grátis de Extração</h2>
+          <p className="text-gray-400 mb-6 max-w-lg mx-auto text-sm">
+            Aprenda os 5 nichos mais lucrativos, como evitar bloqueio no WhatsApp e templates prontos.
+          </p>
+          <Link href="/recursos/guia-extracao-leads"
+            className="inline-flex px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white font-bold transition-all text-sm">
+            📥 Baixar Grátis
+          </Link>
+        </section>
+
         <section className="text-center bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/20 rounded-2xl p-8 lg:p-12">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">Comece agora - 10 leads gratis</h2>
-          <p className="text-gray-400 mb-6 max-w-xl mx-auto">Extraia {nicheName.toLowerCase()}s em {city.name} agora mesmo. Sem cartao de credito.</p>
-          <Button href={`/login?next=/app/dashboard`} size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none">Testar Gratis</Button>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4">Comece agora - 10 leads grátis</h2>
+          <p className="text-gray-400 mb-6 max-w-xl mx-auto">Extraia {nicheName.toLowerCase()}s em {city.name} agora mesmo. Sem cartão de crédito.</p>
+          <Button href={`/login?next=/app/dashboard`} size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-black shadow-none">Testar Grátis</Button>
         </section>
 
         <footer className="mt-16 pt-8 border-t border-white/10 text-center text-sm text-gray-500">
-          <Link href="/" className="hover:text-white transition-colors">GeoLeads</Link> - <Link href="/pricing" className="hover:text-white transition-colors">Precos</Link> - <Link href="/blog" className="hover:text-white transition-colors">Blog</Link> - <Link href="/privacy" className="hover:text-white transition-colors">Privacidade</Link> - <Link href="/terms" className="hover:text-white transition-colors">Termos</Link>
+          <Link href="/" className="hover:text-white transition-colors">GeoLeads</Link> - <Link href="/pricing" className="hover:text-white transition-colors">Preços</Link> - <Link href="/blog" className="hover:text-white transition-colors">Blog</Link> - <Link href="/recursos/guia-extracao-leads" className="hover:text-blue-300 transition-colors">Guia de Extração</Link> - <Link href="/privacy" className="hover:text-white transition-colors">Privacidade</Link> - <Link href="/terms" className="hover:text-white transition-colors">Termos</Link>
         </footer>
       </main>
     </div>

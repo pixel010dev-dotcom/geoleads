@@ -61,15 +61,25 @@ export default function CityPage({ params }: { params: { slug: string } }) {
     );
   }
 
-  const cityNichePages = NICHE_EXAMPLES.slice(0, 10).map(n => ({
+  const cityNichePages = NICHE_EXAMPLES.map(n => ({
     name: n,
     slug: slugify(n),
     url: `${APP_URL}/nicho/${slugify(n)}/${city.slug}`,
   }));
 
   const similarCities = CITIES
-    .filter(c => c.state === city.state && c.name !== city.name)
-    .slice(0, 6);
+    .filter(c => c.state === city.state && c.name !== city.name);
+
+  const allNichePages = NICHE_EXAMPLES.map(n => ({
+    name: n,
+    slug: slugify(n),
+  }));
+
+  const BLOG_ARTICLES = [
+    { slug: 'como-extrair-leads-google-maps', title: 'Como Extrair Leads do Google Maps' },
+    { slug: 'prospeccao-b2b-whatsapp', title: 'Prospecção B2B no WhatsApp' },
+    { slug: 'lead-generation-b2b-estrategias', title: 'Estratégias de Lead Generation' },
+  ];
 
   const cityName = `${city.name}${city.state ? `, ${city.state}` : ''}`;
 
@@ -157,7 +167,7 @@ export default function CityPage({ params }: { params: { slug: string } }) {
             Nichos para extrair em {city.name}
           </h2>
           <div className="flex flex-wrap justify-center gap-3">
-            {NICHE_EXAMPLES.slice(0, 20).map(niche => (
+            {NICHE_EXAMPLES.map(niche => (
               <Link
                 key={niche}
                 href={`/nicho/${slugify(niche)}/${city.slug}`}
@@ -283,18 +293,52 @@ export default function CityPage({ params }: { params: { slug: string } }) {
             <h2 className="text-2xl sm:text-3xl font-bold mb-4">Quer explorar outras cidades?</h2>
             <p className="text-gray-400 mb-6">Veja tambem paginas de nicho especifico em {city.name}:</p>
             <div className="flex flex-wrap justify-center gap-3">
-              {NICHE_EXAMPLES.slice(0, 10).map(niche => (
+              {allNichePages.map(n => (
                 <Link
-                  key={niche}
-                  href={`/nicho/${slugify(niche)}`}
+                  key={n.slug}
+                  href={`/nicho/${n.slug}`}
                   className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300 hover:text-white hover:border-blue-400 transition-colors"
                 >
-                  {niche.charAt(0).toUpperCase() + niche.slice(1)}
+                  {n.name}
                 </Link>
               ))}
             </div>
           </section>
         )}
+
+        {/* BLOG ARTICLES */}
+        <section className="mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">
+            Artigos sobre extração de leads
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {BLOG_ARTICLES.map(art => (
+              <Link
+                key={art.slug}
+                href={`/blog/${art.slug}`}
+                className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-xl p-5 hover:border-blue-400 transition-all"
+              >
+                <h3 className="font-bold text-sm mb-2">{art.title}</h3>
+                <p className="text-xs text-gray-500">Leia mais →</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* LEAD MAGNET */}
+        <section className="mb-16 text-center bg-gradient-to-b from-purple-500/10 to-transparent border border-purple-500/20 rounded-2xl p-8">
+          <div className="text-3xl mb-3">📘</div>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">Baixe o Guia Grátis de Extração</h2>
+          <p className="text-gray-400 mb-6 max-w-lg mx-auto text-sm">
+            Aprenda os 5 nichos mais lucrativos, como evitar bloqueio no WhatsApp e templates prontos.
+          </p>
+          <Link
+            href="/recursos/guia-extracao-leads"
+            className="inline-flex px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white font-bold transition-all text-sm"
+          >
+            📥 Baixar Grátis
+          </Link>
+        </section>
 
         <section className="text-center bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/20 rounded-2xl p-8 lg:p-12">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">
@@ -314,6 +358,8 @@ export default function CityPage({ params }: { params: { slug: string } }) {
           <Link href="/pricing" className="hover:text-white transition-colors">Precos</Link>
           {' - '}
           <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
+          {' - '}
+          <Link href="/recursos/guia-extracao-leads" className="hover:text-blue-300 transition-colors">Guia de Extracao</Link>
           {' - '}
           <Link href="/privacy" className="hover:text-white transition-colors">Privacidade</Link>
           {' - '}
