@@ -1,10 +1,20 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let supabaseClient: any = null;
+
+function getSupabase() {
+  if (supabaseClient) return supabaseClient;
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return null;
+    const { createClient } = require('@supabase/supabase-js');
+    supabaseClient = createClient(url, key);
+    return supabaseClient;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -17,15 +27,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nome inválido' }, { status: 400 });
     }
 
-    // Try existing table, fallback to newsletter
-    const { error } = await supabase
-      .from('newsletter_subscriptions')
-      .insert({ email, source: `leadmagnet_${source}`, name, metadata: { product } })
-      .maybeSingle();
+    const supabase = getSupabase();
+    if (supabase) {
+      const { error } = await supabase
+        .from('newsletter_subscriptions')
+        .insert({ email, source: `leadmagnet_${source}`, name, metadata: { product } })
+        .maybeSingle();
 
-    // Ignore duplicate errors
-    if (error && error.code !== '23505') {
-      console.error('lead-magnet insert error:', error);
+      if (error && error.code !== '23505') {
+        console.error('lead-magnet insert error:', error);
+      }
     }
 
     return NextResponse.json({ ok: true });
