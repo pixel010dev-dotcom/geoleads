@@ -52,9 +52,27 @@ export default function NicheCityPage({ params }: { params: { nicho: string; cid
     ],
   };
 
+  const faqData = [
+    { q: `Como extrair ${nicheName.toLowerCase()}s em ${city.name}?`, a: `Acesse o GeoLeads, informe o nicho "${nicheName.toLowerCase()}" e a cidade "${city.name}". O sistema extrai automaticamente todos os ${nicheName.toLowerCase()}s cadastrados no Google Maps da regiao.` },
+    { q: `Preciso de cartao para testar?`, a: 'Nao. Oferecemos 10 tokens gratuitos sem cartao de credito. Voce pode extrair e testar antes de decidir.' },
+    { q: `Quanto custa para extrair ${nicheName.toLowerCase()}s em ${city.name}?`, a: `O plano gratuito ja permite extrair ${nicheName.toLowerCase()}s em ${city.name}. Para volume maior, planos a partir de R$ 9,90/mes com 300 tokens.` },
+    { q: `Posso abordar os ${nicheName.toLowerCase()}s pelo WhatsApp?`, a: `Sim. O GeoLeads tem disparador assistido com fila inteligente. Envie mensagens personalizadas para cada ${nicheName.toLowerCase()} sem risco de bloqueio.` },
+  ];
+
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqData.map(item => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
 
       <nav className="border-b border-white/5 bg-black/40 backdrop-blur-2xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -197,12 +215,7 @@ export default function NicheCityPage({ params }: { params: { nicho: string; cid
         <section className="mb-16">
           <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">Perguntas frequentes</h2>
           <div className="max-w-3xl mx-auto space-y-3">
-            {[
-              { q: `Como extrair ${nicheName.toLowerCase()}s em ${city.name}?`, a: `Acesse o GeoLeads, informe o nicho "${nicheName.toLowerCase()}" e a cidade "${city.name}". O sistema extrai automaticamente todos os ${nicheName.toLowerCase()}s cadastrados no Google Maps da regiao.` },
-              { q: `Preciso de cartao para testar?`, a: 'Nao. Oferecemos 10 tokens gratuitos sem cartao de credito. Voce pode extrair e testar antes de decidir.' },
-              { q: `Quanto custa para extrair ${nicheName.toLowerCase()}s em ${city.name}?`, a: `O plano gratuito ja permite extrair ${nicheName.toLowerCase()}s em ${city.name}. Para volume maior, planos a partir de R$ 9,90/mes com 300 tokens.` },
-              { q: `Posso abordar os ${nicheName.toLowerCase()}s pelo WhatsApp?`, a: `Sim. O GeoLeads tem disparador assistido com fila inteligente. Envie mensagens personalizadas para cada ${nicheName.toLowerCase()} sem risco de bloqueio.` },
-            ].map((item, i) => (
+            {faqData.map((item, i) => (
               <details key={i} className="bg-gradient-to-b from-white/[0.05] to-black/40 border border-white/10 rounded-xl p-4 group open:border-blue-500/30 transition-all cursor-pointer">
                 <summary className="text-sm sm:text-base font-bold text-gray-200 group-open:text-blue-300 transition-colors list-none flex items-center justify-between gap-3">
                   {item.q}

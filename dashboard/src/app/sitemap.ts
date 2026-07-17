@@ -12,6 +12,16 @@ const BLOG_SLUGS = [
   'lead-generation-b2b-estrategias',
   'analise-concorrencia-google-maps',
   'vender-mais-whatsapp-business',
+  'como-encontrar-clientes-google-maps',
+  'extrair-leads-cnpj-cidade',
+  'prospeccao-b2b-automatizada-2026',
+  'crm-gratis-pequenas-empresas',
+  'vender-mais-pelo-whatsapp-business',
+  'ferramenta-extracao-leads-comparativo',
+  'leads-qualificados-o-que-sao',
+  'automacao-vendas-pmes',
+  'google-maps-prospeccao-comercial',
+  'montar-base-leads-b2b',
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Button } from '@/components/Button';
+import { NEW_POSTS_META } from '@/lib/blog-data';
 
 export const metadata: Metadata = {
   title: 'Blog | GeoLeads - Dicas de Prospeccao e Lead Generation',
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 const posts = [
+  ...NEW_POSTS_META,
   {
     slug: 'como-extrair-leads-google-maps',
     title: 'Como Extrair Leads do Google Maps: Guia Completo 2026',

@@ -3,10 +3,12 @@ import Link from 'next/link';
 import { Button } from '@/components/Button';
 import ShareButtons from '@/components/ShareButtons';
 import NewsletterSignup from '@/components/NewsletterSignup';
+import { NEW_POSTS } from '@/lib/blog-data';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://geoleads-production-6583.up.railway.app';
 
 const POSTS: Record<string, { title: string; content: string[]; date: string; readTime: string; description: string }> = {
+  ...NEW_POSTS,
   'como-extrair-leads-google-maps': {
     title: 'Como Extrair Leads do Google Maps: Guia Completo 2026',
     description: 'Aprenda o passo a passo para extrair leads do Google Maps automaticamente. Descubra ferramentas, tecnicas e estrategias para gerar clientes todos os dias.',
@@ -658,6 +660,21 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
           </div>
         </div>
       </nav>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Article',
+            headline: post.title,
+            description: post.description,
+            datePublished: post.date,
+            author: { '@type': 'Organization', name: 'GeoLeads' },
+            publisher: { '@type': 'Organization', name: 'GeoLeads', url: APP_URL },
+            mainEntityOfPage: { '@type': 'WebPage', '@id': `${APP_URL}/blog/${params.slug}` },
+          }),
+        }}
+      />
       <main className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-8">
           <Link href="/blog" className="text-sm text-blue-400 hover:underline mb-4 inline-block">&larr; Voltar ao blog</Link>
