@@ -23,6 +23,39 @@ const PIPELINE_CONFIG = [
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
+// Garante que o user do cron existe no banco
+async function ensureCronUser(supabase: any): Promise<string> {
+  // Tenta criar o user no auth (admin client = service_role)
+  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+    email: 'cron@geoleads.app',
+    password: 'cron-auto-' + Date.now(),
+    email_confirm: true,
+    user_metadata: { full_name: 'Cron Bot', role: 'admin' },
+  });
+
+  // Se criou ou já existe, usa o ID
+  if (authUser?.user?.id) {
+    // Garante que o profile existe
+    await supabase.from('profiles').upsert({
+      id: authUser.user.id,
+      email: 'cron@geoleads.app',
+      full_name: 'Cron Bot',
+      role: 'admin',
+      credits: 99999,
+    }, { onConflict: 'id' }).maybeSingle();
+    return authUser.user.id;
+  }
+
+  // Fallback: tenta buscar user existente pelo email
+  const { data: existing } = await supabase.from('profiles')
+    .select('id').eq('email', 'cron@geoleads.app').maybeSingle();
+  if (existing?.id) return existing.id;
+
+  // Último fallback: usa o SYSTEM_USER_ID mesmo (pode dar FK error)
+  console.error('[CRON] Não conseguiu criar/auth user:', authError);
+  return SYSTEM_USER_ID;
+}
+
 export async function GET(request: NextRequest) {
   const cronSecret = request.headers.get('x-cron-secret');
   const querySecret = request.nextUrl.searchParams.get('secret') || '';
@@ -38,6 +71,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminSupabaseClient();
+  
+  // Garante que o user do cron existe no banco
+  const cronUserId = await ensureCronUser(supabase);
+  
   const results: any[] = [];
   let totalCreated = 0;
 
@@ -45,7 +82,7 @@ export async function GET(request: NextRequest) {
     for (const city of cfg.cities) {
       try {
         const { error } = await supabase.from('extraction_jobs').insert({
-          user_id: SYSTEM_USER_ID,
+          user_id: cronUserId,
           status: 'pending',
           keyword: cfg.niche,
           location: city,
