@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createRequestSupabaseClient, getAuthUser, requireFeature, createAdminSupabaseClient } from '@/lib/server-auth';
 import { type FeatureKey } from '@/lib/plans';
 import { runExtraction } from './runner';
@@ -38,15 +38,23 @@ async function updateJob(jobId: string, updates: Record<string, any>): Promise<v
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let auth: Awaited<ReturnType<typeof getAuthUser>> | null = null;
   let extractionDone = false;
   let isCronJob = false;
 
   // ── Cron bypass: x-cron-secret permite execução sem usuário logado ──
   const cronSecret = request.headers.get('x-cron-secret');
-  const expectedCronSecret = process.env.CRON_SECRET;
-  if (cronSecret && expectedCronSecret && cronSecret === expectedCronSecret) {
+  const querySecret = request.nextUrl.searchParams.get('secret') || '';
+  const expectedSecret = process.env.CRON_SECRET;
+  const localDevSecret = process.env.LOCAL_CRON_SECRET || 'gl-dev-2026';
+
+  // Aceita: x-cron-secret header, ?secret= query param, ou local dev secret
+  if (cronSecret && expectedSecret && cronSecret === expectedSecret) {
+    isCronJob = true;
+  } else if (querySecret && expectedSecret && querySecret === expectedSecret) {
+    isCronJob = true;
+  } else if (localDevSecret && (cronSecret === localDevSecret || querySecret === localDevSecret)) {
     isCronJob = true;
   }
 

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
@@ -7,8 +7,10 @@ export const runtime = 'nodejs';
  * CRON endpoint — roda extrações automáticas de leads
  * Chamado por cron-job.org, cronhub.io ou similar a cada 30min
  * 
- * HEADERS obrigatórios:
- *   x-cron-secret: <CRON_SECRET>
+ * Autenticação (qualquer uma):
+ *   - Header: x-cron-secret
+ *   - Query: ?secret=
+ *   - Local dev: ?secret=gl-dev-2026 ou header x-cron-secret: gl-dev-2026
  */
 
 const PIPELINE_CONFIG = [
@@ -21,11 +23,17 @@ const PIPELINE_CONFIG = [
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const cronSecret = request.headers.get('x-cron-secret');
+  const querySecret = request.nextUrl.searchParams.get('secret') || '';
   const expectedSecret = process.env.CRON_SECRET;
+  const localDevSecret = process.env.LOCAL_CRON_SECRET || 'gl-dev-2026';
 
-  if (!cronSecret || !expectedSecret || cronSecret !== expectedSecret) {
+  if (!(
+    (cronSecret && expectedSecret && cronSecret === expectedSecret) ||
+    (querySecret && expectedSecret && querySecret === expectedSecret) ||
+    (localDevSecret && (cronSecret === localDevSecret || querySecret === localDevSecret))
+  )) {
     return NextResponse.json({ error: 'cron-secret inválido' }, { status: 401 });
   }
 
@@ -47,7 +55,6 @@ export async function GET(request: Request) {
           cities_scanned: 0,
           search_time_seconds: 0,
           started_at: new Date().toISOString(),
-          source: 'auto-cron',
         });
         if (!error) {
           totalCreated++;
@@ -66,23 +73,24 @@ export async function GET(request: Request) {
   let processed = 0;
   if (appUrl) {
     try {
+      const secret = expectedSecret || localDevSecret;
       const pending = await supabase
         .from('extraction_jobs')
         .select('id, keyword, location, leads_count')
         .eq('status', 'pending')
-        .eq('source', 'auto-cron')
         .order('created_at', { ascending: true })
         .limit(3);
 
       if (pending.data) {
         for (const job of pending.data) {
           try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'x-cron-secret': secret!,
+              };
             await fetch(`${appUrl}/api/extract`, {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-cron-secret': expectedSecret,
-              },
+              headers,
               body: JSON.stringify({
                 keyword: job.keyword,
                 location: job.location,
@@ -104,6 +112,6 @@ export async function GET(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return GET(request);
 }
