@@ -20,12 +20,12 @@ command = "curl -s ${{APP_URL}}/api/drip/process || true"
 
 [[cron.jobs]]
 schedule = "*/10 * * * *"
-command = "curl -s ${{APP_URL}}/api/cron/process-campaigns?secret=${{CRON_SECRET}} || true"
+command = "curl -s ${{APP_URL}}/api/cron/process-campaigns?secret=gl-dev-2026 || true"
 
 [[cron.jobs]]
 schedule = "*/15 * * * *"
-command = "curl -s ${{APP_URL}}/api/cron/process-followups?secret=${{CRON_SECRET}} || true"
+command = "curl -s ${{APP_URL}}/api/cron/process-followups?secret=gl-dev-2026 || true"
 
 [[cron.jobs]]
 schedule = "*/30 * * * *"
-command = "curl -s ${{APP_URL}}/api/cron?secret=${{CRON_SECRET}} || true"
+command = "curl -s ${{APP_URL}}/api/cron?secret=gl-dev-2026 || true"
