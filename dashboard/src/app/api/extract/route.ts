@@ -11,6 +11,8 @@ export const runtime = 'nodejs';
 const activeExtractions = new Map<string, number>();
 const MAX_CONCURRENT_PER_USER = 2;
 const MAX_GLOBAL_CONCURRENT = 10;
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+const SYSTEM_PLAN_ID = 'enterprise' as any;
 
 function parseFilterRules(filterRule: string): string[] {
   if (!filterRule || filterRule === 'none') return [];
@@ -37,8 +39,16 @@ async function updateJob(jobId: string, updates: Record<string, any>): Promise<v
 }
 
 export async function POST(request: Request) {
-  let auth: Awaited<ReturnType<typeof getAuthUser>>;
+  let auth: Awaited<ReturnType<typeof getAuthUser>> | null = null;
   let extractionDone = false;
+  let isCronJob = false;
+
+  // ── Cron bypass: x-cron-secret permite execução sem usuário logado ──
+  const cronSecret = request.headers.get('x-cron-secret');
+  const expectedCronSecret = process.env.CRON_SECRET;
+  if (cronSecret && expectedCronSecret && cronSecret === expectedCronSecret) {
+    isCronJob = true;
+  }
 
   function done() {
     if (!extractionDone) {
@@ -52,15 +62,24 @@ export async function POST(request: Request) {
   }
 
   try {
-    auth = await getAuthUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    if (!isCronJob) {
+      auth = await getAuthUser(request);
+      if (!auth) {
+        return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+      }
     }
-    const authedUser = auth;
 
-    const rateLimit = checkExtractionRateLimit(auth.user.id);
-    if (!rateLimit.allowed) {
-      return NextResponse.json({ error: 'Muitas extrações. Aguarde 1 minuto.' }, { status: 429 });
+    // ── Define o perfil do usuário (real ou sistema) ──
+    const authedUser = isCronJob
+      ? { user: { id: SYSTEM_USER_ID, email: 'system@geoleads.app' }, tokens: 999999, planId: SYSTEM_PLAN_ID }
+      : auth!;
+
+    // Rate limit — pula para cron jobs
+    if (!isCronJob) {
+      const rateLimit = checkExtractionRateLimit(authedUser.user.id);
+      if (!rateLimit.allowed) {
+        return NextResponse.json({ error: 'Muitas extrações. Aguarde 1 minuto.' }, { status: 429 });
+      }
     }
 
     const { keyword: rawKeyword, location: rawLocation, limit, filterRule, existingLeadKeys } = await request.json();
@@ -70,7 +89,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Preencha o termo e a cidade.' }, { status: 400 });
     }
 
-    if (filterRule && filterRule !== 'none') {
+    // Feature checks — pula para cron jobs
+    if (!isCronJob && filterRule && filterRule !== 'none') {
       const featureMap: Record<string, FeatureKey> = {
         email: 'emailEnrichment',
         cnpj: 'cnpjEnrichment',
@@ -81,7 +101,7 @@ export async function POST(request: Request) {
       const rules = parseFilterRules(filterRule);
       for (const rule of rules) {
         const requiredFeature = featureMap[rule];
-        if (requiredFeature && !requireFeature(auth.planId, requiredFeature)) {
+        if (requiredFeature && !requireFeature(authedUser.planId, requiredFeature)) {
           return NextResponse.json({
             error: `Filtro "${rule}" exige plano superior.`
           }, { status: 403 });
@@ -89,7 +109,8 @@ export async function POST(request: Request) {
       }
     }
 
-    if (auth.tokens <= 0) {
+    // Tokens — pula para cron jobs
+    if (!isCronJob && authedUser.tokens <= 0) {
       return NextResponse.json({ error: 'Sem tokens disponíveis.' }, { status: 402 });
     }
 
@@ -98,25 +119,29 @@ export async function POST(request: Request) {
     const location = correctedLocation;
     const isBroadRegion = isBroadLocation(rawLocation) || isBroadLocation(correctedLocation);
     const requestedLimit = Math.max(1, Number(limit) || 10);
-    const targetLimit = Math.min(requestedLimit, auth.tokens);
+    const targetLimit = isCronJob ? Math.min(requestedLimit, 100) : Math.min(requestedLimit, authedUser.tokens);
     if (targetLimit === 0) {
       return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 402 });
     }
 
-    const current = activeExtractions.get(auth.user.id) || 0;
-    if (current >= MAX_CONCURRENT_PER_USER) {
-      return NextResponse.json({
-        error: `Você já tem ${current} extrações em andamento.`
-      }, { status: 429 });
+    // Concorrência — pula para cron jobs
+    if (!isCronJob) {
+      const current = activeExtractions.get(authedUser.user.id) || 0;
+      if (current >= MAX_CONCURRENT_PER_USER) {
+        return NextResponse.json({
+          error: `Você já tem ${current} extrações em andamento.`
+        }, { status: 429 });
+      }
+      if (getGlobalConcurrent() >= MAX_GLOBAL_CONCURRENT) {
+        return NextResponse.json({ error: 'Sistema sobrecarregado.' }, { status: 503 });
+      }
     }
-    if (getGlobalConcurrent() >= MAX_GLOBAL_CONCURRENT) {
-      return NextResponse.json({ error: 'Sistema sobrecarregado.' }, { status: 503 });
-    }
-    activeExtractions.set(auth.user.id, current + 1);
+    activeExtractions.set(authedUser.user.id, (activeExtractions.get(authedUser.user.id) || 0) + 1);
 
     // Cria job no banco
-    const { data: jobData, error: jobError } = await requestSupabase.from('extraction_jobs').insert({
-      user_id: auth.user.id,
+    const adminSupabase = createAdminSupabaseClient();
+    const { data: jobData, error: jobError } = await adminSupabase.from('extraction_jobs').insert({
+      user_id: authedUser.user.id,
       status: 'running',
       keyword, location,
       filter_rule: filterRule || '',
@@ -134,7 +159,7 @@ export async function POST(request: Request) {
     const extractionStartTime = Date.now();
 
     // ==========================================
-    // EXTRAÇÃO SIMPLIFICADA — SEM ENRIQUECIMENTO
+    // EXTRAÇÃO
     // ==========================================
     runExtraction({
       keyword, location, targetLimit,
@@ -154,13 +179,10 @@ export async function POST(request: Request) {
         const gastos = result.leads.length;
         const totalTimeSec = Math.round(result.totalTimeMs / 1000);
 
-        // SEM ENRIQUECIMENTO — dados já vêm completos do Places API
-
-        // Deduz tokens
+        // Deduz tokens (apenas para usuários reais)
         let deductFailed = false;
-        if (gastos > 0) {
+        if (!isCronJob && gastos > 0) {
           try {
-            const adminSupabase = createAdminSupabaseClient();
             const { error: deductError } = await adminSupabase.rpc('deduct_tokens', {
               p_user_id: authedUser.user.id, p_amount: gastos
             });
@@ -168,18 +190,19 @@ export async function POST(request: Request) {
           } catch { deductFailed = true; }
         }
 
-        // Salva histórico
-        try {
-          const adminSupabase = createAdminSupabaseClient();
-          await adminSupabase.from('extraction_history').insert({
-            user_id: authedUser.user.id, keyword, location,
-            filter_rule: filterRule || '',
-            leads_found: result.leads.length,
-            leads_requested: targetLimit,
-            tokens_spent: gastos,
-            search_time_seconds: totalTimeSec,
-          });
-        } catch { /* non-critical */ }
+        // Salva histórico (apenas para usuários reais)
+        if (!isCronJob) {
+          try {
+            await adminSupabase.from('extraction_history').insert({
+              user_id: authedUser.user.id, keyword, location,
+              filter_rule: filterRule || '',
+              leads_found: result.leads.length,
+              leads_requested: targetLimit,
+              tokens_spent: gastos,
+              search_time_seconds: totalTimeSec,
+            });
+          } catch { /* non-critical */ }
+        }
 
         // Atualiza job
         const jobUpdate = {
@@ -202,13 +225,12 @@ export async function POST(request: Request) {
             const tgToken = process.env.TELEGRAM_BOT_TOKEN;
             const tgAdminId = process.env.TELEGRAM_ADMIN_ID;
             if (tgToken && tgAdminId && result.leads.length > 0) {
-              const withPhone = result.leads.filter(l => l.telefone && l.telefone !== 'Não informado').length;
               fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   chat_id: tgAdminId,
-                  text: `🎯 <b>${result.leads.length} leads</b> | ${keyword} em ${location}\n📱 Tel: ${withPhone} | ⏱️ ${totalTimeSec}s`,
+                  text: `🎯 <b>${result.leads.length} leads</b> | ${keyword} em ${location}\n📱 Tel: ${result.leads.filter(l => l.telefone && l.telefone !== 'Não informado').length} | ⏱️ ${totalTimeSec}s`,
                   parse_mode: 'HTML'
                 }),
               }).catch(() => {});
