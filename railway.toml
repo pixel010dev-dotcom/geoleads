@@ -25,3 +25,7 @@ command = "curl -s ${{APP_URL}}/api/cron/process-campaigns?secret=${{CRON_SECRET
 [[cron.jobs]]
 schedule = "*/15 * * * *"
 command = "curl -s ${{APP_URL}}/api/cron/process-followups?secret=${{CRON_SECRET}} || true"
+
+[[cron.jobs]]
+schedule = "*/30 * * * *"
+command = "curl -s ${{APP_URL}}/api/cron?secret=${{CRON_SECRET}} || true"
