@@ -25,34 +25,52 @@ const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 // Garante que o user do cron existe no banco
 async function ensureCronUser(supabase: any): Promise<string> {
-  // Tenta criar o user no auth (admin client = service_role)
-  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-    email: 'cron@geoleads.app',
-    password: 'cron-auto-' + Date.now(),
-    email_confirm: true,
-    user_metadata: { full_name: 'Cron Bot', role: 'admin' },
-  });
+  // Tenta criar user via API admin do Supabase (precisa de service_role key)
+  try {
+    const { data: existingByEmail } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', 'cron@geoleads.app')
+      .maybeSingle();
+    if (existingByEmail?.id) return existingByEmail.id;
 
-  // Se criou ou já existe, usa o ID
-  if (authUser?.user?.id) {
-    // Garante que o profile existe
-    await supabase.from('profiles').upsert({
-      id: authUser.user.id,
-      email: 'cron@geoleads.app',
-      full_name: 'Cron Bot',
-      role: 'admin',
-      credits: 99999,
-    }, { onConflict: 'id' }).maybeSingle();
-    return authUser.user.id;
+    // Cria user via REST API admin (usa service_role key no header)
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    if (serviceKey && supabaseUrl) {
+      const res = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: 'cron@geoleads.app',
+          password: 'cron-geoleads-2026',
+          email_confirm: true,
+          user_metadata: { full_name: 'Cron Bot', role: 'admin' },
+        }),
+      });
+      if (res.ok) {
+        const newUser = await res.json();
+        if (newUser?.id) {
+          // Cria profile
+          await supabase.from('profiles').upsert({
+            id: newUser.id,
+            email: 'cron@geoleads.app',
+            full_name: 'Cron Bot',
+            role: 'admin',
+            credits: 99999,
+          }, { onConflict: 'id' }).maybeSingle();
+          return newUser.id;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[CRON] Erro ao criar user:', e);
   }
 
-  // Fallback: tenta buscar user existente pelo email
-  const { data: existing } = await supabase.from('profiles')
-    .select('id').eq('email', 'cron@geoleads.app').maybeSingle();
-  if (existing?.id) return existing.id;
-
-  // Último fallback: usa o SYSTEM_USER_ID mesmo (pode dar FK error)
-  console.error('[CRON] Não conseguiu criar/auth user:', authError);
   return SYSTEM_USER_ID;
 }
 
