@@ -78,8 +78,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Define o perfil do usuário (real ou sistema) ──
+    let cronUserId = SYSTEM_USER_ID;
+    if (isCronJob) {
+      // Busca o user do cron que foi criado pela cron route
+      const admin = createAdminSupabaseClient();
+      const { data: cronProfile } = await admin.from('profiles')
+        .select('id')
+        .eq('email', 'cron@geoleads.app')
+        .maybeSingle();
+      if (cronProfile?.id) cronUserId = cronProfile.id;
+    }
     const authedUser = isCronJob
-      ? { user: { id: SYSTEM_USER_ID, email: 'system@geoleads.app' }, tokens: 999999, planId: SYSTEM_PLAN_ID }
+      ? { user: { id: cronUserId, email: 'cron@geoleads.app' }, tokens: 999999, planId: SYSTEM_PLAN_ID }
       : auth!;
 
     // Rate limit — pula para cron jobs
