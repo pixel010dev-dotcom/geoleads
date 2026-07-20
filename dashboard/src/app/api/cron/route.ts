@@ -55,11 +55,10 @@ async function ensureCronUser(supabase: any): Promise<string> {
       if (res.ok) {
         const newUser = await res.json();
         if (newUser?.id) {
-          // Cria profile
+          // Cria profile (só com colunas que existem)
           await supabase.from('profiles').upsert({
             id: newUser.id,
             email: 'cron@geoleads.app',
-            full_name: 'Cron Bot',
             role: 'admin',
             credits: 99999,
           }, { onConflict: 'id' }).maybeSingle();
